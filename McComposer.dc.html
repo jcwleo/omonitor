@@ -53,17 +53,40 @@ const fmtK = (n) => (n >= 1e6 ? `${+(n / 1e6).toFixed(1)}M` : n >= 1000 ? `${Mat
 class Component extends DCLogic {
   state = { text: '', idx: 0, wide: false, modelOpen: false, images: [], drag: false };
   fileRef = React.createRef();
+  // The draft (text and attached images) lives with the parent per session: switching to the inbox or board unmounts
+  // this component, and switching sessions reuses it, so it loads the session's draft and saves every change back.
+  // DCLogic calls componentDidUpdate with prevProps only, so changes are detected against what was last saved.
+  componentDidMount() { this.mounted = true; this.loadDraft(); }
+  componentWillUnmount() { this.mounted = false; }
+  componentDidUpdate() {
+    const id = this.props.c?.threadId;
+    if (this.draftFor !== id) { this.loadDraft(); return; }
+    const { text, images } = this.state;
+    if (this.saved.text !== text || this.saved.images !== images) { this.saved = { text, images }; this.props.c?.onDraft?.(id, this.saved); }
+  }
+  loadDraft() {
+    const d = this.props.c?.draft || {};
+    const text = d.text || '', images = d.images || [];
+    this.draftFor = this.props.c?.threadId;
+    this.saved = { text, images };
+    this.setState({ text, images, wide: text.includes('\n'), idx: 0 }, () => requestAnimationFrame(() => this.fit()));
+  }
   // Pasted images upload right away; send waits until every one has a saved path.
   attach(files) {
     const up = this.props.c?.onUpload;
     if (!up) return;
+    const tid = this.props.c?.threadId;
     for (const file of files) {
       const id = Math.random().toString(36).slice(2);
       this.setState((s) => ({ images: [...s.images, { id, preview: URL.createObjectURL(file), status: 'uploading', path: '', error: '' }] }));
-      up(file).then((r) => this.setImage(id, { status: 'ready', path: r.path }), (e) => this.setImage(id, { status: 'error', error: e?.message || String(e) }));
+      up(file).then((r) => this.setImage(tid, id, { status: 'ready', path: r.path }), (e) => this.setImage(tid, id, { status: 'error', error: e?.message || String(e) }));
     }
   }
-  setImage(id, patch) { this.setState((s) => ({ images: s.images.map((m) => (m.id === id ? { ...m, ...patch } : m)) })); }
+  // An upload can finish after the user left this session's composer; the result then goes to that session's draft.
+  setImage(tid, id, patch) {
+    if (this.mounted && this.props.c?.threadId === tid) this.setState((s) => ({ images: s.images.map((m) => (m.id === id ? { ...m, ...patch } : m)) }));
+    else this.props.c?.patchDraftImage?.(tid, id, patch);
+  }
   removeImage(id) {
     const m = this.state.images.find((x) => x.id === id);
     if (m) URL.revokeObjectURL(m.preview);

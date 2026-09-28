@@ -54,7 +54,7 @@ html,body{margin:0;height:100%;background:#1d1f20}
 <button onClick="{{ openDrawer }}" style="all:unset;cursor:pointer;width:44px;height:44px;display:grid;place-items:center;color:var(--fg)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="stroke-width:1.5;stroke-linecap:round"><path d="M4 6h16"></path><path d="M4 12h16"></path><path d="M4 18h16"></path></svg></button>
 <span style="font:600 18.5px/1 var(--font-heading)">{{ phoneTitle }}</span>
 <span style="font:10.5px var(--mono);color:{{ phoneCountColor }};margin-left:6px">{{ phoneCount }}</span>
-<sc-if value="{{ vBoard }}"><button onClick="{{ toggleAllC }}" style="all:unset;cursor:pointer;margin-left:auto;min-height:44px;padding:0 6px;font-size:10.5px;color:var(--fg2);display:flex;align-items:center">{{ allCLabel }}</button><button onClick="{{ toggleSelMode }}" style="all:unset;cursor:pointer;min-height:44px;padding:0 7px 0 4px;font-size:10.5px;color:{{ selModeFg }};display:flex;align-items:center">{{ selModeShort }}</button></sc-if>
+<sc-if value="{{ vBoard }}"><button onClick="{{ toggleGroup }}" style="all:unset;cursor:pointer;margin-left:auto;min-height:44px;padding:0 6px;font-size:10.5px;color:{{ groupFg }};display:flex;align-items:center">프로젝트별</button><button onClick="{{ toggleAllC }}" style="all:unset;cursor:pointer;min-height:44px;padding:0 6px;font-size:10.5px;color:var(--fg2);display:flex;align-items:center">{{ allCLabel }}</button><button onClick="{{ toggleSelMode }}" style="all:unset;cursor:pointer;min-height:44px;padding:0 7px 0 4px;font-size:10.5px;color:{{ selModeFg }};display:flex;align-items:center">{{ selModeShort }}</button></sc-if>
 <sc-if value="{{ vInbox }}"><span style="margin-left:auto;display:flex;align-items:center;gap:4px;font-size:10px;color:var(--fg2);padding-right:9px"><span style="width:6px;height:6px;border-radius:50%;background:{{ connDot }}"></span>{{ connLabel }}</span></sc-if>
 </div>
 <sc-if value="{{ hasProjectFilter }}"><div style="padding:0 10px 3px;flex:none"><button onClick="{{ clearProjectFilter }}" style="all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:0 9px;box-sizing:border-box;border:1px solid var(--acc);background:var(--acc-tint);font:10.5px var(--mono)">{{ projectFilter }}<span style="font-family:var(--font-body);color:var(--fg2)">✕</span></button></div></sc-if>
@@ -81,7 +81,7 @@ html,body{margin:0;height:100%;background:#1d1f20}
 </div>
 <div style="flex:1;overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;gap:{{ cardGap }};padding:3px 9px 14px">
 <sc-for list="{{ col.sessions }}" as="s">
-<sc-if value="{{ s.showGroupHead }}"><div style="font:10px var(--mono);color:var(--fg3);padding:3px 2px 0">▸ {{ s.projectName }}</div></sc-if>
+<sc-if value="{{ s.showGroupHead }}"><div style="font:600 10px var(--mono);color:var(--md-code);padding:3px 2px 0">▸ {{ s.projectName }}</div></sc-if>
 <dc-import name="McSessionCard" s="{{ s }}" hint-size="100%,200px"></dc-import>
 <sc-if value="{{ s.hasGroupToggle }}"><button onClick="{{ s.onGroupToggle }}" style="all:unset;cursor:pointer;align-self:flex-start;min-height:30px;padding:0 3px;font:10.5px var(--mono);color:var(--acc-fg)" style-hover="color:var(--fg)">{{ s.groupToggleLabel }}</button></sc-if>
 </sc-for>
@@ -111,7 +111,7 @@ html,body{margin:0;height:100%;background:#1d1f20}
 <span style="font-size:10px;color:var(--fg3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;margin-left:4px">{{ sec.summary }}</span>
 </button>
 <sc-if value="{{ sec.open }}"><div style="display:flex;flex-direction:column;gap:4px;padding-bottom:7px">
-<sc-for list="{{ sec.sessions }}" as="s"><dc-import name="McSessionCard" s="{{ s }}" hint-size="100%,48px"></dc-import></sc-for>
+<sc-for list="{{ sec.sessions }}" as="s"><sc-if value="{{ s.showGroupHead }}"><div style="font:600 10.5px var(--mono);color:var(--md-code);padding:6px 2px 0">▸ {{ s.projectName }}</div></sc-if><dc-import name="McSessionCard" s="{{ s }}" hint-size="100%,48px"></dc-import><sc-if value="{{ s.hasGroupToggle }}"><button onClick="{{ s.onGroupToggle }}" style="all:unset;cursor:pointer;align-self:flex-start;min-height:36px;padding:0 3px;font:10.5px var(--mono);color:var(--acc-fg)">{{ s.groupToggleLabel }}</button></sc-if></sc-for>
 <sc-if value="{{ sec.isEmpty }}"><div style="border:1px dashed var(--line);padding:7px 9px;font-size:10.5px;color:var(--fg3)">없음</div></sc-if>
 </div></sc-if>
 </sc-for>
@@ -367,6 +367,9 @@ class Component extends DCLogic {
     this.tick = setInterval(() => this.setState({ now: Date.now() }), 1000);
     try { this.setState({ favs: JSON.parse(localStorage.getItem('mc.favCwds') || '[]') }); } catch {}
     try { this.setState({ panels: { left: false, right: false, ...JSON.parse(localStorage.getItem('mc.panels') || '{}') } }); } catch {}
+    // Notification switches keep the user's choice across reloads; browser notifications also need the permission.
+    try { this.notify = { browser: true, sound: false, ...JSON.parse(localStorage.getItem('mc.notify') || '{}') }; } catch { this.notify = { browser: true, sound: false }; }
+    this.setState({ nb: this.notify.browser && this.notifyAllowed(), ns: !!this.notify.sound });
     try {
       const base = new URL('.', location.href).href;
       const r = await fetch(`${base}api/config`, { cache: 'no-store' });
@@ -380,11 +383,11 @@ class Component extends DCLogic {
       this.client = real ? new mod.RealClient({ sessionKey: cfg.key }) : new mod.MockClient({ speed: 1 });
       this.upstream = cfg?.upstream || '';
       this.store = new S.Store(this.client);
+      this.store.s.notify = { browser: this.notify.browser && this.notifyAllowed(), sound: !!this.notify.sound };
       this.store.subscribe((v) => this.setState({ v }));
       this.setState({ v: 1 });
       await this.store.init();
       this.info = real ? `${this.client.serverInfo ? `${this.client.serverInfo.name} ${this.client.serverInfo.version}` : 'omo app-server'} · ${this.upstream}` : 'mock 시뮬레이터 · 실제 서버 아님';
-      this.setState({ nb: typeof Notification !== 'undefined' && Notification.permission === 'granted' });
     } catch (e) { console.error(e); this.setState({ fatal: String(e?.message || e) }); }
   }
   componentWillUnmount() { window.removeEventListener('resize', this.onResize); window.removeEventListener('keydown', this.onKey); window.removeEventListener('dragover', this.onWinDrag); window.removeEventListener('drop', this.onWinDrag); clearInterval(this.tick); this.client?.close(); }
@@ -403,6 +406,30 @@ class Component extends DCLogic {
 
   layout() { const w = this.state.w; return w < 700 ? 'phone' : w < 1100 ? 'tablet' : 'desktop'; }
   go(view) { this.setState({ view, focus: -1, drawer: false, menu: false }); }
+  // Composer drafts per session, so text and attached images survive switching tabs or sessions. Text is also kept in
+  // localStorage (reloads); image previews are page-lifetime blob URLs, so images are kept in memory only.
+  drafts = new Map();
+  draftOf(id) {
+    if (!this.drafts.has(id)) {
+      let text = '';
+      try { text = localStorage.getItem(`mc.draft.${id}`) || ''; } catch {}
+      this.drafts.set(id, { text, images: [] });
+    }
+    return this.drafts.get(id);
+  }
+  saveDraft(id, d) {
+    this.drafts.set(id, d);
+    try { if (d.text) localStorage.setItem(`mc.draft.${id}`, d.text); else localStorage.removeItem(`mc.draft.${id}`); } catch {}
+  }
+  patchDraftImage(id, imgId, patch) {
+    const d = this.drafts.get(id);
+    if (d) this.drafts.set(id, { ...d, images: d.images.map((m) => (m.id === imgId ? { ...m, ...patch } : m)) });
+  }
+  notifyAllowed() { return typeof Notification !== 'undefined' && Notification.permission === 'granted'; }
+  saveNotify(patch) {
+    this.notify = { ...this.notify, ...patch };
+    try { localStorage.setItem('mc.notify', JSON.stringify(this.notify)); } catch {}
+  }
   // Folds the session view's side panels (left: session list, right: Todo/agents/goal/diff); the choice is remembered.
   togglePanel(side) {
     this.setState((x) => {
@@ -657,7 +684,7 @@ class Component extends DCLogic {
       }
       const all = list;
       // A project with many sessions would fill the whole column, so each group shows GROUP_CAP until expanded.
-      if (s.grouped && !isPhone) {
+      if (s.grouped) {
         const total = new Map(), seen = new Map();
         for (const v of list) total.set(v.projectName, (total.get(v.projectName) || 0) + 1);
         list = list.filter((v) => {
@@ -669,7 +696,8 @@ class Component extends DCLogic {
           return open || n <= GROUP_CAP;
         });
       } else for (const v of list) v.hasGroupToggle = false;
-      list.forEach((v, i) => { v.showGroupHead = s.grouped && !isPhone && (i === 0 || list[i - 1].projectName !== v.projectName); });
+      // Grouped, the heads name the project; ungrouped, each compact card names its own.
+      list.forEach((v, i) => { v.showGroupHead = s.grouped && (i === 0 || list[i - 1].projectName !== v.projectName); v.showProject = !s.grouped; });
       const collapsed = isPhone ? !!s.secC[c.key] : (s.colC[c.key] ?? (c.key === 'archived' || (lay === 'tablet' && c.key === 'idle')));
       return { ...c, count: String(all.length), sessions: list, isEmpty: all.length === 0, collapsed, open: !collapsed, flex: c.key === 'archived' ? '0 0 220px' : '1 1 0',
         secRot: collapsed ? '-90deg' : '0deg', summary: collapsed ? all.map((v) => v.name).join(' · ') : '',
@@ -702,7 +730,7 @@ class Component extends DCLogic {
       phoneTitle: s.view === 'inbox' ? '입력 필요' : '보드', phoneCount: s.view === 'inbox' ? String(inboxN) : `${views.filter((v) => v.col !== 'archived').length}개`,
       phoneCountColor: s.view === 'inbox' ? 'var(--warn)' : 'var(--fg3)',
       toggleAllC: () => this.setState((x) => ({ allC: !x.allC, exp: {} })), allCLabel: s.allC ? '모두 펼치기' : '모두 접기',
-      toggleGroup: () => this.setState((x) => ({ grouped: !x.grouped })), groupKnob: s.grouped ? 'var(--acc)' : 'var(--fg3)', groupLeft: s.grouped ? '10px' : '1px',
+      toggleGroup: () => this.setState((x) => ({ grouped: !x.grouped })), groupFg: s.grouped ? 'var(--acc-fg)' : 'var(--fg2)', groupKnob: s.grouped ? 'var(--acc)' : 'var(--fg3)', groupLeft: s.grouped ? '10px' : '1px',
       toggleSelMode: () => this.setState((x) => ({ selMode: !x.selMode, sel: {}, multiText: '' })),
       selModeLabel: s.selMode ? '선택 끝내기' : '여러 세션 선택', selModeShort: s.selMode ? '완료' : '선택', selModeFg: s.selMode ? 'var(--acc-fg)' : 'var(--fg2)',
       selModeBd: s.selMode ? 'var(--acc)' : 'var(--line)', selModeBg: s.selMode ? 'var(--acc-tint)' : 'transparent',
@@ -711,13 +739,14 @@ class Component extends DCLogic {
       toggleResolved: () => this.setState((x) => ({ resolvedOpen: !x.resolvedOpen })),
       nbKnob: s.nb ? 'var(--acc)' : 'var(--fg3)', nbLeft: s.nb ? '10px' : '1px', nbHint: typeof Notification !== 'undefined' && Notification.permission === 'denied' ? '브라우저에서 차단됨' : '',
       askNotify: async () => {
-        if (s.nb) { st.s.notify.browser = false; return this.setState({ nb: false }); }
+        if (s.nb) { this.saveNotify({ browser: false }); st.s.notify.browser = false; return this.setState({ nb: false }); }
         if (typeof Notification === 'undefined') return st.toast('이 브라우저는 알림을 지원하지 않습니다', 'info');
         const p = Notification.permission === 'granted' ? 'granted' : await Notification.requestPermission();
-        st.s.notify.browser = p === 'granted'; this.setState({ nb: p === 'granted' });
+        const on = p === 'granted';
+        this.saveNotify({ browser: on }); st.s.notify.browser = on; this.setState({ nb: on });
       },
       nsKnob: s.ns ? 'var(--acc)' : 'var(--fg3)', nsLeft: s.ns ? '10px' : '1px',
-      toggleSound: () => { st.s.notify.sound = !s.ns; this.setState({ ns: !s.ns }); },
+      toggleSound: () => { const on = !s.ns; this.saveNotify({ sound: on }); st.s.notify.sound = on; this.setState({ ns: on }); },
       openDrawer: () => { this.setState({ drawerMounted: true }); requestAnimationFrame(() => this.setState({ drawer: true })); },
       closeDrawer: () => this.setState({ drawer: false }),
       drawerMounted: s.drawerMounted && isPhone, drawerX: s.drawer ? '0%' : '-102%', drawerO: s.drawer ? '1' : '0', drawerPE: s.drawer ? 'auto' : 'none',
@@ -822,6 +851,7 @@ class Component extends DCLogic {
         composer: {
           running, activity: live ? [live.label, live.elapsed].filter(Boolean).join(' · ') : '', model: T.settings?.model, effort: T.settings?.effort, models: st.s.models, skills: st.s.skills, usage: T.usage || null,
           padBottom: isPhone ? 'max(10px, env(safe-area-inset-bottom))' : '10px',
+          threadId: T.id, draft: this.draftOf(T.id), onDraft: (id, d) => this.saveDraft(id, d), patchDraftImage: (id, imgId, patch) => this.patchDraftImage(id, imgId, patch),
           onSend: (text, images = []) => { const msg = S.withImages(text, images); this.stick = true; if (this.needsTakeover(T)) return this.confirm('takeover', T.id, { text: msg }); st.send(T.id, msg).catch(() => {}); },
           onUpload: st.c.backend?.upload ? (file) => st.upload(file) : null, imageFiles: S.imageFiles,
           onInterrupt: () => this.confirm('interrupt', T.id),
