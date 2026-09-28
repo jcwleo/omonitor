@@ -25,9 +25,12 @@ html,body{margin:0;height:100%;background:#1d1f20}
 .mc{--md-text:#d4d4d4;--md-heading:#f0c674;--md-code:#8abeb7;--md-codeblock:#b5bd68;--md-codeblock-border:#808080;--md-link:#81a2be;--md-quote:#808080;--md-quote-border:#808080;--md-hr:#808080;--md-bullet:#8abeb7}
 .mc[data-theme="light"]{--md-text:#1f2328;--md-heading:#9a7326;--md-code:#5a8080;--md-codeblock:#588458;--md-codeblock-border:#6c6c6c;--md-link:#547da7;--md-quote:#6c6c6c;--md-quote-border:#6c6c6c;--md-hr:#6c6c6c;--md-bullet:#588458}
 @keyframes mcPulse{0%,100%{opacity:.45}50%{opacity:.9}}
+/* 100vh is taller than the visible area on iOS (Safari toolbars, home-screen web app status bar) and pushes the
+   composer off-screen; dvh tracks the viewport actually shown. */
+.mc{height:100vh;height:100dvh}
 </style>
 </helmet>
-<div class="mc" data-theme="{{ theme }}" style="height:100vh;display:flex;flex-direction:column;background:var(--bg);color:var(--fg);font-family:var(--font-body);overflow:hidden;position:relative">
+<div class="mc" data-theme="{{ theme }}" style="display:flex;flex-direction:column;background:var(--bg);color:var(--fg);font-family:var(--font-body);overflow:hidden;position:relative">
 
 <sc-if value="{{ connBanner }}"><div style="flex:none;display:flex;align-items:center;gap:7px;padding:6px 10px;background:var(--warn-tint);border-bottom:1px solid var(--warn-line);font-size:12.5px;color:var(--fg)"><span style="width:7px;height:7px;border-radius:50%;background:var(--warn);animation:mcPulse 1.2s infinite"></span><span style="flex:1;min-width:0">{{ connText }}</span><button class="btn btn-secondary" onClick="{{ reconnectNow }}" style="font-size:12.5px;padding:3px 7px;min-height:32px;color:var(--fg)">지금 다시 연결</button></div></sc-if>
 
