@@ -584,6 +584,7 @@ class Component extends DCLogic {
         catch { st.toast('클립보드를 읽지 못했습니다. 입력창에 직접 붙여넣어 주세요', 'info'); }
       },
       cwdKey: (e) => {
+        if (e.nativeEvent?.isComposing || e.keyCode === 229) return; // keys that finish a Hangul syllable belong to the IME
         if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
           e.preventDefault(); if (!flat.length) return;
           const cur = active < 0 ? (e.key === 'ArrowDown' ? -1 : 0) : active;
@@ -816,7 +817,7 @@ class Component extends DCLogic {
     Object.assign(vals, {
       dlgOpen: !!DLG, dlgTitle: DLG?.[0] || '', dlgBody: DLG?.[1] || '', dlgConfirm: DLG?.[2] || '', dlgOkBg: DLG?.[3] || 'var(--acc)',
       dlgHasInput: d?.kind === 'rename', dlgInput: d?.input || '', onDlgInput: (e) => this.setState({ dialog: { ...d, input: e.target.value } }),
-      dlgKey: (e) => { if (e.key === 'Enter') ok(); }, dlgOk: ok, dlgCancel: () => this.setState({ dialog: null }),
+      dlgKey: (e) => { if (e.key === 'Enter' && !(e.nativeEvent?.isComposing || e.keyCode === 229)) ok(); }, dlgOk: ok, dlgCancel: () => this.setState({ dialog: null }),
     });
 
     // ── new session sheet ──
@@ -877,6 +878,7 @@ class Component extends DCLogic {
         palOpen: true, palQ: pal.q, palItems: items, palEmpty: flat.length === 0, palPad: isPhone ? '8px' : '12vh 16px 16px',
         onPalQ: (e) => this.setState({ pal: { q: e.target.value, idx: 0 } }),
         palKey: (e) => {
+          if (e.nativeEvent?.isComposing || e.keyCode === 229) return; // keys that finish a Hangul syllable belong to the IME
           if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); if (!flat.length) return; this.setState({ pal: { ...pal, idx: (idx + (e.key === 'ArrowDown' ? 1 : -1) + flat.length) % flat.length } }); }
           else if (e.key === 'Enter') { e.preventDefault(); const x = flat[idx]; if (x) { this.setState({ pal: null }); x.run(); } }
         },

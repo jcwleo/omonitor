@@ -38,7 +38,7 @@
 <sc-if value="{{ hasImages }}"><div style="display:flex;gap:8px;flex-wrap:wrap;padding:6px 6px 2px 0"><sc-for list="{{ imageChips }}" as="im"><div title="{{ im.title }}" style="position:relative;width:56px;height:56px;flex:none;border:1px solid {{ im.bd }};background:var(--tint)"><img src="{{ im.preview }}" alt="붙여넣은 이미지" style="display:block;width:100%;height:100%;object-fit:cover;opacity:{{ im.opacity }}"><sc-if value="{{ im.hasNote }}"><span style="position:absolute;left:0;right:0;bottom:0;padding:1px 0;font-size:9px;text-align:center;background:rgba(10,11,12,.72);color:{{ im.noteColor }}">{{ im.note }}</span></sc-if><button onClick="{{ im.onRemove }}" title="첨부 빼기" style="all:unset;cursor:pointer;position:absolute;top:-8px;right:-8px;width:22px;height:22px;display:grid;place-items:center;border-radius:50%;background:var(--bg2);border:1px solid var(--line2);font-size:12px;line-height:1;color:var(--fg)">×</button></div></sc-for></div></sc-if>
 <div style="display:grid;grid-template-areas:{{ areas }};grid-template-columns:auto minmax(0,1fr) auto auto;gap:4px;align-items:end">
 <button class="btn btn-secondary" onClick="{{ toggleModel }}" title="{{ modelTitle }}" style="grid-area:model;min-height:44px;min-width:44px;max-width:min(220px,38vw);padding:0 8px;display:flex;align-items:center;gap:5px;white-space:nowrap"><span style="font:10.5px var(--mono);color:var(--fg);overflow:hidden;text-overflow:ellipsis;min-width:0">{{ modelShort }}</span><sc-if value="{{ hasEffortLabel }}"><span style="flex:none;font:10px var(--mono);color:var(--fg3)">{{ effortLabel }}</span></sc-if><span style="flex:none;font-size:9px;color:var(--fg3)">▾</span></button>
-<textarea ref="{{ taRef }}" rows="1" class="input" value="{{ text }}" onChange="{{ onChange }}" onKeyDown="{{ onKey }}" onPaste="{{ onPaste }}" placeholder="{{ placeholder }}" style="grid-area:input;display:block;min-height:44px;height:44px;max-height:150px;resize:none;overflow-y:auto;padding:12px 8px;font-size:12.5px;line-height:1.4;color:var(--fg);min-width:0;width:100%;box-sizing:border-box"></textarea>
+<textarea ref="{{ taRef }}" rows="1" class="input" value="{{ text }}" onChange="{{ onChange }}" onKeyDown="{{ onKey }}" onCompositionEnd="{{ onCompEnd }}" onPaste="{{ onPaste }}" placeholder="{{ placeholder }}" style="grid-area:input;display:block;min-height:44px;height:44px;max-height:150px;resize:none;overflow-y:auto;padding:12px 8px;font-size:12.5px;line-height:1.4;color:var(--fg);min-width:0;width:100%;box-sizing:border-box"></textarea>
 <button class="btn btn-primary blueprint" disabled="{{ sendDisabled }}" onClick="{{ send }}" style="grid-area:send;min-height:44px;padding:0 9px;font-size:12px;white-space:nowrap"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>{{ sendLabel }}</button>
 <sc-if value="{{ c.running }}"><button class="btn btn-secondary" onClick="{{ c.onInterrupt }}" style="grid-area:stop;min-height:44px;min-width:44px;padding:0 7px;font-size:11px;white-space:nowrap;color:var(--err-fg);border-color:var(--err-line)">중단</button></sc-if>
 <sc-if value="{{ hasUsage }}"><div style="grid-area:ctx;display:flex;align-items:center;gap:6px;padding:0 2px;align-self:center;min-width:0"><div style="flex:1;height:2px;background:var(--line);position:relative;min-width:24px"><div style="position:absolute;inset:0 auto 0 0;width:{{ usagePct }};background:{{ usageColor }};transition:width .4s"></div></div><span style="font:10px var(--mono);color:var(--fg3);white-space:nowrap">{{ usageLabel }}</span></div></sc-if>
@@ -103,8 +103,8 @@ class Component extends DCLogic {
       else if (bottom > box.scrollTop + vis) box.scrollTop = bottom - vis;
     });
   }
-  send() {
-    const { text, images } = this.state;
+  send(text = this.state.text) {
+    const { images } = this.state;
     const t = text.trim();
     if (images.some((m) => m.status === 'uploading') || this.palOpen(text)) return;
     const paths = images.filter((m) => m.status === 'ready').map((m) => m.path);
@@ -210,7 +210,14 @@ class Component extends DCLogic {
         const w = v.includes('\n') || (this.state.wide ? v.length > 0 : (el && el.scrollHeight > 46));
         this.setState({ text: v, idx: 0, wide: !!w }, () => requestAnimationFrame(() => this.fit()));
       },
+      // While a Hangul (IME) syllable is being composed, its commit lands after this keydown: sending now would clear the
+      // box and leave that last character behind. Keys go to the IME, and Cmd/Ctrl+Enter sends once composition ends.
       onKey: (e) => {
+        if (e.nativeEvent?.isComposing || e.keyCode === 229) {
+          if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); this.sendOnCompose = true; }
+          return;
+        }
+        this.sendOnCompose = false;
         if (this.palOpen(this.state.text) && flat.length) {
           if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
             e.preventDefault();
@@ -227,6 +234,12 @@ class Component extends DCLogic {
           return;
         }
         if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); this.send(); }
+      },
+      // The committed syllable reaches the textarea around compositionend, so the send reads the box right after it.
+      onCompEnd: () => {
+        if (!this.sendOnCompose) return;
+        this.sendOnCompose = false;
+        setTimeout(() => this.send(this.taRef.current?.value ?? this.state.text), 0);
       },
       send: () => this.send(),
     };
