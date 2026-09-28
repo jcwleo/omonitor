@@ -41,6 +41,16 @@ function mergeTurns(hist, live) {
   });
   return [...out, ...byId.values()];
 }
+// A running turn that a background result woke (no user message of its own) is also the tail of the file's last turn.
+// Tool call ids are the same in both; the agent text just before the first shared call belongs to that same reply.
+function withoutLiveTail(fileTurn, live) {
+  const ids = new Set(live.items.map((i) => i.id));
+  const texts = new Set(live.items.filter((i) => i.type === 'agentMessage').map((i) => i.text));
+  let cut = fileTurn.items.findIndex((i) => ids.has(i.id));
+  if (cut < 0) cut = fileTurn.items.length;
+  while (cut > 0 && fileTurn.items[cut - 1].type === 'agentMessage' && texts.has(fileTurn.items[cut - 1].text)) cut--;
+  return { ...fileTurn, items: fileTurn.items.slice(0, cut) };
+}
 const isEmptyReasoning = (i) => i.type === 'reasoning' && ![...(i.summary || []), ...(i.content || [])].some((s) => String(s || '').trim());
 
 // ── todo replay ──
@@ -454,14 +464,18 @@ export class Store {
     const read = async () => (await this.c.request('thread/read', { threadId: id, includeTurns: true })).thread?.turns || [];
     const fromFile = !!this.c.backend?.history;
     let turns = fromFile ? await this.c.backend.history(id) : await read();
+    let live = null;
     if (fromFile && T.status?.type !== 'notLoaded') {
-      const live = (await read()).find((u) => u.status === 'inProgress');
+      live = (await read()).find((u) => u.status === 'inProgress');
       const userText = (u) => (u?.items || []).find((i) => i.type === 'userMessage')?.content?.map((c) => c.text).join('\n') || '';
-      if (live) turns = [...(userText(turns.at(-1)) && userText(turns.at(-1)) === userText(live) ? turns.slice(0, -1) : turns), live];
+      const last = turns.at(-1);
+      if (live) turns = [...turns.slice(0, -1), ...(!last || (userText(last) && userText(last) === userText(live)) ? [] : [withoutLiveTail(last, live)]), live];
     }
     const cur = this.T(id);
     if (!cur) return;
-    cur.turns = mergeTurns(normTurns(turns), cur.turns);
+    // File turns start at user messages, app-server turns at every agent run, so their ids never match. Turns kept from
+    // live notifications are already inside the file history, except the running one.
+    cur.turns = mergeTurns(normTurns(turns), fromFile ? cur.turns.filter((u) => u.id.startsWith('file-') || u.id === live?.id) : cur.turns);
     Object.assign(cur, { historyLoaded: true, historyFromFile: fromFile });
     this.emit();
     this.loadMeta(id);
