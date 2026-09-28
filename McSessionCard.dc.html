@@ -82,7 +82,7 @@
 <span style="width:7px;height:7px;border-radius:50%;flex:none;background:{{ s.statusColor }};transition:background .3s"></span>
 <span onClick="{{ s.onOpen }}" style="font:600 14px/1.2 var(--font-heading);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer">{{ s.name }}</span>
 <sc-if value="{{ s.showMini }}"><span style="font:10px var(--mono);color:{{ s.miniColor }};white-space:nowrap">{{ s.miniText }}</span></sc-if>
-<span style="font-size:10px;color:var(--fg3);white-space:nowrap;font-variant-numeric:tabular-nums">{{ s.elapsed }}</span>
+<span title="{{ s.headTitle }}" style="font-size:10px;color:var(--fg3);white-space:nowrap;font-variant-numeric:tabular-nums">{{ s.headTime }}</span>
 <button onClick="{{ s.onToggle }}" style="all:unset;cursor:pointer;width:32px;height:32px;margin:-4px -6px -4px 0;display:grid;place-items:center;color:var(--fg3);flex:none"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;transition:transform .2s;transform:rotate({{ s.chevRot }})"><path d="m6 9 6 6 6-6"></path></svg></button>
 </div>
 <sc-if value="{{ s.showBody }}" hint-placeholder-val="{{ true }}">

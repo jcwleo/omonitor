@@ -21,7 +21,7 @@
 <sc-if value="{{ r.collapsible }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="flex:none;color:var(--fg3);stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;transition:transform .2s;transform:rotate({{ chevRot }})"><path d="m6 9 6 6 6-6"></path></svg></sc-if>
 </button>
 <sc-if value="{{ r.open }}" hint-placeholder-val="{{ true }}">
-<div onClick="{{ r.onOpenSession }}" style="padding:0 9px;font:10px var(--mono);color:var(--fg3);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" style-hover="color:var(--acc-fg)">{{ r.cwd }} · 세션 열기 ›</div>
+<sc-if value="{{ r.showSession }}"><div onClick="{{ r.onOpenSession }}" style="padding:0 9px;font:10px var(--mono);color:var(--fg3);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" style-hover="color:var(--acc-fg)">{{ r.cwd }} · 세션 열기 ›</div></sc-if>
 <sc-if value="{{ r.isApproval }}">
 <sc-if value="{{ r.hasReason }}"><div style="padding:4px 9px 0;font-size:10.5px;line-height:1.45;color:var(--fg2)">{{ r.reason }}</div></sc-if>
 <sc-if value="{{ r.hasCommand }}"><div style="margin:8px 12px 0;padding:6px 7px;background:var(--tint);border:1px solid var(--line-soft);font:10px/1.5 var(--mono);color:var(--fg);word-break:break-all"><span style="color:var(--fg3)">$ </span>{{ r.code }}</div></sc-if>

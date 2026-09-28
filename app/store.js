@@ -219,6 +219,11 @@ export function viewSession(T, reqs, now) {
     id: T.id, name: T.name || T.preview?.slice(0, 30) || '이름 없는 세션', cwd: shortPath(T.cwd), projectName: proj(T.cwd),
     model: (T.settings?.model || '').replace(/^.*\//, ''), col, statusColor: c.color, statusLabel: col === 'idle' && T.status?.type && !['idle', 'notLoaded'].includes(T.status.type) ? T.status.type : c.label,
     elapsed: dur(now - (T.createdAt || now)), updatedAgo: ago(now - (T.updatedAt || now)), actLabel, actCode,
+    // A collapsed card shows one time. Columns are ordered by last activity, so resting sessions show that; running and
+    // waiting ones keep their age.
+    ...(col === 'working' || col === 'input'
+      ? { headTime: dur(now - (T.createdAt || now)), headTitle: '만든 뒤 지난 시간' }
+      : { headTime: ago(now - (T.updatedAt || now)), headTitle: '마지막 활동' }),
     terminal: isTerminal(T), lost: historyLost(T) && !todo, hasError: failed && !!lastErr, error: lastErr,
     subscribed: !!T.subscribed, archived: !!T.archived,
   };

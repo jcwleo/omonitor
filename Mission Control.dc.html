@@ -83,6 +83,7 @@ html,body{margin:0;height:100%;background:#1d1f20}
 <sc-for list="{{ col.sessions }}" as="s">
 <sc-if value="{{ s.showGroupHead }}"><div style="font:10px var(--mono);color:var(--fg3);padding:3px 2px 0">▸ {{ s.projectName }}</div></sc-if>
 <dc-import name="McSessionCard" s="{{ s }}" hint-size="100%,200px"></dc-import>
+<sc-if value="{{ s.hasGroupToggle }}"><button onClick="{{ s.onGroupToggle }}" style="all:unset;cursor:pointer;align-self:flex-start;min-height:30px;padding:0 3px;font:10.5px var(--mono);color:var(--acc-fg)" style-hover="color:var(--fg)">{{ s.groupToggleLabel }}</button></sc-if>
 </sc-for>
 <sc-if value="{{ col.isEmpty }}"><div style="border:1px dashed var(--line);padding:9px;font-size:10.5px;color:var(--fg3)">비어 있음</div></sc-if>
 </div>
@@ -137,16 +138,17 @@ html,body{margin:0;height:100%;background:#1d1f20}
 
 <sc-if value="{{ vSessionReady }}">
 <div style="flex:1;min-height:0;display:flex">
+<sc-if value="{{ showListRail }}"><button onClick="{{ toggleList }}" title="세션 목록 펼치기" style="all:unset;cursor:pointer;width:36px;flex:none;border-right:1px solid var(--line);display:flex;flex-direction:column;align-items:center;gap:8px;padding:12px 0;box-sizing:border-box;background:var(--tint);color:var(--fg2)" style-hover="background:var(--hover)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round"><path d="m9 6 6 6-6 6"></path></svg><span style="writing-mode:vertical-rl;font:600 12px var(--font-heading);letter-spacing:.08em">세션 목록</span></button></sc-if>
 <sc-if value="{{ showList }}">
 <div style="width:{{ listW }};flex:none;border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0">
 <div style="padding:7px 7px 4px;display:flex;flex-direction:column;gap:4px">
-<input class="input" value="{{ q }}" onChange="{{ onQ }}" placeholder="세션 검색 (이름·경로)" style="min-height:36px;font-size:11px;color:var(--fg)">
+<div style="display:flex;gap:4px;min-width:0"><input class="input" value="{{ q }}" onChange="{{ onQ }}" placeholder="세션 검색 (이름·경로)" style="flex:1;min-width:0;min-height:36px;font-size:11px;color:var(--fg)"><sc-if value="{{ canFoldList }}"><button onClick="{{ toggleList }}" title="세션 목록 접기" style="all:unset;cursor:pointer;width:36px;height:36px;flex:none;box-sizing:border-box;display:grid;place-items:center;color:var(--fg3);border:1px solid var(--line)" style-hover="color:var(--fg)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round"><path d="m15 6-6 6 6 6"></path></svg></button></sc-if></div>
 <div style="display:flex;gap:3px;flex-wrap:wrap"><sc-for list="{{ listFilters }}" as="f"><button onClick="{{ f.onTap }}" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:4px;min-height:28px;padding:0 6px;font-size:10px;border:1px solid {{ f.bd }};background:{{ f.bg }};color:{{ f.fg }}"><span style="width:5px;height:5px;background:{{ f.dot }}"></span>{{ f.label }}<span style="font:10px var(--mono);opacity:.8">{{ f.count }}</span></button></sc-for></div>
 </div>
 <div style="flex:1;overflow:auto;padding:0 0 9px">
 <sc-for list="{{ listItems }}" as="x"><button onClick="{{ x.onTap }}" style="all:unset;cursor:pointer;display:flex;flex-direction:column;gap:2px;width:100%;box-sizing:border-box;padding:6px 9px;background:{{ x.bg }};box-shadow:{{ x.bar }};outline:{{ x.ring }};outline-offset:-2px" style-hover="background:var(--hover)">
 <div style="display:flex;align-items:center;gap:5px;min-width:0"><span style="width:6px;height:6px;border-radius:50%;flex:none;background:{{ x.statusColor }}"></span><span style="font-size:11px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0">{{ x.name }}</span><span style="font-size:10px;color:var(--fg3);white-space:nowrap">{{ x.updatedAgo }}</span></div>
-<div style="display:flex;gap:4px;font-size:10px;color:var(--fg3);padding-left:9px;min-width:0"><span style="font-family:var(--mono);white-space:nowrap">{{ x.projectName }}</span><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:{{ x.miniColor }}">{{ x.mini }}</span></div>
+<div style="display:flex;gap:4px;font-size:10px;color:var(--fg3);padding-left:9px;min-width:0"><span style="font-family:var(--mono);font-weight:600;white-space:nowrap;color:var(--md-code)">{{ x.projectName }}</span><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:{{ x.miniColor }}">{{ x.mini }}</span></div>
 </button></sc-for>
 <sc-if value="{{ listEmpty }}"><div style="padding:12px 9px;font-size:10.5px;color:var(--fg3)">일치하는 세션이 없습니다</div></sc-if>
 </div>
@@ -175,6 +177,7 @@ html,body{margin:0;height:100%;background:#1d1f20}
 <sc-if value="{{ selNotSubNote }}"><div style="border:1px dashed var(--line2);padding:7px 9px;display:flex;align-items:center;gap:7px;font-size:10.5px;color:var(--fg2)"><span style="flex:1">구독하지 않은 세션이라 실시간 알림이 오지 않고, 승인 요청은 자동으로 거절됩니다.</span><button class="btn btn-secondary" onClick="{{ subscribeSel }}" style="min-height:36px;font-size:10.5px;color:var(--fg)">구독</button></div></sc-if>
 <sc-if value="{{ selLost }}"><div style="border:1px dashed var(--line2);padding:7px 9px;display:flex;flex-wrap:wrap;align-items:center;gap:7px;font-size:10.5px;color:var(--fg2);line-height:1.5"><span style="flex:1 1 240px">app-server가 재시작되어 이전 턴은 메시지만 남았습니다. todo와 도구 기록이 없습니다.</span><button class="btn btn-secondary" onClick="{{ restoreSel }}" style="min-height:36px;font-size:10.5px;color:var(--acc-fg);white-space:nowrap">세션 파일에서 todo 복원</button></div></sc-if>
 <sc-for list="{{ selItems }}" as="it" hint-placeholder-count="6"><dc-import name="McItem" it="{{ it }}" agent-name="{{ agentName }}" hint-size="100%,36px"></dc-import></sc-for>
+<sc-if value="{{ hasSelReqs }}"><div style="display:flex;flex-direction:column;gap:8px;padding:6px 0 4px"><sc-for list="{{ selReqs }}" as="r"><dc-import name="McRequestCard" r="{{ r }}" hint-size="100%,220px"></dc-import></sc-for></div></sc-if>
 <sc-if value="{{ selItemsEmpty }}"><div style="padding:14px 0;font-size:11px;color:var(--fg3);text-align:center">아직 기록이 없습니다. 아래에서 첫 메시지를 보내세요.</div></sc-if>
 </div>
 </div>
@@ -191,9 +194,10 @@ html,body{margin:0;height:100%;background:#1d1f20}
 </div></sc-if>
 <dc-import name="McComposer" c="{{ composer }}" hint-size="100%,110px"></dc-import>
 </div>
+<sc-if value="{{ showRightRail }}"><button onClick="{{ toggleRight }}" title="Todo·에이전트·목표·변경 펼치기" style="all:unset;cursor:pointer;width:36px;flex:none;border-left:1px solid var(--line);display:flex;flex-direction:column;align-items:center;gap:8px;padding:12px 0;box-sizing:border-box;background:var(--tint);color:var(--fg2)" style-hover="background:var(--hover)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round"><path d="m15 6-6 6 6 6"></path></svg><span style="writing-mode:vertical-rl;font:600 12px var(--font-heading);letter-spacing:.08em">Todo · 에이전트 · 목표 · 변경</span></button></sc-if>
 <sc-if value="{{ showRight }}">
 <div style="width:{{ rightW }};flex:none;border-left:1px solid var(--line);display:flex;flex-direction:column;min-height:0">
-<div style="flex:none;display:flex;border-bottom:1px solid var(--line);padding:0 3px"><sc-for list="{{ rtabs }}" as="t"><button onClick="{{ t.onTap }}" style="all:unset;cursor:pointer;flex:1;display:flex;align-items:center;justify-content:center;gap:3px;min-height:42px;font-size:10.5px;color:{{ t.fg }};box-shadow:{{ t.line }}">{{ t.label }}<span style="font:10px var(--mono);color:var(--fg3)">{{ t.count }}</span></button></sc-for></div>
+<div style="flex:none;display:flex;border-bottom:1px solid var(--line);padding:0 3px"><sc-for list="{{ rtabs }}" as="t"><button onClick="{{ t.onTap }}" style="all:unset;cursor:pointer;flex:1;display:flex;align-items:center;justify-content:center;gap:3px;min-height:42px;font-size:10.5px;color:{{ t.fg }};box-shadow:{{ t.line }}">{{ t.label }}<span style="font:10px var(--mono);color:var(--fg3)">{{ t.count }}</span></button></sc-for><button onClick="{{ toggleRight }}" title="패널 접기" style="all:unset;cursor:pointer;width:32px;flex:none;display:grid;place-items:center;color:var(--fg3)" style-hover="color:var(--fg)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round"><path d="m9 6 6 6-6 6"></path></svg></button></div>
 <div style="flex:1;overflow:auto;padding:9px 10px">
 <sc-if value="{{ rTodo }}"><div style="display:contents">
 <sc-for list="{{ todoPhases }}" as="g"><div style="display:flex;flex-direction:column;margin-bottom:9px"><div style="display:flex;align-items:baseline;gap:6px;padding-bottom:3px"><span style="font:600 12.5px var(--font-heading);letter-spacing:.04em">{{ g.name }}</span><span style="font:10px var(--mono);color:var(--fg3)">{{ g.count }}</span></div><sc-for list="{{ g.tasks }}" as="t"><div style="display:flex;align-items:center;gap:7px;min-height:34px;border-top:1px solid var(--line-soft)"><span style="width:15px;height:15px;flex:none;display:grid;place-items:center;font-size:10px;font-weight:700;background:{{ t.bg }};border:1px solid {{ t.bd }};color:{{ t.gc }};transition:background .35s,transform .35s;transform:scale({{ t.scale }})">{{ t.glyph }}</span><span style="font-size:11px;color:{{ t.tc }};font-weight:{{ t.fw }};text-decoration:{{ t.deco }}">{{ t.text }}</span></div></sc-for></div></sc-for>
@@ -330,9 +334,10 @@ html,body{margin:0;height:100%;background:#1d1f20}
 <script type="text/x-dc" data-dc-script data-props="{&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;dark&quot;,&quot;light&quot;],&quot;default&quot;:&quot;dark&quot;,&quot;tsType&quot;:&quot;'dark' | 'light'&quot;,&quot;section&quot;:&quot;화면&quot;},&quot;showDemo&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;데모&quot;}}">
 const SPEEDS = [1, 2, 4, 0.5, 0];
 const ICON = { inbox: '⊡', board: '▥', sessions: '≡', new: '+' };
+const GROUP_CAP = 5; // sessions per project shown in a grouped board column before "더 보기"
 class Component extends DCLogic {
   state = { v: 0, now: Date.now(), w: window.innerWidth, view: 'board', selId: null, backTo: 'board', theme: null, drawer: false, drawerMounted: false,
-    pal: null, sheet: null, dialog: null, menu: false, selMode: false, sel: {}, multiText: '', grouped: false, colC: {}, secC: { archived: true },
+    pal: null, sheet: null, dialog: null, menu: false, selMode: false, sel: {}, multiText: '', grouped: false, groupOpen: {}, panels: { left: false, right: false }, colC: {}, secC: { archived: true },
     exp: {}, allC: false, inboxOpen: undefined, resolvedOpen: false, rtab: 'todo', ptab: 'tl', q: '', lf: 'all', focus: -1, pf: null, speedIdx: 0,
     goalDraft: '', goalBudgetDraft: '', fatal: null, nb: false, ns: false };
   tlRef = React.createRef();
@@ -361,6 +366,7 @@ class Component extends DCLogic {
     window.addEventListener('drop', this.onWinDrag);
     this.tick = setInterval(() => this.setState({ now: Date.now() }), 1000);
     try { this.setState({ favs: JSON.parse(localStorage.getItem('mc.favCwds') || '[]') }); } catch {}
+    try { this.setState({ panels: { left: false, right: false, ...JSON.parse(localStorage.getItem('mc.panels') || '{}') } }); } catch {}
     try {
       const base = new URL('.', location.href).href;
       const r = await fetch(`${base}api/config`, { cache: 'no-store' });
@@ -397,6 +403,14 @@ class Component extends DCLogic {
 
   layout() { const w = this.state.w; return w < 700 ? 'phone' : w < 1100 ? 'tablet' : 'desktop'; }
   go(view) { this.setState({ view, focus: -1, drawer: false, menu: false }); }
+  // Folds the session view's side panels (left: session list, right: Todo/agents/goal/diff); the choice is remembered.
+  togglePanel(side) {
+    this.setState((x) => {
+      const panels = { ...x.panels, [side]: !x.panels[side] };
+      try { localStorage.setItem('mc.panels', JSON.stringify(panels)); } catch {}
+      return { panels };
+    });
+  }
   openSession(id) {
     const st = this.store; const T = st?.T(id);
     this.stick = true;
@@ -478,16 +492,18 @@ class Component extends DCLogic {
     });
   }
 
-  requestView(r, now, lay) {
+  // inline: the card sits in its own session's timeline, so it is always open and does not name or link the session.
+  requestView(r, now, lay, inline = false) {
     const S = this.S, st = this.store;
     const T = st.T(r.params?.threadId) || {};
     const p = r.params || {};
     const isQ = r.method === 'item/tool/requestUserInput';
     const openId = this.state.inboxOpen === undefined ? this._firstReq : this.state.inboxOpen;
-    const collapsible = lay === 'phone';
+    const collapsible = lay === 'phone' && !inline;
     const open = !collapsible || openId === r.id;
     return {
-      id: r.id, kind: isQ ? `질문 ${(p.questions || []).length}개` : S.REQ_KIND[r.method] || '승인 요청', sessionName: T.name || T.preview?.slice(0, 30) || '세션', cwd: S.shortPath(T.cwd || ''),
+      id: r.id, key: r.id, kind: isQ ? `질문 ${(p.questions || []).length}개` : S.REQ_KIND[r.method] || '승인 요청', cwd: S.shortPath(T.cwd || ''), showSession: !inline,
+      sessionName: inline ? (isQ ? '에이전트가 답을 기다립니다' : '에이전트가 승인을 기다립니다') : T.name || T.preview?.slice(0, 30) || '세션',
       ago: S.ago(now - r.receivedAt), countdown: S.countdown(r, now), isApproval: !isQ, isQuestion: isQ, collapsible, open,
       onToggle: () => this.setState({ inboxOpen: open ? null : r.id }),
       reason: p.reason || '', hasReason: !!p.reason, code: p.command || '', hasCommand: !!p.command,
@@ -632,18 +648,38 @@ class Component extends DCLogic {
     const columns = S.COLS.map((c) => {
       let list = views.filter((v) => v.col === c.key).sort((a, b) => (b.id > a.id ? 1 : -1));
       list.sort((a, b) => (st.T(b.id).updatedAt || 0) - (st.T(a.id).updatedAt || 0));
-      if (s.grouped) list.sort((a, b) => a.projectName.localeCompare(b.projectName));
+      // Grouped by project, projects follow their most recent session (the list is newest first and the sort is stable,
+      // so each project keeps its sessions newest first too).
+      if (s.grouped) {
+        const rank = new Map();
+        list.forEach((v, i) => { if (!rank.has(v.projectName)) rank.set(v.projectName, i); });
+        list.sort((a, b) => rank.get(a.projectName) - rank.get(b.projectName));
+      }
+      const all = list;
+      // A project with many sessions would fill the whole column, so each group shows GROUP_CAP until expanded.
+      if (s.grouped && !isPhone) {
+        const total = new Map(), seen = new Map();
+        for (const v of list) total.set(v.projectName, (total.get(v.projectName) || 0) + 1);
+        list = list.filter((v) => {
+          const n = (seen.get(v.projectName) || 0) + 1, many = total.get(v.projectName), key = `${c.key}|${v.projectName}`, open = !!s.groupOpen[key];
+          seen.set(v.projectName, n);
+          v.hasGroupToggle = many > GROUP_CAP && n === (open ? many : GROUP_CAP);
+          v.groupToggleLabel = open ? '접기' : `${many - GROUP_CAP}개 더 보기`;
+          v.onGroupToggle = () => this.setState((x) => ({ groupOpen: { ...x.groupOpen, [key]: !open } }));
+          return open || n <= GROUP_CAP;
+        });
+      } else for (const v of list) v.hasGroupToggle = false;
       list.forEach((v, i) => { v.showGroupHead = s.grouped && !isPhone && (i === 0 || list[i - 1].projectName !== v.projectName); });
       const collapsed = isPhone ? !!s.secC[c.key] : (s.colC[c.key] ?? (c.key === 'archived' || (lay === 'tablet' && c.key === 'idle')));
-      return { ...c, count: String(list.length), sessions: list, isEmpty: list.length === 0, collapsed, open: !collapsed, flex: c.key === 'archived' ? '0 0 220px' : '1 1 0',
-        secRot: collapsed ? '-90deg' : '0deg', summary: collapsed ? list.map((v) => v.name).join(' · ') : '',
+      return { ...c, count: String(all.length), sessions: list, isEmpty: all.length === 0, collapsed, open: !collapsed, flex: c.key === 'archived' ? '0 0 220px' : '1 1 0',
+        secRot: collapsed ? '-90deg' : '0deg', summary: collapsed ? all.map((v) => v.name).join(' · ') : '',
         onToggle: () => this.setState((x) => (isPhone ? { secC: { ...x.secC, [c.key]: !collapsed } } : { colC: { ...x.colC, [c.key]: !collapsed } })) };
     });
     this._cols = columns;
 
     const tabDefs = [['board', '보드', ''], ['inbox', '인박스', inboxN ? String(inboxN) : ''], ['session', '세션', '']];
     const tabs = tabDefs.map(([k, label, badge]) => ({ label, badge, hasBadge: !!badge, fg: s.view === k ? 'var(--fg)' : 'var(--fg2)', line: s.view === k ? 'inset 0 -2px 0 var(--acc)' : 'none', onTap: () => this.go(k) }));
-    const phoneTabs = [['inbox', '인박스', ICON.inbox], ['board', '보드', ICON.board], ['session', '세션', ICON.sessions], ['new', '새 세션', ICON.new]].map(([k, label, icon]) => ({
+    const phoneTabs = [['board', '보드', ICON.board], ['inbox', '인박스', ICON.inbox], ['session', '세션', ICON.sessions], ['new', '새 세션', ICON.new]].map(([k, label, icon]) => ({
       label, icon, badge: k === 'inbox' && inboxN ? String(inboxN) : '', hasBadge: k === 'inbox' && inboxN > 0, fg: s.view === k ? 'var(--acc-fg)' : 'var(--fg3)',
       onTap: () => (k === 'new' ? this.setState({ sheet: { cwd: '', text: '' } }) : this.go(k)) }));
 
@@ -723,6 +759,10 @@ class Component extends DCLogic {
     Object.assign(vals, { hasSel: !!T, noSel: !T && isDesk, showBack: !isDesk });
     if (!isDesk && !T) { vals.showList = true; vals.listW = '100%'; }
     if (!isDesk && T) vals.showList = false;
+    // The session list only folds on desktop with a session open, where it sits beside the conversation.
+    const canFoldList = isDesk && s.view === 'session' && !!T;
+    Object.assign(vals, { canFoldList, toggleList: () => this.togglePanel('left'), toggleRight: () => this.togglePanel('right') });
+    if (canFoldList && s.panels.left) Object.assign(vals, { showList: false, showListRail: true });
     if (isPhone && s.view === 'session' && !T) Object.assign(vals, { phoneTop: true, phoneTabBar: true, phoneTitle: '세션', phoneCount: `${listed.length}개`, phoneCountColor: 'var(--fg3)' });
     if (T) {
       const sel = allViews.find((v) => v.id === T.id) || this.sessionView(T, now, lay, null);
@@ -739,13 +779,16 @@ class Component extends DCLogic {
       const mkTab = (cur, set) => ([k, label, count]) => ({ label, count, fg: cur === k ? 'var(--fg)' : 'var(--fg3)', line: cur === k ? 'inset 0 -2px 0 var(--acc)' : 'none', onTap: () => this.setState({ [set]: k }) });
       Object.assign(vals, {
         sel, selItems: items, selItemsEmpty: items.length === 0, agentName: 'sisyphus',
+        // Questions and approvals for this session are answered right in its timeline, not only in the inbox.
+        selReqs: st.reqsFor(T.id).sort((a, b) => a.receivedAt - b.receivedAt).map((r) => this.requestView(r, now, lay, true)),
+        hasSelReqs: st.reqsFor(T.id).length > 0,
         selTerminal: S.isTerminal(T), selNotSub: !T.subscribed && !T.archived, selNotSubNote: !T.subscribed && !T.archived && T.source !== 'cli',
         selLost: S.historyLost(T) && !todo, restoreSel: () => st.restoreTodos(T.id), subscribeSel: () => (this.needsTakeover(T) ? this.confirm('takeover', T.id) : st.resume(T.id)), takeoverSel: () => this.confirm('takeover', T.id),
         goBack: () => this.setState((x) => (isPhone ? { view: x.backTo || 'board', selId: null } : { selId: null })),
         detailHeadPad: isPhone ? `max(4px, env(safe-area-inset-top)) 4px 0 2px` : '4px 6px 4px 12px', detailTitleSize: isPhone ? '15px' : '16.5px',
         openMenu: () => this.setState({ menu: true }),
         rtabs: tabsDef.map(mkTab(rtab, 'rtab')), ptabs: [['tl', '타임라인', ''], ...tabsDef].map(mkTab(ptab, 'ptab')),
-        showRight: !isPhone, rightW: isDesk ? '340px' : '300px',
+        showRight: !isPhone && !s.panels.right, showRightRail: !isPhone && s.panels.right, rightW: isDesk ? '340px' : '300px',
         showTimeline: !isPhone || ptab === 'tl', phonePanel: isPhone && ptab !== 'tl',
         rTodo: panel === 'todo', rAgents: panel === 'agents', rGoal: panel === 'goal', rDiff: panel === 'diff',
         onTlScroll: (e) => {
