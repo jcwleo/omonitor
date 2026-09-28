@@ -415,16 +415,34 @@ export class Store {
     this.s.threads.set(t.id, next);
     return next;
   }
-  async resume(id, silent) {
+  async resume(id, silent, reloadHistory) {
     const p = this.c.request('thread/resume', { threadId: id });
     const r = await (silent ? p : this.guard(p, '세션을 불러오지 못했습니다'));
     // thread/resume never carries history (turns: []); keep what is already here and fetch history separately.
     const { turns, ...thread } = r.thread || {};
     this.merge({ ...thread, subscribed: true, loaded: true, settings: { model: modelRef(r.model, r.modelProvider), effort: r.reasoningEffort } });
     this.c.request('thread/goal/get', { threadId: id }).then((g) => { const T = this.T(id); if (T) { T.goal = g.goal || null; this.emit(); } }).catch(() => {});
-    if (!this.T(id).historyLoaded) await this.loadHistory(id).catch(() => {});
+    if (reloadHistory || !this.T(id).historyLoaded) await this.loadHistory(id).catch(() => {});
     this.emit();
     return this.T(id);
+  }
+  // Notifications sent while the socket was down are lost, and resume keeps the turns already on screen, so a reconnect
+  // re-reads what a page load reads: the thread list, then subscriptions and history for subscribed and loaded threads.
+  async resync() {
+    const subs = new Set();
+    for (const T of this.s.threads.values()) {
+      if (T.subscribed) { subs.add(T.id); T.subscribed = false; }
+      else if (T.historyLoaded) T.historyLoaded = false; // read again from the session file when opened next
+    }
+    try {
+      const [active, archived, loaded, msgAt] = await Promise.all([this.listAll(false), this.listAll(true), this.c.request('thread/loaded/list').catch(() => ({ data: [] })), this.c.backend?.activity?.().catch(() => null)]);
+      if (msgAt) this.msgAt = new Map(Object.entries(msgAt));
+      // List entries carry no history (turns: []); the timeline on screen stays until loadHistory replaces it.
+      for (const { turns, ...t } of [...active, ...archived.map((t) => ({ ...t, archived: true }))]) this.merge(t);
+      for (const id of loaded.data || []) if (this.T(id) && !this.T(id).archived) subs.add(id);
+    } catch (e) { console.warn('[omonitor] 다시 연결한 뒤 세션 목록을 읽지 못했습니다:', e?.message || e); }
+    this.emit();
+    await Promise.all([...subs].map((id) => this.resume(id, true, true).catch(() => {})));
   }
   // History comes from the session file through the backend: it is the complete record, and reading it has no side
   // effects, while thread/read loads an unloaded thread (omo may then auto-continue it) and, for a loaded thread, only
@@ -473,7 +491,7 @@ export class Store {
   onConn(e) {
     this.s.conn = e;
     if (e.state === 'open' && e.reconnected) {
-      for (const T of this.s.threads.values()) if (T.subscribed) { T.subscribed = false; this.resume(T.id, true).catch(() => {}); }
+      this.resync();
       this.toast('다시 연결했습니다. 구독을 복구합니다.', 'info');
     }
     if (e.state === 'reconnecting') this.s.requests.clear();
