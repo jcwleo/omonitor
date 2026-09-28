@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="_ds/industry-52b72452-5db2-4efe-84b9-b7378c35ec99/styles.css">
+<script src="_ds/industry-52b72452-5db2-4efe-84b9-b7378c35ec99/_ds_bundle.js"></script>
+</helmet>
+<div style="position:relative;display:flex;flex-direction:column;font-family:var(--font-body);color:var(--fg);background:var(--bg)">
+<sc-if value="{{ palShow }}">
+<div ref="{{ palRef }}" style="max-height:300px;overflow:auto;border-top:1px solid var(--line);background:var(--bg2);position:relative">
+<sc-for list="{{ groups }}" as="g"><div style="font-size:10px;letter-spacing:.08em;color:var(--fg3);padding:6px 10px 2px">{{ g.label }}</div><sc-for list="{{ g.items }}" as="it"><button data-idx="{{ it.idx }}" onMouseDown="{{ it.onTap }}" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:7px;min-height:44px;padding:3px 10px;box-sizing:border-box;width:100%;background:{{ it.bg }};box-shadow:{{ it.bar }}"><span style="display:flex;flex-direction:column;min-width:0;flex:1"><span style="font:11px var(--mono);color:var(--fg)">{{ it.label }}</span><span style="font-size:10px;color:var(--fg3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ it.desc }}</span></span><sc-if value="{{ it.user }}"><span style="font-size:10px;color:var(--acc-fg);border:1px solid var(--acc);padding:0 4px;white-space:nowrap">사용자</span></sc-if></button></sc-for></sc-for>
+<sc-if value="{{ palEmpty }}"><div style="padding:10px;font-size:10.5px;color:var(--fg3)">일치하는 명령이나 스킬이 없습니다</div></sc-if>
+<div style="position:sticky;bottom:0;display:flex;gap:9px;flex-wrap:wrap;padding:4px 10px;font-size:10px;color:var(--fg3);background:var(--bg2);border-top:1px solid var(--line-soft)"><span><span style="font-family:var(--mono);color:var(--fg2)">↑↓</span> 이동</span><span><span style="font-family:var(--mono);color:var(--fg2)">Tab</span>·<span style="font-family:var(--mono);color:var(--fg2)">Enter</span> 자동완성</span><span><span style="font-family:var(--mono);color:var(--fg2)">Esc</span> 닫기</span></div>
+</div>
+</sc-if>
+<sc-if value="{{ modelOpen }}">
+<div onClick="{{ closeModel }}" style="position:fixed;inset:0;z-index:19"></div>
+<div style="position:absolute;left:8px;bottom:calc(100% - 4px);z-index:20;width:300px;max-width:calc(100% - 16px);max-height:min(460px,70vh);background:var(--bg2);border:1px solid var(--line2);box-shadow:var(--shadow-lg);display:flex;flex-direction:column">
+<div style="flex:none;padding:7px 9px 8px;border-bottom:1px solid var(--line-soft)">
+<div style="display:flex;align-items:baseline;gap:6px;margin-bottom:5px;min-width:0"><span style="font-size:10px;letter-spacing:.08em;color:var(--fg3)">EFFORT</span><span style="font-size:10px;color:var(--fg3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ effortFor }}</span></div>
+<sc-if value="{{ hasEfforts }}"><div style="display:flex;gap:3px;flex-wrap:wrap"><sc-for list="{{ effortItems }}" as="e"><button onClick="{{ e.onTap }}" style="all:unset;cursor:pointer;min-height:32px;padding:0 8px;font:10.5px var(--mono);border:1px solid {{ e.bd }};background:{{ e.bg }};color:{{ e.fg }}">{{ e.label }}</button></sc-for></div></sc-if>
+<sc-if value="{{ noEfforts }}"><div style="font-size:10.5px;color:var(--fg3);min-height:20px;display:flex;align-items:center">{{ noEffortText }}</div></sc-if>
+</div>
+<div ref="{{ modelListRef }}" style="position:relative;overflow-y:auto;min-height:0;padding:2px 0 4px">
+<sc-for list="{{ modelGroups }}" as="g"><div style="font-size:10px;letter-spacing:.08em;color:var(--fg3);padding:8px 9px 3px">{{ g.label }}</div><sc-for list="{{ g.items }}" as="m"><button data-cur="{{ m.cur }}" onClick="{{ m.onTap }}" title="{{ m.id }}" style="all:unset;cursor:pointer;box-sizing:border-box;width:100%;display:flex;align-items:center;gap:8px;min-height:36px;padding:0 9px;font-size:12px;color:var(--fg);background:{{ m.bg }};box-shadow:{{ m.bar }}" style-hover="background:var(--hover)"><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ m.label }}</span><span style="flex:none;font:10px var(--mono);color:var(--acc-fg)">{{ m.mark }}</span></button></sc-for></sc-for>
+<sc-if value="{{ noModels }}"><div style="padding:10px 9px;font-size:10.5px;color:var(--fg3)">모델 목록을 불러오지 못했습니다</div></sc-if>
+</div>
+</div>
+</sc-if>
+<div onDragOver="{{ onDragOver }}" onDragLeave="{{ onDragLeave }}" onDrop="{{ onDrop }}" style="border-top:1px solid var(--line);padding:6px 7px {{ padBottom }};display:flex;flex-direction:column;gap:4px;background:{{ dropBg }};box-shadow:{{ dropRing }}">
+<div style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--fg2);min-width:0"><span style="width:6px;height:6px;border-radius:50%;flex:none;background:{{ modeDot }};animation:{{ modeAnim }}"></span><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0">{{ modeHint }}</span><sc-if value="{{ canAttach }}"><button onClick="{{ pickImage }}" title="이미지 첨부 — 붙여넣기(⌘V)나 끌어다 놓기도 됩니다" style="all:unset;cursor:pointer;margin-left:auto;flex:none;display:flex;align-items:center;gap:4px;min-height:30px;padding:0 6px;font-size:10.5px;color:var(--fg2)" style-hover="color:var(--fg)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round"><rect x="3" y="4" width="18" height="16" rx="1"></rect><circle cx="9" cy="10" r="1.6"></circle><path d="m21 16-5-5-9 9"></path></svg>이미지</button><input ref="{{ fileRef }}" type="file" accept="image/png,image/jpeg,image/gif,image/webp" multiple onChange="{{ onPick }}" style="display:none"></sc-if></div>
+<sc-if value="{{ hasImages }}"><div style="display:flex;gap:8px;flex-wrap:wrap;padding:6px 6px 2px 0"><sc-for list="{{ imageChips }}" as="im"><div title="{{ im.title }}" style="position:relative;width:56px;height:56px;flex:none;border:1px solid {{ im.bd }};background:var(--tint)"><img src="{{ im.preview }}" alt="붙여넣은 이미지" style="display:block;width:100%;height:100%;object-fit:cover;opacity:{{ im.opacity }}"><sc-if value="{{ im.hasNote }}"><span style="position:absolute;left:0;right:0;bottom:0;padding:1px 0;font-size:9px;text-align:center;background:rgba(10,11,12,.72);color:{{ im.noteColor }}">{{ im.note }}</span></sc-if><button onClick="{{ im.onRemove }}" title="첨부 빼기" style="all:unset;cursor:pointer;position:absolute;top:-8px;right:-8px;width:22px;height:22px;display:grid;place-items:center;border-radius:50%;background:var(--bg2);border:1px solid var(--line2);font-size:12px;line-height:1;color:var(--fg)">×</button></div></sc-for></div></sc-if>
+<div style="display:grid;grid-template-areas:{{ areas }};grid-template-columns:auto minmax(0,1fr) auto auto;gap:4px;align-items:end">
+<button class="btn btn-secondary" onClick="{{ toggleModel }}" title="{{ modelTitle }}" style="grid-area:model;min-height:44px;min-width:44px;max-width:min(220px,38vw);padding:0 8px;display:flex;align-items:center;gap:5px;white-space:nowrap"><span style="font:10.5px var(--mono);color:var(--fg);overflow:hidden;text-overflow:ellipsis;min-width:0">{{ modelShort }}</span><sc-if value="{{ hasEffortLabel }}"><span style="flex:none;font:10px var(--mono);color:var(--fg3)">{{ effortLabel }}</span></sc-if><span style="flex:none;font-size:9px;color:var(--fg3)">▾</span></button>
+<textarea ref="{{ taRef }}" rows="1" class="input" value="{{ text }}" onChange="{{ onChange }}" onKeyDown="{{ onKey }}" onPaste="{{ onPaste }}" placeholder="{{ placeholder }}" style="grid-area:input;display:block;min-height:44px;height:44px;max-height:150px;resize:none;overflow-y:auto;padding:12px 8px;font-size:12.5px;line-height:1.4;color:var(--fg);min-width:0;width:100%;box-sizing:border-box"></textarea>
+<button class="btn btn-primary blueprint" disabled="{{ sendDisabled }}" onClick="{{ send }}" style="grid-area:send;min-height:44px;padding:0 9px;font-size:12px;white-space:nowrap"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>{{ sendLabel }}</button>
+<sc-if value="{{ c.running }}"><button class="btn btn-secondary" onClick="{{ c.onInterrupt }}" style="grid-area:stop;min-height:44px;min-width:44px;padding:0 7px;font-size:11px;white-space:nowrap;color:var(--err-fg);border-color:var(--err-line)">중단</button></sc-if>
+<sc-if value="{{ hasUsage }}"><div style="grid-area:ctx;display:flex;align-items:center;gap:6px;padding:0 2px;align-self:center;min-width:0"><div style="flex:1;height:2px;background:var(--line);position:relative;min-width:24px"><div style="position:absolute;inset:0 auto 0 0;width:{{ usagePct }};background:{{ usageColor }};transition:width .4s"></div></div><span style="font:10px var(--mono);color:var(--fg3);white-space:nowrap">{{ usageLabel }}</span></div></sc-if>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:400,&quot;height&quot;:200},&quot;c&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;ComposerProps&quot;}}">
+const GROUP = { command: '명령', skill: '스킬', keyword: '키워드' };
+const PROVIDER = { 'anthropic-subscription': 'CLAUDE 구독', anthropic: 'CLAUDE', 'chatgpt-subscription': 'CHATGPT 구독', openai: 'OPENAI' };
+const fmtK = (n) => (n >= 1e6 ? `${+(n / 1e6).toFixed(1)}M` : n >= 1000 ? `${Math.round(n / 1000)}k` : String(n));
+class Component extends DCLogic {
+  state = { text: '', idx: 0, wide: false, modelOpen: false, images: [], drag: false };
+  fileRef = React.createRef();
+  // Pasted images upload right away; send waits until every one has a saved path.
+  attach(files) {
+    const up = this.props.c?.onUpload;
+    if (!up) return;
+    for (const file of files) {
+      const id = Math.random().toString(36).slice(2);
+      this.setState((s) => ({ images: [...s.images, { id, preview: URL.createObjectURL(file), status: 'uploading', path: '', error: '' }] }));
+      up(file).then((r) => this.setImage(id, { status: 'ready', path: r.path }), (e) => this.setImage(id, { status: 'error', error: e?.message || String(e) }));
+    }
+  }
+  setImage(id, patch) { this.setState((s) => ({ images: s.images.map((m) => (m.id === id ? { ...m, ...patch } : m)) })); }
+  removeImage(id) {
+    const m = this.state.images.find((x) => x.id === id);
+    if (m) URL.revokeObjectURL(m.preview);
+    this.setState((s) => ({ images: s.images.filter((x) => x.id !== id) }));
+  }
+  taRef = React.createRef();
+  palRef = React.createRef();
+  modelListRef = React.createRef();
+  centerCurrent() {
+    requestAnimationFrame(() => {
+      const box = this.modelListRef.current; const el = box?.querySelector('[data-cur="true"]');
+      if (el) box.scrollTop = Math.max(0, el.offsetTop - box.clientHeight / 2 + el.offsetHeight / 2);
+    });
+  }
+  fit() {
+    const el = this.taRef.current; if (!el) return;
+    el.style.height = '44px';
+    el.style.height = `${Math.min(el.scrollHeight + 2, 150)}px`;
+  }
+  items(text) {
+    const q = text.slice(1).toLowerCase();
+    const skills = this.props.c?.skills || [];
+    return ['command', 'skill', 'keyword'].map((k) => ({ label: GROUP[k], items: skills.filter((s) => s.kind === k && (!q || s.name.includes(q) || (s.desc || '').toLowerCase().includes(q))) })).filter((g) => g.items.length);
+  }
+  palOpen(text) { return text.startsWith('/') && !/\s/.test(text); }
+  pick(it) {
+    const v = it.insert ?? `/${it.name} `;
+    this.setState({ text: v, idx: 0 }, () => { this.fit(); this.taRef.current?.focus(); });
+  }
+  scrollTo(n) {
+    requestAnimationFrame(() => {
+      const box = this.palRef.current; const el = box?.querySelector(`[data-idx="${n}"]`);
+      if (!el) return;
+      const top = el.getBoundingClientRect().top - box.getBoundingClientRect().top + box.scrollTop;
+      const bottom = top + el.offsetHeight, vis = box.clientHeight - 32;
+      if (top < box.scrollTop + 24) box.scrollTop = Math.max(0, top - 24);
+      else if (bottom > box.scrollTop + vis) box.scrollTop = bottom - vis;
+    });
+  }
+  send() {
+    const { text, images } = this.state;
+    const t = text.trim();
+    if (images.some((m) => m.status === 'uploading') || this.palOpen(text)) return;
+    const paths = images.filter((m) => m.status === 'ready').map((m) => m.path);
+    if (!t && !paths.length) return;
+    this.props.c?.onSend?.(t, paths);
+    images.forEach((m) => URL.revokeObjectURL(m.preview));
+    this.setState({ text: '', images: [], wide: false, idx: 0 }, () => this.fit());
+  }
+  renderVals() {
+    const c = this.props.c || {};
+    const { text, wide } = this.state;
+    const show = this.palOpen(text);
+    const raw = show ? this.items(text) : [];
+    const flat = raw.flatMap((g) => g.items);
+    const active = Math.min(this.state.idx, Math.max(0, flat.length - 1));
+    let i = 0;
+    const groups = raw.map((g) => ({ label: g.label, items: g.items.map((it) => {
+      const idx = i++, on = idx === active;
+      return { idx, label: it.label || `/${it.name}`, desc: it.desc || '', user: it.source === 'user', bg: on ? 'var(--acc-tint)' : 'transparent', bar: on ? 'inset 2px 0 0 var(--acc)' : 'none', onTap: (e) => { e.preventDefault(); this.pick(it); } };
+    }) }));
+    const models = c.models || [];
+    // model/list ids are "provider/model"; tolerate a bare model id as well.
+    const cur = models.find((m) => m.id === c.model) || models.find((m) => (m.model || m.id) === c.model);
+    const efforts = (cur?.supportedReasoningEfforts || []).map((e) => (typeof e === 'string' ? e : e?.reasoningEffort)).filter(Boolean);
+    const groups2 = new Map();
+    for (const m of models) {
+      const p = m.id.includes('/') ? m.id.slice(0, m.id.indexOf('/')) : '';
+      if (!groups2.has(p)) groups2.set(p, []);
+      groups2.get(p).push(m);
+    }
+    const rank = (p) => (p in PROVIDER ? Object.keys(PROVIDER).indexOf(p) : 99);
+    const modelGroups = [...groups2].sort((a, b) => rank(a[0]) - rank(b[0])).map(([p, ms]) => ({
+      label: PROVIDER[p] || p || '모델',
+      items: ms.map((m) => {
+        const on = m === cur;
+        return { id: m.id, label: m.displayName || m.id, cur: on ? 'true' : 'false', mark: on ? '✓' : '', bg: on ? 'var(--acc-tint)' : 'transparent', bar: on ? 'inset 2px 0 0 var(--acc)' : 'none', onTap: () => { c.onSettings?.({ model: m.id }); } };
+      }),
+    }));
+    const u = c.usage;
+    const pct = u && u.window ? Math.min(1, u.used / u.window) : 0;
+    const imgs = this.state.images;
+    const uploading = imgs.some((m) => m.status === 'uploading');
+    const readyN = imgs.filter((m) => m.status === 'ready').length;
+    return {
+      c, text, palShow: show, palEmpty: show && flat.length === 0, groups, palRef: this.palRef, taRef: this.taRef,
+      placeholder: c.placeholder || (c.onUpload ? '메시지 · / 명령·스킬 · 이미지 붙여넣기' : '메시지 · / 명령·스킬'),
+      hasImages: imgs.length > 0,
+      imageChips: imgs.map((m) => ({
+        key: m.id, preview: m.preview, title: m.status === 'error' ? `올리지 못했습니다: ${m.error}` : m.path || '올리는 중…',
+        bd: m.status === 'error' ? 'var(--err-line)' : 'var(--line2)', opacity: m.status === 'ready' ? '1' : '.55',
+        hasNote: m.status !== 'ready', note: m.status === 'error' ? '실패' : '올리는 중', noteColor: m.status === 'error' ? 'var(--err-fg)' : 'var(--fg2)',
+        onRemove: () => this.removeImage(m.id),
+      })),
+      canAttach: !!(c.onUpload && c.imageFiles), fileRef: this.fileRef,
+      pickImage: () => this.fileRef.current?.click(),
+      onPick: (e) => { const files = c.imageFiles?.(e.target) || []; e.target.value = ''; this.attach(files); },
+      onPaste: (e) => {
+        const files = c.onUpload ? c.imageFiles?.(e.clipboardData, { textWins: true }) || [] : [];
+        if (!files.length) return;
+        e.preventDefault();
+        this.attach(files);
+      },
+      // Any file drop is handled here so a stray non-image never makes the browser navigate away to the file.
+      onDragOver: (e) => {
+        if (!c.onUpload || ![...(e.dataTransfer?.types || [])].includes('Files')) return;
+        e.preventDefault();
+        if (!this.state.drag) this.setState({ drag: true });
+      },
+      onDragLeave: (e) => { if (!e.currentTarget.contains(e.relatedTarget)) this.setState({ drag: false }); },
+      onDrop: (e) => {
+        if (!c.onUpload || ![...(e.dataTransfer?.types || [])].includes('Files')) return;
+        e.preventDefault();
+        this.setState({ drag: false });
+        this.attach(c.imageFiles?.(e.dataTransfer) || []);
+      },
+      dropBg: this.state.drag ? 'var(--acc-tint)' : 'var(--bg)', dropRing: this.state.drag ? 'inset 0 0 0 1px var(--acc)' : 'none',
+      modeHint: c.running ? `${c.activity || '작업 중'} — 보내면 끼어들기로 방향을 바꿉니다` : '대기 중 — 보내면 새 턴을 시작합니다',
+      modeDot: c.running ? 'var(--acc)' : 'var(--idle)',
+      modeAnim: c.running ? 'mcPulse 1.4s infinite' : 'none',
+      sendLabel: c.running ? '끼어들기' : '보내기',
+      sendDisabled: (!text.trim() && !readyN) || show || uploading,
+      areas: wide ? '"input input input input" "model ctx send stop"' : '"model input send stop" "ctx ctx ctx ctx"',
+      padBottom: c.padBottom || '7px',
+      hasUsage: !!(u && u.window),
+      usagePct: `${(pct * 100).toFixed(1)}%`, usageColor: pct > 0.85 ? 'var(--warn)' : 'var(--acc)',
+      usageLabel: u && u.window ? `${wide ? '' : '컨텍스트 '}${fmtK(u.used)} / ${fmtK(u.window)}${wide ? ' · ⌘↵ 보내기' : ''}` : '',
+      modelShort: cur ? (cur.displayName || cur.id).replace(/^Claude /, '') : c.model ? c.model.replace(/^.*\//, '') : '모델',
+      modelTitle: [cur?.displayName || c.model, c.effort].filter(Boolean).join(' · '),
+      effortLabel: c.effort || '', hasEffortLabel: !!c.effort,
+      modelOpen: this.state.modelOpen,
+      modelListRef: this.modelListRef,
+      toggleModel: () => this.setState((s) => ({ modelOpen: !s.modelOpen }), () => this.state.modelOpen && this.centerCurrent()),
+      closeModel: () => this.setState({ modelOpen: false }),
+      modelGroups, noModels: models.length === 0,
+      effortFor: cur ? cur.displayName || cur.id : '',
+      hasEfforts: efforts.length > 0, noEfforts: efforts.length === 0,
+      noEffortText: cur ? '이 모델은 effort 설정이 없습니다' : '현재 모델을 알 수 없습니다 — 모델을 고르면 effort가 표시됩니다',
+      effortItems: efforts.map((e) => ({ label: e, bd: e === c.effort ? 'var(--acc)' : 'var(--line2)', bg: e === c.effort ? 'var(--acc-tint)' : 'transparent', fg: e === c.effort ? 'var(--fg)' : 'var(--fg2)', onTap: () => { c.onSettings?.({ effort: e }); this.setState({ modelOpen: false }); } })),
+      onChange: (e) => {
+        const v = e.target.value;
+        this.fit();
+        const el = this.taRef.current;
+        const w = v.includes('\n') || (this.state.wide ? v.length > 0 : (el && el.scrollHeight > 46));
+        this.setState({ text: v, idx: 0, wide: !!w }, () => requestAnimationFrame(() => this.fit()));
+      },
+      onKey: (e) => {
+        if (this.palOpen(this.state.text) && flat.length) {
+          if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+            e.preventDefault();
+            const n = (active + (e.key === 'ArrowDown' ? 1 : -1) + flat.length) % flat.length;
+            this.setState({ idx: n }); this.scrollTo(n); return;
+          }
+          if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); this.pick(flat[active]); return; }
+        }
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          if (this.palOpen(this.state.text)) this.setState({ text: '', idx: 0 });
+          else if (this.state.modelOpen) this.setState({ modelOpen: false });
+          else if (c.running) c.onInterrupt?.();
+          return;
+        }
+        if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); this.send(); }
+      },
+      send: () => this.send(),
+    };
+  }
+}
+</script>
+</body>
+</html>

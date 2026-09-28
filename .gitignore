@@ -1,0 +1,7 @@
+.omo/
+.DS_Store
+.thumbnail
+node_modules/
+.env
+.env.*
+!.env.example

@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="_ds/industry-52b72452-5db2-4efe-84b9-b7378c35ec99/styles.css">
+<script src="_ds/industry-52b72452-5db2-4efe-84b9-b7378c35ec99/_ds_bundle.js"></script>
+</helmet>
+<div style="border:1px solid var(--line2);display:flex;flex-direction:column;background:var(--bg);color:var(--fg);font-family:var(--font-body)">
+<button onClick="{{ toggle }}" style="all:unset;cursor:{{ headCursor }};display:flex;align-items:center;gap:5px;min-height:48px;padding:0 9px;box-sizing:border-box;min-width:0">
+<span style="width:6px;height:6px;flex:none;background:var(--warn)"></span>
+<span style="font-size:10px;font-weight:500;color:var(--warn);white-space:nowrap">{{ r.kind }}</span>
+<span style="font:600 13.5px var(--font-heading);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.sessionName }}</span>
+<span style="font:10px var(--mono);color:var(--warn);white-space:nowrap">{{ r.countdown }}</span>
+<span style="font-size:10px;color:var(--fg3);white-space:nowrap">{{ r.ago }}</span>
+<sc-if value="{{ r.collapsible }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="flex:none;color:var(--fg3);stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;transition:transform .2s;transform:rotate({{ chevRot }})"><path d="m6 9 6 6 6-6"></path></svg></sc-if>
+</button>
+<sc-if value="{{ r.open }}" hint-placeholder-val="{{ true }}">
+<div onClick="{{ r.onOpenSession }}" style="padding:0 9px;font:10px var(--mono);color:var(--fg3);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" style-hover="color:var(--acc-fg)">{{ r.cwd }} · 세션 열기 ›</div>
+<sc-if value="{{ r.isApproval }}">
+<sc-if value="{{ r.hasReason }}"><div style="padding:4px 9px 0;font-size:10.5px;line-height:1.45;color:var(--fg2)">{{ r.reason }}</div></sc-if>
+<sc-if value="{{ r.hasCommand }}"><div style="margin:8px 12px 0;padding:6px 7px;background:var(--tint);border:1px solid var(--line-soft);font:10px/1.5 var(--mono);color:var(--fg);word-break:break-all"><span style="color:var(--fg3)">$ </span>{{ r.code }}</div></sc-if>
+<sc-for list="{{ r.files }}" as="f">
+<div style="margin:8px 12px 0;border:1px solid var(--line-soft)">
+<div style="display:flex;gap:6px;align-items:center;padding:4px 6px;font:10px var(--mono);min-width:0"><span style="color:var(--fg3);font-family:var(--font-body);font-size:10px">{{ f.kindLabel }}</span><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ f.path }}</span><span style="color:var(--acc-fg)">+{{ f.add }}</span><span style="color:var(--err-fg)">−{{ f.del }}</span></div>
+<sc-for list="{{ f.preview }}" as="l"><div style="font:10px/1.55 var(--mono);white-space:pre;overflow:hidden;text-overflow:ellipsis;padding:0 6px;background:{{ l.bg }};color:{{ l.fg }}">{{ l.text }}</div></sc-for>
+</div>
+</sc-for>
+<div style="padding:7px 9px 9px;display:flex;gap:4px;flex-wrap:wrap">
+<button class="btn btn-primary blueprint" onClick="{{ r.onAccept }}" style="flex:1.4 1 90px;min-height:44px;font-size:12.5px;white-space:nowrap"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>승인</button>
+<button class="btn btn-secondary" onClick="{{ r.onAcceptSession }}" style="flex:1 1 90px;min-height:44px;font-size:11px;color:var(--fg);white-space:nowrap;padding:0 6px">세션 동안 허용</button>
+<button class="btn btn-secondary" onClick="{{ r.onDecline }}" style="flex:.7 1 60px;min-height:44px;font-size:11px;color:var(--err-fg);white-space:nowrap;padding:0 6px">거절</button>
+</div>
+</sc-if>
+<sc-if value="{{ r.isQuestion }}">
+<sc-for list="{{ questions }}" as="q">
+<div style="padding:7px 9px 0;display:flex;flex-direction:column;gap:4px">
+<div style="display:flex;align-items:baseline;gap:5px;min-width:0;flex-wrap:wrap"><span style="font-size:10px;letter-spacing:.08em;color:var(--fg3);white-space:nowrap">{{ q.header }}</span><span style="font-size:12px;font-weight:500;line-height:1.35">{{ q.question }}</span><span style="font-size:10px;color:var(--fg3)">{{ q.hint }}</span></div>
+<div style="display:flex;flex-wrap:wrap;gap:4px">
+<sc-for list="{{ q.options }}" as="o"><button onClick="{{ o.onTap }}" title="{{ o.description }}" style="all:unset;cursor:pointer;display:flex;align-items:center;min-height:44px;padding:0 9px;box-sizing:border-box;font-size:11.5px;border:1px solid {{ o.bd }};background:{{ o.bg }};color:{{ o.fg }};transition:background .15s,border-color .15s">{{ o.mark }}{{ o.label }}</button></sc-for>
+</div>
+<sc-if value="{{ q.freeText }}"><input class="input" value="{{ q.value }}" onChange="{{ q.onText }}" placeholder="{{ q.placeholder }}" style="min-height:44px;font-size:11.5px;color:var(--fg)"></sc-if>
+<div style="font-size:10px;color:var(--fg3);min-height:16px">{{ q.selDesc }}</div>
+</div>
+</sc-for>
+<div style="padding:4px 9px 9px;display:flex;gap:4px">
+<input class="input" value="{{ comment }}" onChange="{{ onComment }}" placeholder="코멘트 (선택)" style="flex:1;min-height:44px;font-size:11.5px;color:var(--fg);min-width:0">
+<button class="btn btn-primary blueprint" disabled="{{ sendDisabled }}" onClick="{{ send }}" style="min-height:44px;font-size:12.5px;padding:0 12px;white-space:nowrap"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>보내기</button>
+</div>
+</sc-if>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:380,&quot;height&quot;:420},&quot;r&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;RequestView&quot;}}">
+class Component extends DCLogic {
+  state = { sel: {}, comment: '' };
+  renderVals() {
+    const r = this.props.r || {};
+    const sel = this.state.sel;
+    const qs = r.questions || [];
+    const questions = qs.map((q) => {
+      const picked = sel[q.id] || [];
+      return {
+        header: q.header || '', question: q.question || '', hint: q.multiSelect ? '여러 개 선택' : '하나 선택',
+        freeText: q.isOther !== false, value: (q.options || []).some((o) => picked.includes(o.label)) ? '' : picked[0] || '',
+        placeholder: q.options?.length ? '직접 입력 (기타)' : '답변 입력',
+        onText: (e) => this.setState((s) => ({ sel: { ...s.sel, [q.id]: e.target.value.trim() ? [e.target.value] : [] } })),
+        selDesc: (q.options || []).filter((o) => picked.includes(o.label)).map((o) => o.description).filter(Boolean).join(' · '),
+        options: (q.options || []).map((o) => {
+          const on = picked.includes(o.label);
+          return { label: o.label, description: o.description || '', mark: on ? '✓ ' : '', bd: on ? 'var(--acc)' : 'var(--line2)', bg: on ? 'var(--acc-tint)' : 'transparent', fg: on ? 'var(--fg)' : 'var(--fg2)',
+            onTap: () => this.setState((s) => {
+              const cur = s.sel[q.id] || [];
+              const next = q.multiSelect ? (cur.includes(o.label) ? cur.filter((x) => x !== o.label) : [...cur, o.label]) : [o.label];
+              return { sel: { ...s.sel, [q.id]: next } };
+            }) };
+        }),
+      };
+    });
+    const ready = qs.length > 0 && qs.every((q) => (sel[q.id] || []).length > 0);
+    return {
+      r, questions,
+      chevRot: r.open ? '180deg' : '0deg', headCursor: r.collapsible ? 'pointer' : 'default',
+      toggle: r.collapsible ? r.onToggle : undefined,
+      comment: this.state.comment, onComment: (e) => this.setState({ comment: e.target.value }),
+      sendDisabled: !ready,
+      send: () => {
+        if (!ready) return;
+        const answers = Object.fromEntries(qs.map((q) => [q.id, { answers: (sel[q.id] || []).map((v) => v.trim()) }]));
+        r.onAnswer && r.onAnswer(answers, this.state.comment.trim());
+      },
+    };
+  }
+}
+</script>
+</body>
+</html>

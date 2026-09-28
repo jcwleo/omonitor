@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="stylesheet" href="_ds/industry-52b72452-5db2-4efe-84b9-b7378c35ec99/styles.css">
+<script src="_ds/industry-52b72452-5db2-4efe-84b9-b7378c35ec99/_ds_bundle.js"></script>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+html,body{margin:0;height:100%;background:#1d1f20}
+.mc{--bg:#1d1f20;--bg2:#2b2b2d;--fg:#f2f2f3;--fg2:#b7b7ba;--fg3:#98989b;--line:rgba(242,242,243,.14);--line-soft:rgba(242,242,243,.08);--line2:rgba(242,242,243,.2);--line3:rgba(242,242,243,.32);--hover:rgba(242,242,243,.05);--tint:rgba(242,242,243,.04);--acc:#94bce3;--acc-fg:#94bce3;--acc-tint:rgba(148,188,227,.14);--on-acc:#1d1f20;--warn:oklch(0.83 0.13 80);--warn-line:oklch(0.83 0.13 80 / .5);--warn-tint:oklch(0.83 0.13 80 / .07);--err:oklch(0.7 0.16 25);--err-fg:oklch(0.8 0.12 25);--err-line:oklch(0.7 0.16 25 / .5);--idle:#98989b;--arch:#5d5d60;--add-bg:rgba(148,188,227,.1);--add-fg:#d6ebff;--del-bg:oklch(0.7 0.16 25 / .12);--del-fg:oklch(0.85 0.08 25);--mono:"JetBrains Mono",ui-monospace,Menlo,monospace;--shadow-lg:0 12px 32px rgba(0,0,0,.45);--color-bg:#1d1f20;--color-text:#f2f2f3;--color-surface:#2b2b2d;--color-accent:#94bce3;--color-accent-600:#b5d9fd;--color-accent-700:#d6ebff;--color-divider:rgba(242,242,243,.16)}
+.mc[data-theme="light"]{--bg:#f2f2f3;--bg2:#e9e9ea;--fg:#1d1f20;--fg2:#424244;--fg3:#5d5d60;--line:rgba(29,31,32,.16);--line-soft:rgba(29,31,32,.08);--line2:rgba(29,31,32,.24);--line3:rgba(29,31,32,.4);--hover:rgba(29,31,32,.05);--tint:rgba(29,31,32,.04);--acc:#5980a6;--acc-fg:#416180;--acc-tint:rgba(89,128,166,.14);--on-acc:#f2f2f3;--warn:oklch(0.55 0.13 62);--warn-line:oklch(0.55 0.13 62 / .55);--warn-tint:oklch(0.75 0.13 75 / .12);--err:oklch(0.56 0.18 25);--err-fg:oklch(0.5 0.17 25);--err-line:oklch(0.56 0.18 25 / .5);--idle:#7a7a7d;--arch:#98989b;--add-bg:rgba(89,128,166,.12);--add-fg:#2c455d;--del-bg:oklch(0.56 0.18 25 / .1);--del-fg:oklch(0.45 0.15 25);--shadow-lg:0 12px 32px rgba(43,43,45,.22);--color-bg:#f2f2f3;--color-text:#1d1f20;--color-surface:#e9e9ea;--color-accent:#5980a6;--color-accent-600:#597ea3;--color-accent-700:#416180;--color-divider:rgba(29,31,32,.16)}
+.mc a{color:var(--acc-fg)}.mc a:hover{color:var(--fg)}
+@keyframes mcPulse{0%,100%{opacity:.45}50%{opacity:.9}}
+</style>
+</helmet>
+<div class="mc" data-theme="{{ theme }}" style="height:100vh;display:flex;flex-direction:column;background:var(--bg);color:var(--fg);font-family:var(--font-body);overflow:hidden;position:relative">
+
+<sc-if value="{{ connBanner }}"><div style="flex:none;display:flex;align-items:center;gap:7px;padding:6px 10px;background:var(--warn-tint);border-bottom:1px solid var(--warn-line);font-size:10.5px;color:var(--fg)"><span style="width:7px;height:7px;border-radius:50%;background:var(--warn);animation:mcPulse 1.2s infinite"></span><span style="flex:1;min-width:0">{{ connText }}</span><button class="btn btn-secondary" onClick="{{ reconnectNow }}" style="font-size:10.5px;padding:3px 7px;min-height:32px;color:var(--fg)">지금 다시 연결</button></div></sc-if>
+
+<sc-if value="{{ notPhone }}" hint-placeholder-val="{{ true }}">
+<div style="flex:none;display:flex;align-items:center;gap:10px;padding:0 12px;min-height:44px;border-bottom:1px solid var(--line)">
+<div style="font:600 15.5px var(--font-heading);letter-spacing:.02em;white-space:nowrap">omonitor</div>
+<div style="display:flex">
+<sc-for list="{{ tabs }}" as="t" hint-placeholder-count="3"><button onClick="{{ t.onTap }}" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:4px;min-height:44px;padding:0 8px;font-size:11.5px;color:{{ t.fg }};box-shadow:{{ t.line }}" style-hover="color:var(--fg)">{{ t.label }}<sc-if value="{{ t.hasBadge }}"><span style="font:600 10px var(--mono);background:var(--warn);color:var(--on-acc);padding:0 4px;min-width:18px;text-align:center">{{ t.badge }}</span></sc-if></button></sc-for>
+</div>
+<div style="margin-left:auto;display:flex;align-items:center;gap:6px;font-size:10.5px;color:var(--fg2)">
+<span style="display:flex;align-items:center;gap:4px;white-space:nowrap"><span style="width:6px;height:6px;border-radius:50%;background:{{ connDot }}"></span>{{ connLabel }}</span>
+<sc-if value="{{ vBoard }}">
+<button onClick="{{ toggleGroup }}" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:5px;min-height:36px;padding:0 7px;box-sizing:border-box;border:1px solid var(--line)" style-hover="background:var(--hover)"><span style="width:20px;height:11px;border:1px solid var(--fg3);position:relative;display:inline-block"><span style="position:absolute;top:1px;width:7px;height:7px;background:{{ groupKnob }};left:{{ groupLeft }};transition:left .15s"></span></span>프로젝트별</button>
+<button onClick="{{ toggleSelMode }}" style="all:unset;cursor:pointer;min-height:36px;padding:0 7px;box-sizing:border-box;border:1px solid {{ selModeBd }};background:{{ selModeBg }};display:flex;align-items:center" style-hover="background:var(--hover)">{{ selModeLabel }}</button>
+</sc-if>
+<button onClick="{{ toggleTheme }}" title="테마 전환" style="all:unset;cursor:pointer;min-height:36px;padding:0 7px;box-sizing:border-box;border:1px solid var(--line);display:flex;align-items:center" style-hover="background:var(--hover)">{{ themeLabel }}</button>
+<button onClick="{{ openPalette }}" style="all:unset;cursor:pointer;min-height:36px;padding:0 6px;box-sizing:border-box;border:1px solid var(--line);font:10px var(--mono);color:var(--fg3);display:flex;align-items:center" style-hover="background:var(--hover)">⌘K</button>
+<button class="btn btn-primary blueprint" onClick="{{ openNew }}" style="font-size:11.5px;min-height:36px;padding:0 10px"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>새 세션</button>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ phoneTop }}">
+<div style="flex:none;display:flex;align-items:center;gap:2px;padding:max(4px, env(safe-area-inset-top)) 4px 2px">
+<button onClick="{{ openDrawer }}" style="all:unset;cursor:pointer;width:44px;height:44px;display:grid;place-items:center;color:var(--fg)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="stroke-width:1.5;stroke-linecap:round"><path d="M4 6h16"></path><path d="M4 12h16"></path><path d="M4 18h16"></path></svg></button>
+<span style="font:600 18.5px/1 var(--font-heading)">{{ phoneTitle }}</span>
+<span style="font:10.5px var(--mono);color:{{ phoneCountColor }};margin-left:6px">{{ phoneCount }}</span>
+<sc-if value="{{ vBoard }}"><button onClick="{{ toggleAllC }}" style="all:unset;cursor:pointer;margin-left:auto;min-height:44px;padding:0 6px;font-size:10.5px;color:var(--fg2);display:flex;align-items:center">{{ allCLabel }}</button><button onClick="{{ toggleSelMode }}" style="all:unset;cursor:pointer;min-height:44px;padding:0 7px 0 4px;font-size:10.5px;color:{{ selModeFg }};display:flex;align-items:center">{{ selModeShort }}</button></sc-if>
+<sc-if value="{{ vInbox }}"><span style="margin-left:auto;display:flex;align-items:center;gap:4px;font-size:10px;color:var(--fg2);padding-right:9px"><span style="width:6px;height:6px;border-radius:50%;background:{{ connDot }}"></span>{{ connLabel }}</span></sc-if>
+</div>
+<sc-if value="{{ hasProjectFilter }}"><div style="padding:0 10px 3px;flex:none"><button onClick="{{ clearProjectFilter }}" style="all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:0 9px;box-sizing:border-box;border:1px solid var(--acc);background:var(--acc-tint);font:10.5px var(--mono)">{{ projectFilter }}<span style="font-family:var(--font-body);color:var(--fg2)">✕</span></button></div></sc-if>
+</sc-if>
+
+<div style="flex:1;min-height:0;display:flex;flex-direction:column;position:relative">
+
+<sc-if value="{{ loading }}">
+<div style="flex:1;display:grid;grid-template-columns:{{ skelCols }};gap:9px;padding:10px">
+<sc-for list="{{ skel }}" as="k"><div style="display:flex;flex-direction:column;gap:7px"><div style="height:14px;width:40%;background:var(--line);animation:mcPulse 1.4s infinite"></div><div style="height:{{ k.h1 }};border:1px solid var(--line);background:var(--tint);animation:mcPulse 1.4s infinite"></div><div style="height:{{ k.h2 }};border:1px solid var(--line);background:var(--tint);animation:mcPulse 1.4s infinite"></div></div></sc-for>
+</div>
+</sc-if>
+
+<sc-if value="{{ boardDesk }}">
+<div style="flex:1;min-height:0;display:flex">
+<sc-for list="{{ columns }}" as="col" hint-placeholder-count="5">
+<sc-if value="{{ col.open }}" hint-placeholder-val="{{ true }}">
+<div style="flex:{{ col.flex }};min-width:0;display:flex;flex-direction:column;border-right:1px solid var(--line-soft)">
+<div style="display:flex;align-items:center;gap:6px;padding:7px 4px 4px 12px;min-height:44px">
+<span style="width:8px;height:8px;border-radius:50%;background:{{ col.color }}"></span>
+<span style="font:600 13.5px var(--font-heading);letter-spacing:.03em;white-space:nowrap">{{ col.label }}</span>
+<span style="font:10px var(--mono);color:var(--fg3)">{{ col.count }}</span>
+<button onClick="{{ col.onToggle }}" title="열 접기" style="all:unset;cursor:pointer;margin-left:auto;width:36px;height:36px;display:grid;place-items:center;color:var(--fg3)" style-hover="color:var(--fg)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round"><path d="m15 18-6-6 6-6"></path></svg></button>
+</div>
+<div style="flex:1;overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;gap:{{ cardGap }};padding:3px 9px 14px">
+<sc-for list="{{ col.sessions }}" as="s">
+<sc-if value="{{ s.showGroupHead }}"><div style="font:10px var(--mono);color:var(--fg3);padding:3px 2px 0">▸ {{ s.projectName }}</div></sc-if>
+<dc-import name="McSessionCard" s="{{ s }}" hint-size="100%,200px"></dc-import>
+</sc-for>
+<sc-if value="{{ col.isEmpty }}"><div style="border:1px dashed var(--line);padding:9px;font-size:10.5px;color:var(--fg3)">비어 있음</div></sc-if>
+</div>
+</div>
+</sc-if>
+<sc-if value="{{ col.collapsed }}">
+<button onClick="{{ col.onToggle }}" title="열 펼치기" style="all:unset;cursor:pointer;width:44px;flex:none;border-right:1px solid var(--line-soft);display:flex;flex-direction:column;align-items:center;gap:7px;padding:12px 0;box-sizing:border-box;background:var(--tint)" style-hover="background:var(--hover)">
+<span style="width:7px;height:7px;border-radius:50%;background:{{ col.color }}"></span>
+<span style="font:10px var(--mono);color:var(--fg2)">{{ col.count }}</span>
+<span style="writing-mode:vertical-rl;font:600 12.5px var(--font-heading);letter-spacing:.08em;color:var(--fg2)">{{ col.label }}</span>
+</button>
+</sc-if>
+</sc-for>
+</div>
+</sc-if>
+
+<sc-if value="{{ boardPhone }}">
+<div style="flex:1;overflow:auto;padding:0 10px 12px;display:flex;flex-direction:column">
+<sc-for list="{{ columns }}" as="sec" hint-placeholder-count="5">
+<button onClick="{{ sec.onToggle }}" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:5px;min-height:44px;box-sizing:border-box;min-width:0;border-top:1px solid var(--line-soft)">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="flex:none;color:var(--fg3);stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;transition:transform .2s;transform:rotate({{ sec.secRot }})"><path d="m6 9 6 6 6-6"></path></svg>
+<span style="width:7px;height:7px;border-radius:50%;flex:none;background:{{ sec.color }}"></span>
+<span style="font:600 12.5px var(--font-heading);letter-spacing:.04em;white-space:nowrap">{{ sec.label }}</span>
+<span style="font:10px var(--mono);color:var(--fg3)">{{ sec.count }}</span>
+<span style="font-size:10px;color:var(--fg3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;margin-left:4px">{{ sec.summary }}</span>
+</button>
+<sc-if value="{{ sec.open }}"><div style="display:flex;flex-direction:column;gap:4px;padding-bottom:7px">
+<sc-for list="{{ sec.sessions }}" as="s"><dc-import name="McSessionCard" s="{{ s }}" hint-size="100%,48px"></dc-import></sc-for>
+<sc-if value="{{ sec.isEmpty }}"><div style="border:1px dashed var(--line);padding:7px 9px;font-size:10.5px;color:var(--fg3)">없음</div></sc-if>
+</div></sc-if>
+</sc-for>
+</div>
+</sc-if>
+
+<sc-if value="{{ vInboxReady }}">
+<div style="flex:1;overflow:auto">
+<div style="max-width:760px;margin:0 auto;padding:{{ inboxPad }};display:flex;flex-direction:column;gap:7px">
+<sc-if value="{{ notPhone }}"><div style="display:flex;align-items:flex-end;gap:7px;padding:4px 0 3px"><span style="font:600 25px/1 var(--font-heading)">입력 필요</span><span style="font:500 11.5px var(--mono);color:var(--warn);padding-bottom:2px">{{ inboxCount }}</span><span style="margin-left:auto;font-size:10.5px;color:var(--fg3)">{{ inboxSub }}</span></div></sc-if>
+<div style="display:flex;flex-wrap:wrap;gap:4px;font-size:10.5px;color:var(--fg2)">
+<button onClick="{{ askNotify }}" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:5px;min-height:36px;padding:0 7px;border:1px solid var(--line)"><span style="width:20px;height:11px;border:1px solid var(--fg3);position:relative;display:inline-block"><span style="position:absolute;top:1px;width:7px;height:7px;background:{{ nbKnob }};left:{{ nbLeft }}"></span></span>브라우저 알림<span style="color:var(--fg3)">{{ nbHint }}</span></button>
+<button onClick="{{ toggleSound }}" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:5px;min-height:36px;padding:0 7px;border:1px solid var(--line)"><span style="width:20px;height:11px;border:1px solid var(--fg3);position:relative;display:inline-block"><span style="position:absolute;top:1px;width:7px;height:7px;background:{{ nsKnob }};left:{{ nsLeft }}"></span></span>알림음</button>
+</div>
+<sc-for list="{{ reqs }}" as="r" hint-placeholder-count="2"><dc-import name="McRequestCard" r="{{ r }}" hint-size="100%,220px"></dc-import></sc-for>
+<sc-if value="{{ inboxEmpty }}"><div class="blueprint" style="padding:22px 14px;display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;margin-top:6px"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i><span style="font:600 17.5px var(--font-heading)">기다리는 요청이 없습니다</span><span style="font-size:11px;color:var(--fg2);line-height:1.5">승인 요청이나 질문이 오면 여기에 쌓이고, 알림을 켜 두면 탭이 뒤에 있어도 알려 드립니다.</span></div></sc-if>
+<sc-if value="{{ hasResolved }}">
+<button onClick="{{ toggleResolved }}" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:5px;min-height:44px;font-size:10px;letter-spacing:.06em;color:var(--fg3)">처리함 <span style="font-family:var(--mono)">{{ resolvedCount }}</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="margin-left:auto;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;transition:transform .2s;transform:rotate({{ resolvedRot }})"><path d="m6 9 6 6 6-6"></path></svg></button>
+<sc-if value="{{ resolvedOpen }}"><sc-for list="{{ resolvedList }}" as="x"><div style="display:flex;align-items:center;gap:7px;min-height:40px;border-top:1px solid var(--line-soft);font-size:10.5px"><span style="color:{{ x.color }};white-space:nowrap">{{ x.verdict }}</span><span style="color:var(--fg2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ x.name }}</span><span style="margin-left:auto;font-size:10px;color:var(--fg3);white-space:nowrap">{{ x.ago }}</span></div></sc-for></sc-if>
+</sc-if>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ vSessionReady }}">
+<div style="flex:1;min-height:0;display:flex">
+<sc-if value="{{ showList }}">
+<div style="width:{{ listW }};flex:none;border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0">
+<div style="padding:7px 7px 4px;display:flex;flex-direction:column;gap:4px">
+<input class="input" value="{{ q }}" onChange="{{ onQ }}" placeholder="세션 검색 (이름·경로)" style="min-height:36px;font-size:11px;color:var(--fg)">
+<div style="display:flex;gap:3px;flex-wrap:wrap"><sc-for list="{{ listFilters }}" as="f"><button onClick="{{ f.onTap }}" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:4px;min-height:28px;padding:0 6px;font-size:10px;border:1px solid {{ f.bd }};background:{{ f.bg }};color:{{ f.fg }}"><span style="width:5px;height:5px;background:{{ f.dot }}"></span>{{ f.label }}<span style="font:10px var(--mono);opacity:.8">{{ f.count }}</span></button></sc-for></div>
+</div>
+<div style="flex:1;overflow:auto;padding:0 0 9px">
+<sc-for list="{{ listItems }}" as="x"><button onClick="{{ x.onTap }}" style="all:unset;cursor:pointer;display:flex;flex-direction:column;gap:2px;width:100%;box-sizing:border-box;padding:6px 9px;background:{{ x.bg }};box-shadow:{{ x.bar }};outline:{{ x.ring }};outline-offset:-2px" style-hover="background:var(--hover)">
+<div style="display:flex;align-items:center;gap:5px;min-width:0"><span style="width:6px;height:6px;border-radius:50%;flex:none;background:{{ x.statusColor }}"></span><span style="font-size:11px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0">{{ x.name }}</span><span style="font-size:10px;color:var(--fg3);white-space:nowrap">{{ x.updatedAgo }}</span></div>
+<div style="display:flex;gap:4px;font-size:10px;color:var(--fg3);padding-left:9px;min-width:0"><span style="font-family:var(--mono);white-space:nowrap">{{ x.projectName }}</span><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:{{ x.miniColor }}">{{ x.mini }}</span></div>
+</button></sc-for>
+<sc-if value="{{ listEmpty }}"><div style="padding:12px 9px;font-size:10.5px;color:var(--fg3)">일치하는 세션이 없습니다</div></sc-if>
+</div>
+</div>
+</sc-if>
+<sc-if value="{{ noSel }}"><div style="flex:1;display:grid;place-items:center;padding:17px"><div style="display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center"><span style="font:600 16.5px var(--font-heading)">세션을 고르세요</span><span style="font-size:11px;color:var(--fg2)">왼쪽 목록에서 고르거나 <span style="font-family:var(--mono)">⌘K</span>로 찾을 수 있습니다.</span></div></div></sc-if>
+<sc-if value="{{ hasSel }}">
+<div style="flex:1;min-width:0;display:flex;flex-direction:column;min-height:0">
+<div style="flex:none;display:flex;align-items:center;gap:4px;padding:{{ detailHeadPad }};border-bottom:1px solid var(--line)">
+<sc-if value="{{ showBack }}"><button onClick="{{ goBack }}" style="all:unset;cursor:pointer;width:44px;height:44px;display:grid;place-items:center;color:var(--fg)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round"><path d="m15 18-6-6 6-6"></path></svg></button></sc-if>
+<div style="display:flex;flex-direction:column;min-width:0;flex:1">
+<span style="font:600 {{ detailTitleSize }}/1.15 var(--font-heading);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ sel.name }}</span>
+<span style="font:10px var(--mono);color:var(--fg3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ sel.cwd }} · {{ sel.elapsed }}</span>
+</div>
+<sc-if value="{{ selNotSub }}"><span style="font-size:10px;color:var(--fg3);border:1px dashed var(--line2);padding:1px 4px;white-space:nowrap">구독 안 함</span></sc-if>
+<span class="tag" style="font-size:10px;padding:1px 5px;white-space:nowrap;color:{{ sel.statusColor }};border:1px solid {{ sel.statusColor }};transition:color .3s,border-color .3s">{{ sel.statusLabel }}</span>
+<button onClick="{{ openMenu }}" title="세션 관리" style="all:unset;cursor:pointer;width:44px;height:44px;display:grid;place-items:center;color:var(--fg2)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="stroke-width:1.5;stroke-linecap:round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg></button>
+</div>
+<sc-if value="{{ isPhone }}"><div style="flex:none;display:flex;padding:0 3px;border-bottom:1px solid var(--line)"><sc-for list="{{ ptabs }}" as="t"><button onClick="{{ t.onTap }}" style="all:unset;cursor:pointer;flex:1;display:flex;align-items:center;justify-content:center;gap:3px;min-height:44px;font-size:10.5px;color:{{ t.fg }};box-shadow:{{ t.line }}">{{ t.label }}<span style="font:10px var(--mono);color:var(--fg3)">{{ t.count }}</span></button></sc-for></div></sc-if>
+<div style="flex:1;min-height:0;display:flex">
+<div style="flex:1;min-width:0;display:flex;flex-direction:column;min-height:0">
+<sc-if value="{{ showTimeline }}" hint-placeholder-val="{{ true }}">
+<div data-tl="1" onScroll="{{ onTlScroll }}" style="flex:1;overflow:auto;min-height:0">
+<div style="max-width:820px;margin:0 auto;padding:6px 10px 12px;display:flex;flex-direction:column;gap:6px">
+<sc-if value="{{ selTerminal }}"><div style="border:1px dashed var(--line2);padding:9px;display:flex;flex-direction:column;gap:6px;font-size:11px;color:var(--fg2);line-height:1.5"><span><span style="border:1px solid var(--fg3);padding:0 4px;font-size:10px;margin-right:6px">터미널 세션</span>터미널에서 켠 세션입니다. 대시보드는 아직 구독하지 않아 실시간 상태를 모릅니다.</span><button class="btn btn-secondary" onClick="{{ takeoverSel }}" style="align-self:flex-start;min-height:40px;font-size:11px;color:var(--acc-fg)">대시보드로 이어 받기…</button></div></sc-if>
+<sc-if value="{{ selNotSubNote }}"><div style="border:1px dashed var(--line2);padding:7px 9px;display:flex;align-items:center;gap:7px;font-size:10.5px;color:var(--fg2)"><span style="flex:1">구독하지 않은 세션이라 실시간 알림이 오지 않고, 승인 요청은 자동으로 거절됩니다.</span><button class="btn btn-secondary" onClick="{{ subscribeSel }}" style="min-height:36px;font-size:10.5px;color:var(--fg)">구독</button></div></sc-if>
+<sc-if value="{{ selLost }}"><div style="border:1px dashed var(--line2);padding:7px 9px;display:flex;flex-wrap:wrap;align-items:center;gap:7px;font-size:10.5px;color:var(--fg2);line-height:1.5"><span style="flex:1 1 240px">app-server가 재시작되어 이전 턴은 메시지만 남았습니다. todo와 도구 기록이 없습니다.</span><button class="btn btn-secondary" onClick="{{ restoreSel }}" style="min-height:36px;font-size:10.5px;color:var(--acc-fg);white-space:nowrap">세션 파일에서 todo 복원</button></div></sc-if>
+<sc-for list="{{ selItems }}" as="it" hint-placeholder-count="6"><dc-import name="McItem" it="{{ it }}" agent-name="{{ agentName }}" hint-size="100%,36px"></dc-import></sc-for>
+<sc-if value="{{ selItemsEmpty }}"><div style="padding:14px 0;font-size:11px;color:var(--fg3);text-align:center">아직 기록이 없습니다. 아래에서 첫 메시지를 보내세요.</div></sc-if>
+</div>
+</div>
+</sc-if>
+<sc-if value="{{ phonePanel }}"><div style="flex:1;overflow:auto;min-height:0;padding:7px 10px">
+<sc-if value="{{ rTodo }}"><div style="display:contents">
+<sc-for list="{{ todoPhases }}" as="g"><div style="display:flex;flex-direction:column;margin-bottom:9px"><div style="display:flex;align-items:baseline;gap:6px;padding-bottom:3px"><span style="font:600 12.5px var(--font-heading);letter-spacing:.04em">{{ g.name }}</span><span style="font:10px var(--mono);color:var(--fg3)">{{ g.count }}</span></div><sc-for list="{{ g.tasks }}" as="t"><div style="display:flex;align-items:center;gap:7px;min-height:38px;border-top:1px solid var(--line-soft)"><span style="width:16px;height:16px;flex:none;display:grid;place-items:center;font-size:10px;font-weight:700;background:{{ t.bg }};border:1px solid {{ t.bd }};color:{{ t.gc }};transition:background .35s,transform .35s;transform:scale({{ t.scale }})">{{ t.glyph }}</span><span style="font-size:11.5px;color:{{ t.tc }};font-weight:{{ t.fw }};text-decoration:{{ t.deco }}">{{ t.text }}</span></div></sc-for></div></sc-for>
+<sc-if value="{{ todoRawShow }}"><div style="font-size:10px;color:var(--fg3);margin-bottom:4px">todo 인자를 해석하지 못해 결과 텍스트를 그대로 보여줍니다</div><div style="font:10px/1.5 var(--mono);white-space:pre-wrap;background:var(--tint);border:1px solid var(--line-soft);padding:6px 7px">{{ todoRaw }}</div></sc-if>
+<sc-if value="{{ todoNone }}"><div style="font-size:11px;color:var(--fg3);padding:6px 0">이 세션에는 todo가 없습니다.</div></sc-if>
+</div></sc-if>
+<sc-if value="{{ rAgents }}"><div style="display:contents"><sc-for list="{{ agentRows }}" as="a"><div style="display:flex;flex-direction:column;gap:3px;padding:7px 0;border-bottom:1px solid var(--line-soft)"><div style="display:flex;align-items:center;gap:6px"><span style="width:7px;height:7px;background:{{ a.fill }};border:1px solid {{ a.color }}"></span><span style="font:10px var(--mono);color:var(--fg2)">{{ a.type }}</span><span style="font:10px var(--mono);color:var(--fg3)">{{ a.model }}</span><span style="margin-left:auto;font-size:10px;color:var(--fg3)">{{ a.stateLabel }}</span></div><span style="font-size:11.5px">{{ a.name }}</span><span style="font-size:10.5px;color:var(--fg3)">{{ a.act }}</span><sc-if value="{{ a.hasFinal }}"><div style="font-size:10.5px;line-height:1.5;color:var(--fg2);border-left:1px solid var(--line2);padding-left:6px">{{ a.final }}</div></sc-if><sc-if value="{{ a.hasChild }}"><button onClick="{{ a.onChild }}" style="all:unset;cursor:pointer;font-size:10.5px;color:var(--acc-fg);min-height:32px;display:flex;align-items:center">자식 세션 열기 ›</button></sc-if></div></sc-for><sc-if value="{{ agentsNone }}"><div style="font-size:11px;color:var(--fg3);padding:6px 0">서브에이전트가 없습니다.</div></sc-if></div></sc-if>
+<sc-if value="{{ rGoal }}"><div style="display:contents"><sc-if value="{{ hasGoal }}"><div style="display:flex;flex-direction:column;gap:7px"><div style="display:flex;align-items:center;gap:6px"><span class="tag" style="font-size:10px;padding:1px 5px;color:{{ goalColor }};border:1px solid {{ goalColor }}">{{ goalStatus }}</span></div><div style="font-size:12.5px;line-height:1.5">{{ goalText }}</div><sc-if value="{{ goalHasBudget }}"><div style="display:flex;flex-direction:column;gap:3px"><div style="height:3px;background:var(--line);position:relative"><div style="position:absolute;inset:0 auto 0 0;width:{{ goalPct }};background:var(--acc);transition:width .4s"></div></div><span style="font:10px var(--mono);color:var(--fg3)">{{ goalBudget }}</span></div></sc-if><div style="display:flex;gap:4px;flex-wrap:wrap"><sc-for list="{{ goalActions }}" as="b"><button class="btn btn-secondary" onClick="{{ b.onTap }}" style="min-height:40px;font-size:10.5px;color:{{ b.fg }}">{{ b.label }}</button></sc-for></div></div></sc-if><sc-if value="{{ noGoal }}"><div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:11px;color:var(--fg2)">목표를 정하면 에이전트가 완료될 때까지 이어서 작업합니다.</span><textarea class="input" value="{{ goalDraft }}" onChange="{{ onGoalDraft }}" placeholder="예: 결제 테스트 100% 통과" style="min-height:70px;font-size:11.5px;color:var(--fg)"></textarea><div style="display:flex;gap:4px;align-items:center"><input class="input" value="{{ goalBudgetDraft }}" onChange="{{ onGoalBudgetDraft }}" placeholder="토큰 예산 (선택)" style="flex:1;min-height:40px;font:10.5px var(--mono);color:var(--fg)"><button class="btn btn-primary" disabled="{{ goalDraftEmpty }}" onClick="{{ saveGoal }}" style="min-height:40px;font-size:11.5px">목표 설정</button></div></div></sc-if></div></sc-if>
+<sc-if value="{{ rDiff }}"><div style="display:flex;flex-direction:column;gap:6px"><div style="font-size:10px;color:var(--fg3)">이번 턴 동안 누적된 변경</div><sc-for list="{{ diffItems }}" as="it"><dc-import name="McItem" it="{{ it }}" hint-size="100%,120px"></dc-import></sc-for><sc-if value="{{ diffNone }}"><div style="font-size:11px;color:var(--fg3)">이번 턴에 변경 사항이 없습니다.</div></sc-if></div></sc-if>
+</div></sc-if>
+<dc-import name="McComposer" c="{{ composer }}" hint-size="100%,110px"></dc-import>
+</div>
+<sc-if value="{{ showRight }}">
+<div style="width:{{ rightW }};flex:none;border-left:1px solid var(--line);display:flex;flex-direction:column;min-height:0">
+<div style="flex:none;display:flex;border-bottom:1px solid var(--line);padding:0 3px"><sc-for list="{{ rtabs }}" as="t"><button onClick="{{ t.onTap }}" style="all:unset;cursor:pointer;flex:1;display:flex;align-items:center;justify-content:center;gap:3px;min-height:42px;font-size:10.5px;color:{{ t.fg }};box-shadow:{{ t.line }}">{{ t.label }}<span style="font:10px var(--mono);color:var(--fg3)">{{ t.count }}</span></button></sc-for></div>
+<div style="flex:1;overflow:auto;padding:9px 10px">
+<sc-if value="{{ rTodo }}"><div style="display:contents">
+<sc-for list="{{ todoPhases }}" as="g"><div style="display:flex;flex-direction:column;margin-bottom:9px"><div style="display:flex;align-items:baseline;gap:6px;padding-bottom:3px"><span style="font:600 12.5px var(--font-heading);letter-spacing:.04em">{{ g.name }}</span><span style="font:10px var(--mono);color:var(--fg3)">{{ g.count }}</span></div><sc-for list="{{ g.tasks }}" as="t"><div style="display:flex;align-items:center;gap:7px;min-height:34px;border-top:1px solid var(--line-soft)"><span style="width:15px;height:15px;flex:none;display:grid;place-items:center;font-size:10px;font-weight:700;background:{{ t.bg }};border:1px solid {{ t.bd }};color:{{ t.gc }};transition:background .35s,transform .35s;transform:scale({{ t.scale }})">{{ t.glyph }}</span><span style="font-size:11px;color:{{ t.tc }};font-weight:{{ t.fw }};text-decoration:{{ t.deco }}">{{ t.text }}</span></div></sc-for></div></sc-for>
+<sc-if value="{{ todoRawShow }}"><div style="font-size:10px;color:var(--fg3);margin-bottom:4px">todo 인자를 해석하지 못해 결과 텍스트를 그대로 보여줍니다</div><div style="font:10px/1.5 var(--mono);white-space:pre-wrap;background:var(--tint);border:1px solid var(--line-soft);padding:6px 7px">{{ todoRaw }}</div></sc-if>
+<sc-if value="{{ todoNone }}"><div style="font-size:11px;color:var(--fg3);padding:6px 0">이 세션에는 todo가 없습니다.</div></sc-if>
+</div></sc-if>
+<sc-if value="{{ rAgents }}"><div style="display:contents"><sc-for list="{{ agentRows }}" as="a"><div style="display:flex;flex-direction:column;gap:3px;padding:7px 0;border-bottom:1px solid var(--line-soft)"><div style="display:flex;align-items:center;gap:6px"><span style="width:7px;height:7px;background:{{ a.fill }};border:1px solid {{ a.color }}"></span><span style="font:10px var(--mono);color:var(--fg2)">{{ a.type }}</span><span style="font:10px var(--mono);color:var(--fg3)">{{ a.model }}</span><span style="margin-left:auto;font-size:10px;color:var(--fg3)">{{ a.stateLabel }}</span></div><span style="font-size:11.5px">{{ a.name }}</span><span style="font-size:10.5px;color:var(--fg3)">{{ a.act }}</span><sc-if value="{{ a.hasFinal }}"><div style="font-size:10.5px;line-height:1.5;color:var(--fg2);border-left:1px solid var(--line2);padding-left:6px">{{ a.final }}</div></sc-if><sc-if value="{{ a.hasChild }}"><button onClick="{{ a.onChild }}" style="all:unset;cursor:pointer;font-size:10.5px;color:var(--acc-fg);min-height:32px;display:flex;align-items:center">자식 세션 열기 ›</button></sc-if></div></sc-for><sc-if value="{{ agentsNone }}"><div style="font-size:11px;color:var(--fg3);padding:6px 0">서브에이전트가 없습니다.</div></sc-if></div></sc-if>
+<sc-if value="{{ rGoal }}"><div style="display:contents"><sc-if value="{{ hasGoal }}"><div style="display:flex;flex-direction:column;gap:7px"><div style="display:flex;align-items:center;gap:6px"><span class="tag" style="font-size:10px;padding:1px 5px;color:{{ goalColor }};border:1px solid {{ goalColor }}">{{ goalStatus }}</span></div><div style="font-size:12.5px;line-height:1.5">{{ goalText }}</div><sc-if value="{{ goalHasBudget }}"><div style="display:flex;flex-direction:column;gap:3px"><div style="height:3px;background:var(--line);position:relative"><div style="position:absolute;inset:0 auto 0 0;width:{{ goalPct }};background:var(--acc);transition:width .4s"></div></div><span style="font:10px var(--mono);color:var(--fg3)">{{ goalBudget }}</span></div></sc-if><div style="display:flex;gap:4px;flex-wrap:wrap"><sc-for list="{{ goalActions }}" as="b"><button class="btn btn-secondary" onClick="{{ b.onTap }}" style="min-height:36px;font-size:10.5px;color:{{ b.fg }}">{{ b.label }}</button></sc-for></div></div></sc-if><sc-if value="{{ noGoal }}"><div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:11px;color:var(--fg2)">목표를 정하면 에이전트가 완료될 때까지 이어서 작업합니다.</span><textarea class="input" value="{{ goalDraft }}" onChange="{{ onGoalDraft }}" placeholder="예: 결제 테스트 100% 통과" style="min-height:70px;font-size:11.5px;color:var(--fg)"></textarea><div style="display:flex;gap:4px;align-items:center"><input class="input" value="{{ goalBudgetDraft }}" onChange="{{ onGoalBudgetDraft }}" placeholder="토큰 예산 (선택)" style="flex:1;min-height:36px;font:10.5px var(--mono);color:var(--fg)"><button class="btn btn-primary" disabled="{{ goalDraftEmpty }}" onClick="{{ saveGoal }}" style="min-height:36px;font-size:11.5px">목표 설정</button></div></div></sc-if></div></sc-if>
+<sc-if value="{{ rDiff }}"><div style="display:flex;flex-direction:column;gap:6px"><div style="font-size:10px;color:var(--fg3)">이번 턴 동안 누적된 변경</div><sc-for list="{{ diffItems }}" as="it"><dc-import name="McItem" it="{{ it }}" hint-size="100%,120px"></dc-import></sc-for><sc-if value="{{ diffNone }}"><div style="font-size:11px;color:var(--fg3)">이번 턴에 변경 사항이 없습니다.</div></sc-if></div></sc-if>
+</div>
+</div>
+</sc-if>
+</div>
+</div>
+</sc-if>
+</div>
+</sc-if>
+
+<sc-if value="{{ multiBar }}">
+<div style="position:absolute;left:0;right:0;bottom:0;z-index:15;border-top:1px solid var(--line2);background:var(--bg2);padding:7px 10px;display:flex;flex-direction:column;gap:6px;box-shadow:var(--shadow-lg)">
+<div style="display:flex;align-items:center;gap:6px;font-size:10.5px;color:var(--fg2)"><span style="color:var(--fg);font-weight:500">{{ multiCount }}개 세션 선택</span><span>대기 중인 세션은 새 턴, 작업 중인 세션은 끼어들기로 보냅니다.</span><button onClick="{{ toggleSelMode }}" style="all:unset;cursor:pointer;margin-left:auto;min-height:36px;padding:0 6px;color:var(--fg2)">취소</button></div>
+<div style="display:flex;gap:4px"><textarea class="input" rows="1" value="{{ multiText }}" onChange="{{ onMultiText }}" placeholder="선택한 세션 모두에게 보낼 메시지" style="flex:1;min-height:44px;height:44px;resize:none;padding:8px 7px;font-size:12.5px;color:var(--fg)"></textarea><button class="btn btn-primary blueprint" disabled="{{ multiDisabled }}" onClick="{{ multiSend }}" style="min-height:44px;padding:0 12px;font-size:12.5px;white-space:nowrap"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>모두에게 보내기</button></div>
+</div>
+</sc-if>
+</div>
+
+<sc-if value="{{ phoneTabBar }}">
+<div style="flex:none;display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--line);padding:2px 6px max(4px, env(safe-area-inset-bottom));background:var(--bg)">
+<sc-for list="{{ phoneTabs }}" as="t" hint-placeholder-count="4"><button onClick="{{ t.onTap }}" style="all:unset;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:48px;color:{{ t.fg }};font-size:10px;position:relative"><span style="font:13.5px/1 var(--mono);height:20px;display:flex;align-items:center">{{ t.icon }}</span>{{ t.label }}<sc-if value="{{ t.hasBadge }}"><span style="position:absolute;top:3px;left:calc(50% + 6px);font:600 10px var(--mono);background:var(--warn);color:var(--on-acc);padding:0 3px;min-width:14px;text-align:center">{{ t.badge }}</span></sc-if></button></sc-for>
+</div>
+</sc-if>
+
+<sc-if value="{{ drawerMounted }}">
+<div onClick="{{ closeDrawer }}" style="position:absolute;inset:0;background:rgba(10,11,12,.6);opacity:{{ drawerO }};pointer-events:{{ drawerPE }};transition:opacity .22s;z-index:40"></div>
+<div style="position:absolute;top:0;bottom:0;left:0;width:300px;max-width:86vw;background:var(--bg2);border-right:1px solid var(--line);transform:translateX({{ drawerX }});transition:transform .26s cubic-bezier(.2,.8,.2,1);z-index:41;display:flex;flex-direction:column;padding:max(7px, env(safe-area-inset-top)) 0 14px;overflow:auto;box-sizing:border-box">
+<div style="display:flex;align-items:center;padding:0 4px 0 12px"><span style="font:600 17.5px var(--font-heading)">omonitor</span><button onClick="{{ closeDrawer }}" style="all:unset;cursor:pointer;margin-left:auto;width:44px;height:44px;display:grid;place-items:center;color:var(--fg2)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="stroke-width:1.5;stroke-linecap:round"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></button></div>
+<div style="padding:0 12px 7px;font:10px var(--mono);color:var(--fg3)">127.0.0.1 · <span style="color:{{ connDot }}">{{ connLabel }}</span></div>
+<div style="font-size:10px;letter-spacing:.08em;color:var(--fg3);padding:7px 12px 3px;border-top:1px solid var(--line-soft)">프로젝트</div>
+<button onClick="{{ clearProjectFilter }}" style="all:unset;cursor:pointer;display:flex;align-items:center;min-height:44px;padding:0 12px;font-size:11.5px;background:{{ allProjBg }}">전체</button>
+<sc-for list="{{ projects }}" as="p"><button onClick="{{ p.onTap }}" style="all:unset;cursor:pointer;display:flex;align-items:center;min-height:44px;padding:0 12px;background:{{ p.bg }};color:{{ p.fg }}"><span style="font:10.5px var(--mono)">{{ p.name }}</span><span style="margin-left:auto;font:10px var(--mono);color:var(--fg3)">{{ p.count }}</span></button></sc-for>
+<div style="font-size:10px;letter-spacing:.08em;color:var(--fg3);padding:9px 12px 3px;border-top:1px solid var(--line-soft);margin-top:4px">설정</div>
+<button onClick="{{ toggleTheme }}" style="all:unset;cursor:pointer;display:flex;align-items:center;min-height:44px;padding:0 12px;font-size:11.5px">테마<span style="margin-left:auto;color:var(--fg2)">{{ themeLabel }}</span></button>
+<button onClick="{{ askNotify }}" style="all:unset;cursor:pointer;display:flex;align-items:center;min-height:44px;padding:0 12px;font-size:11.5px">브라우저 알림<span style="margin-left:auto;width:22px;height:12px;border:1px solid var(--fg3);position:relative;display:inline-block"><span style="position:absolute;top:1px;width:8px;height:8px;background:{{ nbKnob }};left:{{ nbLeft }}"></span></span></button>
+<button onClick="{{ toggleSound }}" style="all:unset;cursor:pointer;display:flex;align-items:center;min-height:44px;padding:0 12px;font-size:11.5px">알림음<span style="margin-left:auto;width:22px;height:12px;border:1px solid var(--fg3);position:relative;display:inline-block"><span style="position:absolute;top:1px;width:8px;height:8px;background:{{ nsKnob }};left:{{ nsLeft }}"></span></span></button>
+<sc-if value="{{ isMock }}"><div style="font-size:10px;letter-spacing:.08em;color:var(--fg3);padding:9px 12px 3px;border-top:1px solid var(--line-soft);margin-top:4px">데모</div>
+<button onClick="{{ cycleSpeed }}" style="all:unset;cursor:pointer;display:flex;align-items:center;min-height:44px;padding:0 12px;font-size:11.5px">시뮬레이터 속도<span style="margin-left:auto;font-family:var(--mono);color:var(--fg2)">{{ speedLabel }}</span></button>
+<button onClick="{{ simDisconnect }}" style="all:unset;cursor:pointer;display:flex;align-items:center;min-height:44px;padding:0 12px;font-size:11.5px">연결 끊김 시뮬레이션</button></sc-if>
+<div style="margin-top:auto;padding:12px 12px 0;font:10px var(--mono);color:var(--fg3)">{{ serverInfo }}</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ showDemoChip }}"><div style="position:absolute;left:12px;bottom:12px;z-index:12;display:flex;gap:3px;font-size:10px;background:var(--bg2);border:1px solid var(--line);padding:3px"><button onClick="{{ cycleSpeed }}" style="all:unset;cursor:pointer;padding:3px 6px;color:var(--fg2)">시뮬레이터 <span style="font-family:var(--mono);color:var(--fg)">{{ speedLabel }}</span></button><button onClick="{{ simDisconnect }}" style="all:unset;cursor:pointer;padding:3px 6px;color:var(--fg2);border-left:1px solid var(--line)">연결 끊기</button></div></sc-if>
+
+<sc-if value="{{ palOpen }}">
+<div onClick="{{ closePalette }}" style="position:absolute;inset:0;z-index:50;background:rgba(10,11,12,.5);display:flex;justify-content:center;align-items:flex-start;padding:{{ palPad }}">
+<div onClick="{{ stop }}" style="width:min(560px,100%);background:var(--bg2);border:1px solid var(--line2);box-shadow:var(--shadow-lg);display:flex;flex-direction:column;max-height:70vh">
+<input class="input" autofocus="{{ true }}" value="{{ palQ }}" onChange="{{ onPalQ }}" onKeyDown="{{ palKey }}" placeholder="세션 이동 · 명령 실행" style="min-height:48px;font-size:13.5px;border:0;border-bottom:1px solid var(--line);background:transparent;color:var(--fg)">
+<div style="overflow:auto;padding:3px 0">
+<sc-for list="{{ palItems }}" as="p"><sc-if value="{{ p.head }}"><div style="font-size:10px;letter-spacing:.08em;color:var(--fg3);padding:6px 10px 2px">{{ p.label }}</div></sc-if><sc-if value="{{ p.row }}"><button onMouseDown="{{ p.onTap }}" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:7px;width:100%;box-sizing:border-box;min-height:42px;padding:0 10px;background:{{ p.bg }};box-shadow:{{ p.bar }}"><span style="width:6px;height:6px;border-radius:50%;background:{{ p.dot }};flex:none"></span><span style="font-size:11.5px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ p.label }}</span><span style="font:10px var(--mono);color:var(--fg3);white-space:nowrap">{{ p.hint }}</span></button></sc-if></sc-for>
+<sc-if value="{{ palEmpty }}"><div style="padding:10px;font-size:10.5px;color:var(--fg3)">결과가 없습니다</div></sc-if>
+</div>
+<div style="display:flex;flex-wrap:wrap;column-gap:9px;row-gap:2px;padding:4px 10px;font-size:10px;color:var(--fg3);border-top:1px solid var(--line-soft)"><span style="white-space:nowrap"><span style="font-family:var(--mono)">↑↓</span> 이동</span><span style="white-space:nowrap"><span style="font-family:var(--mono)">Enter</span> 실행</span><span style="white-space:nowrap"><span style="font-family:var(--mono)">g i</span> 인박스</span><span style="white-space:nowrap"><span style="font-family:var(--mono)">g b</span> 보드</span><span style="white-space:nowrap"><span style="font-family:var(--mono)">j/k</span> 목록</span></div>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ sheetOpen }}">
+<div onClick="{{ closeSheet }}" style="position:absolute;inset:0;z-index:50;background:rgba(10,11,12,.55);display:flex;justify-content:center;align-items:{{ sheetAlign }};padding:{{ sheetOuterPad }};box-sizing:border-box">
+<div onClick="{{ stop }}" style="width:min(520px,100%);max-height:100%;min-height:0;background:var(--bg2);border:1px solid var(--line2);box-shadow:var(--shadow-lg);display:flex;flex-direction:column;box-sizing:border-box">
+<div style="flex:none;display:flex;align-items:center;padding:9px 7px 6px 13px;border-bottom:1px solid var(--line-soft)"><span style="font:600 18.5px var(--font-heading)">새 세션</span><button onClick="{{ closeSheet }}" style="all:unset;cursor:pointer;margin-left:auto;width:40px;height:40px;display:grid;place-items:center;color:var(--fg2)">✕</button></div>
+<div style="flex:1 1 auto;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:9px;padding:10px 13px">
+<div style="display:flex;flex-direction:column;gap:4px">
+<span style="font-size:10px;color:var(--fg2)">작업 폴더</span>
+<div style="display:flex;gap:4px">
+<div style="flex:1;min-width:0;display:flex;align-items:center;border:1px solid {{ cwdBd }};background:var(--color-surface);min-height:44px">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="flex:none;margin:0 4px 0 10px;color:var(--fg3);stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"></path></svg>
+<input value="{{ sheetCwd }}" onChange="{{ onSheetCwd }}" onKeyDown="{{ cwdKey }}" placeholder="~/work/… 또는 프로젝트 이름" autocapitalize="off" autocorrect="off" spellcheck="false" style="all:unset;flex:1;min-width:0;height:44px;padding:0 3px;font:11.5px var(--mono);color:var(--fg)">
+<sc-if value="{{ sheetHasCwd }}"><button onClick="{{ clearCwd }}" title="지우기" style="all:unset;cursor:pointer;width:40px;height:44px;display:grid;place-items:center;color:var(--fg3)">✕</button></sc-if>
+</div>
+<button class="btn btn-secondary" onClick="{{ pasteCwd }}" style="min-height:44px;font-size:10.5px;color:var(--fg);white-space:nowrap">붙여넣기</button>
+</div>
+<div style="font:10px var(--mono);color:{{ cwdHintColor }};min-height:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ cwdHint }}</div>
+<div data-cwdlist="1" style="border:1px solid var(--line);max-height:{{ cwdListH }};overflow:auto">
+<sc-for list="{{ cwdGroups }}" as="g">
+<div style="font-size:10px;letter-spacing:.08em;color:var(--fg3);padding:6px 9px 2px">{{ g.label }}</div>
+<sc-for list="{{ g.items }}" as="x">
+<div style="display:flex;align-items:center;background:{{ x.bg }};box-shadow:{{ x.bar }}">
+<button data-cidx="{{ x.idx }}" onMouseDown="{{ x.onTap }}" style="all:unset;cursor:pointer;flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;min-height:44px;padding:3px 9px;box-sizing:border-box" style-hover="background:var(--hover)">
+<span style="display:flex;gap:6px;align-items:baseline;min-width:0"><span style="font-size:11.5px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ x.name }}</span><span style="font-size:10px;color:var(--fg3);white-space:nowrap">{{ x.meta }}</span></span>
+<span style="font:10px var(--mono);color:var(--fg3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ x.path }}</span>
+</button>
+<button onMouseDown="{{ x.onStar }}" title="{{ x.starTitle }}" style="all:unset;cursor:pointer;width:44px;height:44px;flex:none;display:grid;place-items:center;color:{{ x.starColor }};font-size:13.5px">{{ x.star }}</button>
+</div>
+</sc-for>
+</sc-for>
+<sc-if value="{{ cwdEmpty }}"><div style="padding:9px;font-size:10.5px;color:var(--fg3);line-height:1.5">{{ cwdEmptyText }}</div></sc-if>
+</div>
+<sc-if value="{{ notPhone }}"><div style="display:flex;flex-wrap:wrap;column-gap:9px;font-size:10px;color:var(--fg3)"><span style="white-space:nowrap"><span style="font-family:var(--mono);color:var(--fg2)">↑↓</span> 이동</span><span style="white-space:nowrap"><span style="font-family:var(--mono);color:var(--fg2)">Tab</span> 자동완성</span><span style="white-space:nowrap"><span style="font-family:var(--mono);color:var(--fg2)">/</span>로 끝내면 하위 폴더</span><span style="white-space:nowrap">목록은 기존 세션에서 모았습니다</span></div></sc-if>
+</div>
+<div class="field"><label>첫 메시지 (선택)</label><textarea class="input" value="{{ sheetText }}" onChange="{{ onSheetText }}" onPaste="{{ onSheetPaste }}" onDragOver="{{ onSheetDragOver }}" onDrop="{{ onSheetDrop }}" placeholder="{{ sheetPlaceholder }}" style="min-height:{{ sheetTextH }};font-size:12.5px;color:var(--fg)"></textarea>
+<sc-if value="{{ canAttachSheet }}"><div style="display:flex;align-items:flex-start;gap:8px;flex-wrap:wrap;padding-top:8px"><sc-for list="{{ sheetImages }}" as="im"><div title="{{ im.title }}" style="position:relative;width:56px;height:56px;flex:none;border:1px solid {{ im.bd }};background:var(--tint)"><img src="{{ im.preview }}" alt="붙여넣은 이미지" style="display:block;width:100%;height:100%;object-fit:cover;opacity:{{ im.opacity }}"><sc-if value="{{ im.hasNote }}"><span style="position:absolute;left:0;right:0;bottom:0;padding:1px 0;font-size:9px;text-align:center;background:rgba(10,11,12,.72);color:{{ im.noteColor }}">{{ im.note }}</span></sc-if><button onClick="{{ im.onRemove }}" title="첨부 빼기" style="all:unset;cursor:pointer;position:absolute;top:-8px;right:-8px;width:22px;height:22px;display:grid;place-items:center;border-radius:50%;background:var(--bg2);border:1px solid var(--line2);font-size:12px;line-height:1;color:var(--fg)">×</button></div></sc-for><button onClick="{{ pickSheetImage }}" title="이미지 첨부 — 붙여넣기(⌘V)나 끌어다 놓기도 됩니다" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:4px;min-height:32px;padding:0 8px;font-size:10.5px;color:var(--fg2);border:1px dashed var(--line2)" style-hover="color:var(--fg)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round"><rect x="3" y="4" width="18" height="16" rx="1"></rect><circle cx="9" cy="10" r="1.6"></circle><path d="m21 16-5-5-9 9"></path></svg>이미지</button><input ref="{{ sheetFileRef }}" type="file" accept="image/png,image/jpeg,image/gif,image/webp" multiple onChange="{{ onSheetPick }}" style="display:none"></div></sc-if></div>
+</div>
+<div style="flex:none;display:flex;justify-content:flex-end;gap:6px;padding:7px 13px {{ sheetPadBottom }};border-top:1px solid var(--line-soft)"><button class="btn btn-secondary" onClick="{{ closeSheet }}" style="min-height:44px;color:var(--fg)">취소</button><button class="btn btn-primary blueprint" disabled="{{ sheetDisabled }}" onClick="{{ createSession }}" style="min-height:44px;font-size:12.5px;padding:0 13px"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>{{ sheetCta }}</button></div>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ menuOpen }}">
+<div onClick="{{ closeMenu }}" style="position:absolute;inset:0;z-index:45;background:{{ menuScrim }};display:flex;justify-content:{{ menuJustify }};align-items:{{ menuAlign }};padding:{{ menuPad }}">
+<div onClick="{{ stop }}" style="width:{{ menuW }};background:var(--bg2);border:1px solid var(--line2);box-shadow:var(--shadow-lg);display:flex;flex-direction:column;padding:3px 0 {{ menuPadBottom }}">
+<sc-for list="{{ menuItems }}" as="m"><button onClick="{{ m.onTap }}" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:7px;min-height:44px;padding:0 10px;font-size:11.5px;color:{{ m.fg }};border-top:{{ m.sep }}" style-hover="background:var(--hover)">{{ m.label }}<span style="margin-left:auto;font-size:10px;color:var(--fg3)">{{ m.hint }}</span></button></sc-for>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ dlgOpen }}">
+<div class="dialog-backdrop" onClick="{{ dlgCancel }}" style="position:absolute;z-index:60">
+<div class="dialog blueprint" onClick="{{ stop }}" style="background:var(--bg2);color:var(--fg)"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+<div class="dialog-title">{{ dlgTitle }}</div>
+<div class="dialog-body" style="line-height:1.55">{{ dlgBody }}</div>
+<sc-if value="{{ dlgHasInput }}"><input class="input" autofocus="{{ true }}" value="{{ dlgInput }}" onChange="{{ onDlgInput }}" onKeyDown="{{ dlgKey }}" style="min-height:44px;font-size:12.5px;color:var(--fg)"></sc-if>
+<div class="dialog-actions"><button class="btn btn-secondary" onClick="{{ dlgCancel }}" style="min-height:40px;color:var(--fg)">취소</button><button class="btn btn-primary" onClick="{{ dlgOk }}" style="min-height:40px;background:{{ dlgOkBg }};border-color:{{ dlgOkBg }}">{{ dlgConfirm }}</button></div>
+</div>
+</div>
+</sc-if>
+
+<div style="position:absolute;z-index:70;right:14px;left:{{ toastLeft }};bottom:{{ toastBottom }};display:flex;flex-direction:column;gap:4px;align-items:flex-end;pointer-events:none">
+<sc-for list="{{ toasts }}" as="t"><div style="pointer-events:auto;max-width:420px;background:var(--bg2);border:1px solid {{ t.bd }};box-shadow:var(--shadow-lg);padding:7px 9px;font-size:11px;display:flex;gap:6px;align-items:flex-start"><span style="width:7px;height:7px;margin-top:4px;flex:none;background:{{ t.bd }}"></span>{{ t.text }}</div></sc-for>
+</div>
+
+<sc-if value="{{ fatal }}"><div style="position:absolute;inset:0;display:grid;place-items:center;background:var(--bg);z-index:80"><div style="max-width:420px;padding:14px;text-align:center;display:flex;flex-direction:column;gap:6px"><span style="font:600 16.5px var(--font-heading)">대시보드를 시작하지 못했습니다</span><span style="font:10px var(--mono);color:var(--err-fg)">{{ fatal }}</span></div></div></sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;dark&quot;,&quot;light&quot;],&quot;default&quot;:&quot;dark&quot;,&quot;tsType&quot;:&quot;'dark' | 'light'&quot;,&quot;section&quot;:&quot;화면&quot;},&quot;showDemo&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;데모&quot;}}">
+const SPEEDS = [1, 2, 4, 0.5, 0];
+const ICON = { inbox: '⊡', board: '▥', sessions: '≡', new: '+' };
+class Component extends DCLogic {
+  state = { v: 0, now: Date.now(), w: window.innerWidth, view: 'board', selId: null, backTo: 'board', theme: null, drawer: false, drawerMounted: false,
+    pal: null, sheet: null, dialog: null, menu: false, selMode: false, sel: {}, multiText: '', grouped: false, colC: {}, secC: { archived: true },
+    exp: {}, allC: false, inboxOpen: undefined, resolvedOpen: false, rtab: 'todo', ptab: 'tl', q: '', lf: 'all', focus: -1, pf: null, speedIdx: 0,
+    goalDraft: '', goalBudgetDraft: '', fatal: null, nb: false, ns: false };
+  tlRef = React.createRef();
+  sheetFileRef = React.createRef();
+  stick = true;
+  // Images for the new-session sheet's first message, uploaded like the session composer's.
+  attachSheet(files) {
+    for (const file of files) {
+      const id = Math.random().toString(36).slice(2);
+      const img = { id, preview: URL.createObjectURL(file), status: 'uploading', path: '', error: '' };
+      this.setState((x) => (x.sheet ? { sheet: { ...x.sheet, images: [...(x.sheet.images || []), img] } } : {}));
+      this.store.upload(file).then((r) => this.patchSheetImage(id, { status: 'ready', path: r.path }), (e) => this.patchSheetImage(id, { status: 'error', error: e?.message || String(e) }));
+    }
+  }
+  patchSheetImage(id, patch) { this.setState((x) => (x.sheet ? { sheet: { ...x.sheet, images: (x.sheet.images || []).map((m) => (m.id === id ? { ...m, ...patch } : m)) } } : {})); }
+  dropSheetImages(sh) { (sh?.images || []).forEach((m) => URL.revokeObjectURL(m.preview)); }
+
+  async componentDidMount() {
+    this.onResize = () => this.setState({ w: window.innerWidth });
+    this.onKey = (e) => this.key(e);
+    window.addEventListener('resize', this.onResize);
+    window.addEventListener('keydown', this.onKey);
+    // A file dropped outside a drop target would make the browser navigate to it and leave the dashboard.
+    this.onWinDrag = (e) => { if ([...(e.dataTransfer?.types || [])].includes('Files')) e.preventDefault(); };
+    window.addEventListener('dragover', this.onWinDrag);
+    window.addEventListener('drop', this.onWinDrag);
+    this.tick = setInterval(() => this.setState({ now: Date.now() }), 1000);
+    try { this.setState({ favs: JSON.parse(localStorage.getItem('mc.favCwds') || '[]') }); } catch {}
+    try {
+      const base = new URL('.', location.href).href;
+      const r = await fetch(`${base}api/config`, { cache: 'no-store' });
+      if (!r.ok || !(r.headers.get('content-type') || '').includes('json')) throw new Error('로컬 대시보드 서버에 연결하지 못했습니다. `bun start`를 실행하세요.');
+      const cfg = await r.json();
+      if (cfg.mode !== 'real' && cfg.mode !== 'mock') throw new Error('대시보드 서버의 실행 모드를 확인할 수 없습니다.');
+      const real = cfg.mode === 'real';
+      this.mode = cfg.mode;
+      const [mod, S] = await Promise.all([import(`${base}app/${real ? 'real' : 'mock'}-client.js`), import(`${base}app/store.js`)]);
+      this.S = S;
+      this.client = real ? new mod.RealClient({ sessionKey: cfg.key }) : new mod.MockClient({ speed: 1 });
+      this.upstream = cfg?.upstream || '';
+      this.store = new S.Store(this.client);
+      this.store.subscribe((v) => this.setState({ v }));
+      this.setState({ v: 1 });
+      await this.store.init();
+      this.info = real ? `${this.client.serverInfo ? `${this.client.serverInfo.name} ${this.client.serverInfo.version}` : 'omo app-server'} · ${this.upstream}` : 'mock 시뮬레이터 · 실제 서버 아님';
+      this.setState({ nb: typeof Notification !== 'undefined' && Notification.permission === 'granted' });
+    } catch (e) { console.error(e); this.setState({ fatal: String(e?.message || e) }); }
+  }
+  componentWillUnmount() { window.removeEventListener('resize', this.onResize); window.removeEventListener('keydown', this.onKey); window.removeEventListener('dragover', this.onWinDrag); window.removeEventListener('drop', this.onWinDrag); clearInterval(this.tick); this.client?.close(); }
+  componentDidUpdate() {
+    const pin = () => {
+      const el = document.querySelector('[data-tl]');
+      if (!el || !this.stick) return;
+      this.pinning = true;
+      el.scrollTop = el.scrollHeight;
+      requestAnimationFrame(() => { this.pinning = false; });
+    };
+    pin();
+    clearTimeout(this.pinT);
+    this.pinT = setTimeout(pin, 150);
+  }
+
+  layout() { const w = this.state.w; return w < 700 ? 'phone' : w < 1100 ? 'tablet' : 'desktop'; }
+  go(view) { this.setState({ view, focus: -1, drawer: false, menu: false }); }
+  openSession(id) {
+    const st = this.store; const T = st?.T(id);
+    this.stick = true;
+    this.setState((s) => ({ view: 'session', selId: id, backTo: s.view === 'session' ? s.backTo : s.view, ptab: 'tl', pal: null, drawer: false }));
+    if (!T) { st?.resume(id).catch(() => {}); return; }
+    if (!T.historyLoaded) st.guard(st.loadHistory(id), '세션 기록을 읽지 못했습니다').catch(() => {});
+  }
+  confirm(kind, id, extra = {}) { this.setState({ dialog: { kind, id, input: extra.input || '', text: extra.text || '', ids: extra.ids || null }, menu: false }); }
+  // Loading a saved thread can collide with a terminal omo that has it open, and omo may auto-continue its goal/todo.
+  needsTakeover(T) { return !!T && !T.subscribed && !T.archived && T.status?.type === 'notLoaded'; }
+  async sendMany(ids, text) {
+    await Promise.allSettled(ids.map((id) => this.store.send(id, text)));
+    this.store.toast(`${ids.length}개 세션에 보냈습니다`, 'info');
+    this.setState({ selMode: false, sel: {}, multiText: '' });
+  }
+  running(id) { const T = this.store?.T(id); return !!T && T.status?.type === 'active' && !!this.S.currentTurn(T); }
+
+  navIds() {
+    if (this.state.view === 'session') return (this._list || []).map((x) => x.id);
+    return (this._cols || []).filter((c) => c.open !== false).flatMap((c) => c.sessions.map((s) => s.id));
+  }
+  key(e) {
+    const tag = document.activeElement?.tagName;
+    const typing = tag === 'INPUT' || tag === 'TEXTAREA';
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); if (!this.state.dialog) this.setState((s) => ({ pal: s.pal ? null : { q: '', idx: 0 } })); return; }
+    if (e.key === 'Escape') {
+      const s = this.state;
+      if (s.pal) return this.setState({ pal: null });
+      if (s.dialog) return this.setState({ dialog: null });
+      if (s.sheet) return this.setState({ sheet: null });
+      if (s.menu) return this.setState({ menu: false });
+      if (s.drawer) return this.setState({ drawer: false });
+      if (s.selMode) return this.setState({ selMode: false, sel: {} });
+      if (!typing && s.view === 'session' && s.selId && this.running(s.selId)) this.confirm('interrupt', s.selId);
+      return;
+    }
+    if (typing || this.state.pal || this.state.dialog || this.state.sheet) return;
+    if (this.gAt && Date.now() - this.gAt < 900) {
+      this.gAt = 0;
+      if (e.key === 'i') this.go('inbox'); else if (e.key === 'b') this.go('board'); else if (e.key === 's') this.go('session');
+      return;
+    }
+    if (e.key === 'g') { this.gAt = Date.now(); return; }
+    if (e.key === 'j' || e.key === 'k') {
+      e.preventDefault();
+      const ids = this.navIds(); if (!ids.length) return;
+      const n = Math.max(0, Math.min(ids.length - 1, this.state.focus + (e.key === 'j' ? 1 : -1)));
+      this.setState({ focus: n });
+      if (this.state.view === 'session') this.openSession(ids[n]);
+      return;
+    }
+    if (e.key === 'Enter' && this.state.focus >= 0) { const id = this.navIds()[this.state.focus]; if (id) this.openSession(id); }
+  }
+
+  sessionView(T, now, lay, focusId) {
+    const S = this.S, st = this.store;
+    const reqs = st.reqsFor(T.id);
+    const o = S.viewSession(T, reqs, now);
+    const stop = (fn) => (e) => { e?.stopPropagation?.(); fn(); };
+    const dense = lay !== 'desktop';
+    const archivedRow = o.col === 'archived';
+    const exp = this.state.exp[T.id];
+    const open = exp ?? (this.state.allC ? false : !['idle', 'archived'].includes(o.col));
+    const [miniText, miniColor] = o.hasReq ? [o.reqKind, 'var(--warn)'] : o.hasError ? ['오류', 'var(--err-fg)'] : o.hasTodo ? [`${o.todoText} ${o.phaseName}`, 'var(--fg2)'] : o.lost ? ['기록 없음', 'var(--fg3)'] : o.terminal ? ['터미널', 'var(--fg2)'] : ['', 'var(--fg3)'];
+    const selected = !!this.state.sel[T.id];
+    return Object.assign(o, {
+      roomy: !dense && !archivedRow, dense: dense && !archivedRow, archivedRow,
+      showBody: open, showMini: !open && !!miniText, miniText, miniColor, chevRot: open ? '180deg' : '0deg',
+      onToggle: stop(() => this.setState((s) => ({ exp: { ...s.exp, [T.id]: !open } }))),
+      ring: focusId === T.id ? '2px solid var(--acc)' : 'none', opacity: '1',
+      selectable: this.state.selMode && !archivedRow, selBd: selected ? 'var(--acc)' : 'var(--fg3)', selBg: selected ? 'var(--acc)' : 'transparent', selMark: selected ? '✓' : '',
+      onSelect: stop(() => this.setState((s) => ({ sel: { ...s.sel, [T.id]: !s.sel[T.id] } }))),
+      onOpen: () => (this.state.selMode && !archivedRow ? this.setState((s) => ({ sel: { ...s.sel, [T.id]: !s.sel[T.id] } })) : this.openSession(T.id)),
+      onAccept: stop(() => st.respondApproval(o.reqId, 'accept')),
+      onAcceptSession: stop(() => st.respondApproval(o.reqId, 'acceptForSession')),
+      onDecline: stop(() => st.respondApproval(o.reqId, 'decline')),
+      onAnswer: stop(() => this.setState({ view: 'inbox', inboxOpen: o.reqId })),
+      onTakeover: stop(() => this.confirm('takeover', T.id)),
+    });
+  }
+
+  requestView(r, now, lay) {
+    const S = this.S, st = this.store;
+    const T = st.T(r.params?.threadId) || {};
+    const p = r.params || {};
+    const isQ = r.method === 'item/tool/requestUserInput';
+    const openId = this.state.inboxOpen === undefined ? this._firstReq : this.state.inboxOpen;
+    const collapsible = lay === 'phone';
+    const open = !collapsible || openId === r.id;
+    return {
+      id: r.id, kind: isQ ? `질문 ${(p.questions || []).length}개` : S.REQ_KIND[r.method] || '승인 요청', sessionName: T.name || T.preview?.slice(0, 30) || '세션', cwd: S.shortPath(T.cwd || ''),
+      ago: S.ago(now - r.receivedAt), countdown: S.countdown(r, now), isApproval: !isQ, isQuestion: isQ, collapsible, open,
+      onToggle: () => this.setState({ inboxOpen: open ? null : r.id }),
+      reason: p.reason || '', hasReason: !!p.reason, code: p.command || '', hasCommand: !!p.command,
+      files: (p.changes || []).map((c) => {
+        const lines = (c.diff || '').split('\n').filter((l) => l && !/^(diff --git|index |--- |\+\+\+ )/.test(l));
+        const add = lines.filter((l) => l.startsWith('+')).length, del = lines.filter((l) => l.startsWith('-')).length;
+        return { path: c.path, add, del, kindLabel: c.kind === 'delete' ? '삭제' : c.kind === 'add' ? '추가' : '수정',
+          preview: lines.slice(0, 6).map((l) => ({ text: l, bg: l.startsWith('+') ? 'var(--add-bg)' : l.startsWith('-') ? 'var(--del-bg)' : 'transparent', fg: l.startsWith('+') ? 'var(--add-fg)' : l.startsWith('-') ? 'var(--del-fg)' : 'var(--fg3)' })) };
+      }),
+      questions: p.questions || [],
+      onAccept: () => st.respondApproval(r.id, 'accept'), onAcceptSession: () => st.respondApproval(r.id, 'acceptForSession'), onDecline: () => st.respondApproval(r.id, 'decline'),
+      onAnswer: (answers, comment) => st.answer(r.id, answers, comment).catch(() => {}),
+      onOpenSession: () => this.openSession(T.id),
+    };
+  }
+
+  cwdVals(sh, now, isPhone) {
+    const st = this.store, S = this.S;
+    const threads = [...st.s.threads.values()];
+    let home = '';
+    for (const T of threads) { const m = (T.cwd || '').match(/^(\/Users\/[^/]+|\/home\/[^/]+)/); if (m) { home = m[1]; break; } }
+    const expand = (p) => (home ? p.replace(/^~(?=\/|$)/, home) : p);
+    const norm = (raw) => { let p = String(raw || '').trim().replace(/^cd\s+/, '').replace(/^file:\/\//, '').replace(/^['"]|['"]$/g, '').trim(); return p; };
+    const dirname = (p) => p.replace(/\/[^/]+\/?$/, '') || '/';
+    const base = (p) => p.split('/').filter(Boolean).pop() || p;
+    const usage = new Map();
+    for (const T of threads) { if (!T.cwd) continue; const u = usage.get(T.cwd) || { n: 0, last: 0 }; u.n++; u.last = Math.max(u.last, T.updatedAt || 0); usage.set(T.cwd, u); }
+    const parents = new Set([...usage.keys()].map(dirname).filter((p) => p && p !== '/' && p !== home && !usage.has(p)));
+    const favs = this.state.favs || [];
+    const raw = sh?.cwd || '';
+    const q = norm(raw);
+    const full = expand(q).replace(/(.)\/+$/, '$1');
+    const setCwd = (v) => this.setState({ sheet: { ...sh, cwd: v, idx: 0 } });
+    const toggleFav = (p) => {
+      const next = favs.includes(p) ? favs.filter((x) => x !== p) : [...favs, p];
+      try { localStorage.setItem('mc.favCwds', JSON.stringify(next)); } catch {}
+      this.setState({ favs: next });
+    };
+    const mk = (p, isParent) => {
+      const u = usage.get(p);
+      return { p, isParent, name: base(p), path: S.shortPath(p), meta: u ? `세션 ${u.n}개 · ${S.ago(now - u.last)}` : isParent ? '상위 폴더' : '' };
+    };
+    let groups = [];
+    if (!q) {
+      const favItems = favs.map((p) => mk(p, !usage.has(p)));
+      const recent = [...usage.entries()].filter(([p]) => !favs.includes(p)).sort((a, b) => b[1].last - a[1].last).slice(0, 6).map(([p]) => mk(p, false));
+      if (favItems.length) groups.push({ label: '즐겨찾기', items: favItems });
+      if (recent.length) groups.push({ label: '최근', items: recent });
+    } else if (/\/$/.test(q)) {
+      const dir = expand(q).replace(/\/+$/, '');
+      const kids = [...usage.keys(), ...parents].filter((p) => dirname(p) === dir).map((p) => mk(p, parents.has(p)));
+      if (kids.length) groups.push({ label: `${S.shortPath(dir)}/ 안`, items: kids });
+    } else {
+      const ql = q.toLowerCase(), qe = full.toLowerCase();
+      const scored = [...usage.keys(), ...parents].map((p) => {
+        const b = base(p).toLowerCase(), sp = S.shortPath(p).toLowerCase(), fp = p.toLowerCase();
+        const sc = b.startsWith(ql) ? 4 : fp.startsWith(qe) || sp.startsWith(ql) ? 3 : b.includes(ql) ? 2 : sp.includes(ql) || fp.includes(qe) ? 1 : 0;
+        return { p, sc, n: usage.get(p)?.n || 0 };
+      }).filter((x) => x.sc > 0 && x.p !== full).sort((a, b) => b.sc - a.sc || b.n - a.n).slice(0, 8);
+      if (scored.length) groups.push({ label: '일치', items: scored.map((x) => mk(x.p, parents.has(x.p))) });
+    }
+    const flat = groups.flatMap((g) => g.items);
+    const active = q ? Math.min(sh?.idx ?? 0, flat.length - 1) : (sh?.idx ?? -1);
+    let i = 0;
+    const pick = (x) => setCwd(x.isParent ? `${x.path}/` : x.path);
+    groups = groups.map((g) => ({ label: g.label, items: g.items.map((x) => {
+      const idx = i++, on = idx === active, fav = favs.includes(x.p);
+      return { ...x, idx, bg: on ? 'var(--acc-tint)' : 'transparent', bar: on ? 'inset 2px 0 0 var(--acc)' : 'none',
+        onTap: (e) => { e.preventDefault(); pick(x); },
+        star: fav ? '★' : '☆', starColor: fav ? 'var(--warn)' : 'var(--fg3)', starTitle: fav ? '즐겨찾기 해제' : '즐겨찾기',
+        onStar: (e) => { e.preventDefault(); e.stopPropagation(); toggleFav(x.p); } };
+    }) }));
+    const absolute = full.startsWith('/');
+    const known = usage.get(full);
+    const valid = !!q && absolute && !/\/$/.test(q);
+    const hint = !q ? '기존 세션의 폴더에서 고르거나 경로를 입력하세요'
+      : !absolute ? (home || !q.startsWith('~') ? '절대 경로(/…)나 ~로 시작해야 합니다' : '홈 폴더를 알 수 없어 ~를 펼칠 수 없습니다')
+      : /\/$/.test(q) ? '하위 폴더를 고르거나 이름을 이어서 입력하세요'
+      : known ? `→ ${full} · 세션 ${known.n}개가 쓰는 폴더` : `→ ${full} · 처음 쓰는 경로 — 만들 때 서버가 확인합니다`;
+    const scrollTo = (n) => requestAnimationFrame(() => {
+      const box = document.querySelector('[data-cwdlist]'); const el = box?.querySelector(`[data-cidx="${n}"]`);
+      if (!el) return;
+      const top = el.getBoundingClientRect().top - box.getBoundingClientRect().top + box.scrollTop;
+      if (top < box.scrollTop + 20) box.scrollTop = Math.max(0, top - 20);
+      else if (top + el.offsetHeight > box.scrollTop + box.clientHeight) box.scrollTop = top + el.offsetHeight - box.clientHeight;
+    });
+    return {
+      _full: full, _valid: valid,
+      sheetCwd: raw, sheetHasCwd: !!raw,
+      onSheetCwd: (e) => this.setState({ sheet: { ...sh, cwd: e.target.value, idx: 0 } }),
+      clearCwd: () => setCwd(''),
+      pasteCwd: async () => {
+        try { const t = await navigator.clipboard.readText(); if (t) setCwd(S.shortPath(norm(t).replace(/(.)\/+$/, '$1'))); }
+        catch { st.toast('클립보드를 읽지 못했습니다. 입력창에 직접 붙여넣어 주세요', 'info'); }
+      },
+      cwdKey: (e) => {
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+          e.preventDefault(); if (!flat.length) return;
+          const cur = active < 0 ? (e.key === 'ArrowDown' ? -1 : 0) : active;
+          const n = (cur + (e.key === 'ArrowDown' ? 1 : -1) + flat.length) % flat.length;
+          this.setState({ sheet: { ...sh, idx: n } }); scrollTo(n);
+        } else if ((e.key === 'Tab' || e.key === 'Enter') && flat.length && active >= 0 && !e.shiftKey) {
+          const x = flat[active];
+          const target = x.isParent ? `${x.path}/` : x.path;
+          if (target !== raw) { e.preventDefault(); pick(x); }
+        }
+      },
+      cwdGroups: groups, cwdEmpty: flat.length === 0,
+      cwdEmptyText: q ? '일치하는 폴더가 없습니다. 입력한 경로로 새 세션을 만듭니다.' : '아직 세션이 없어 추천할 폴더가 없습니다.',
+      cwdListH: window.innerHeight < 700 ? '160px' : isPhone ? '200px' : '240px',
+      cwdHint: hint, cwdHintColor: q && !absolute ? 'var(--err-fg)' : known ? 'var(--acc-fg)' : 'var(--fg3)',
+      cwdBd: q && !absolute ? 'var(--err-line)' : 'var(--color-divider)',
+      sheetDisabled: !valid,
+    };
+  }
+
+  renderVals() {
+    const st = this.store, S = this.S, s = this.state;
+    const lay = this.layout(), isPhone = lay === 'phone', isDesk = lay === 'desktop';
+    const theme = s.theme || this.props.theme || 'dark';
+    const now = s.now;
+    const base = {
+      theme, isPhone, notPhone: !isPhone, fatal: s.fatal, stop: (e) => e.stopPropagation(),
+      toggleTheme: () => this.setState({ theme: theme === 'dark' ? 'light' : 'dark' }), themeLabel: theme === 'dark' ? '다크' : '라이트',
+      openPalette: () => this.setState({ pal: { q: '', idx: 0 } }), openNew: () => this.setState({ sheet: { cwd: '', text: '' } }),
+      serverInfo: this.info || '', skel: [1, 2, 3, 4, 5].slice(0, isPhone ? 1 : isDesk ? 5 : 4).map((k) => ({ h1: `${120 + (k % 3) * 40}px`, h2: `${80 + (k % 2) * 60}px` })),
+      skelCols: `repeat(${isPhone ? 1 : isDesk ? 5 : 4}, minmax(0,1fr))`,
+      toasts: [], connBanner: false, loading: true, connLabel: '연결 중', connDot: 'var(--warn)',
+    };
+    if (!st || !S) return base;
+    const conn = st.s.conn;
+    const loading = st.s.loading;
+    const threads = [...st.s.threads.values()].filter((T) => !s.pf || S.proj(T.cwd) === s.pf);
+    const nav = this.navIds();
+    const focusId = s.focus >= 0 ? nav[s.focus] : null;
+    const views = threads.map((T) => this.sessionView(T, now, lay, focusId));
+    const reqsAll = [...st.s.requests.values()].sort((a, b) => a.receivedAt - b.receivedAt);
+    this._firstReq = reqsAll[0]?.id;
+    const inboxN = reqsAll.length;
+
+    const columns = S.COLS.map((c) => {
+      let list = views.filter((v) => v.col === c.key).sort((a, b) => (b.id > a.id ? 1 : -1));
+      list.sort((a, b) => (st.T(b.id).updatedAt || 0) - (st.T(a.id).updatedAt || 0));
+      if (s.grouped) list.sort((a, b) => a.projectName.localeCompare(b.projectName));
+      list.forEach((v, i) => { v.showGroupHead = s.grouped && !isPhone && (i === 0 || list[i - 1].projectName !== v.projectName); });
+      const collapsed = isPhone ? !!s.secC[c.key] : (s.colC[c.key] ?? (c.key === 'archived' || (lay === 'tablet' && c.key === 'idle')));
+      return { ...c, count: String(list.length), sessions: list, isEmpty: list.length === 0, collapsed, open: !collapsed, flex: c.key === 'archived' ? '0 0 220px' : '1 1 0',
+        secRot: collapsed ? '-90deg' : '0deg', summary: collapsed ? list.map((v) => v.name).join(' · ') : '',
+        onToggle: () => this.setState((x) => (isPhone ? { secC: { ...x.secC, [c.key]: !collapsed } } : { colC: { ...x.colC, [c.key]: !collapsed } })) };
+    });
+    this._cols = columns;
+
+    const tabDefs = [['board', '보드', ''], ['inbox', '인박스', inboxN ? String(inboxN) : ''], ['session', '세션', '']];
+    const tabs = tabDefs.map(([k, label, badge]) => ({ label, badge, hasBadge: !!badge, fg: s.view === k ? 'var(--fg)' : 'var(--fg2)', line: s.view === k ? 'inset 0 -2px 0 var(--acc)' : 'none', onTap: () => this.go(k) }));
+    const phoneTabs = [['inbox', '인박스', ICON.inbox], ['board', '보드', ICON.board], ['session', '세션', ICON.sessions], ['new', '새 세션', ICON.new]].map(([k, label, icon]) => ({
+      label, icon, badge: k === 'inbox' && inboxN ? String(inboxN) : '', hasBadge: k === 'inbox' && inboxN > 0, fg: s.view === k ? 'var(--acc-fg)' : 'var(--fg3)',
+      onTap: () => (k === 'new' ? this.setState({ sheet: { cwd: '', text: '' } }) : this.go(k)) }));
+
+    const reqs = reqsAll.map((r) => this.requestView(r, now, lay));
+    const resolvedList = st.s.resolved.map((x) => ({ name: st.T(x.threadId)?.name || st.T(x.threadId)?.preview?.slice(0, 30) || '세션', verdict: x.verdict, color: /거절|취소/.test(x.verdict) ? 'var(--err-fg)' : /다른 곳/.test(x.verdict) ? 'var(--fg3)' : 'var(--acc-fg)', ago: S.ago(now - x.at) }));
+
+    const connState = conn.state;
+    const vals = {
+      ...base, loading: loading && connState !== 'closed' || loading,
+      connBanner: connState === 'reconnecting', connText: conn.firstConnect ? `app-server에 연결하지 못했습니다${conn.reason ? ` (${conn.reason})` : ''}. \`omo app-server\`가 실행 중인지 확인하세요 · ${Math.ceil((conn.retryInMs || 3000) / 1000)}초 후 다시 시도 (${conn.attempt || 1}회째)` : `app-server 연결이 끊겼습니다 · ${Math.ceil((conn.retryInMs || 3000) / 1000)}초 후 다시 연결 (${conn.attempt || 1}회째). 연결되면 구독을 복구합니다.`,
+      reconnectNow: () => this.client.reconnectNow(),
+      connDot: connState === 'open' ? 'var(--acc)' : connState === 'reconnecting' || connState === 'connecting' ? 'var(--warn)' : 'var(--err)',
+      connLabel: { open: '연결됨', connecting: '연결 중', reconnecting: '재연결 중', closed: '끊김' }[connState] || connState,
+      tabs, phoneTabs, inboxCount: String(inboxN),
+      vBoard: s.view === 'board', vInbox: s.view === 'inbox',
+      boardDesk: !loading && s.view === 'board' && !isPhone, boardPhone: !loading && s.view === 'board' && isPhone,
+      vInboxReady: !loading && s.view === 'inbox', vSessionReady: !loading && s.view === 'session',
+      columns, cardGap: isDesk ? '8px' : '6px',
+      phoneTop: isPhone && s.view !== 'session', phoneTabBar: isPhone && s.view !== 'session',
+      phoneTitle: s.view === 'inbox' ? '입력 필요' : '보드', phoneCount: s.view === 'inbox' ? String(inboxN) : `${views.filter((v) => v.col !== 'archived').length}개`,
+      phoneCountColor: s.view === 'inbox' ? 'var(--warn)' : 'var(--fg3)',
+      toggleAllC: () => this.setState((x) => ({ allC: !x.allC, exp: {} })), allCLabel: s.allC ? '모두 펼치기' : '모두 접기',
+      toggleGroup: () => this.setState((x) => ({ grouped: !x.grouped })), groupKnob: s.grouped ? 'var(--acc)' : 'var(--fg3)', groupLeft: s.grouped ? '10px' : '1px',
+      toggleSelMode: () => this.setState((x) => ({ selMode: !x.selMode, sel: {}, multiText: '' })),
+      selModeLabel: s.selMode ? '선택 끝내기' : '여러 세션 선택', selModeShort: s.selMode ? '완료' : '선택', selModeFg: s.selMode ? 'var(--acc-fg)' : 'var(--fg2)',
+      selModeBd: s.selMode ? 'var(--acc)' : 'var(--line)', selModeBg: s.selMode ? 'var(--acc-tint)' : 'transparent',
+      reqs, inboxEmpty: reqs.length === 0, inboxSub: reqs.length ? '카드에서 바로 답할 수 있습니다' : '', inboxPad: isPhone ? '2px 10px 14px' : '12px 14px 28px',
+      resolvedList, hasResolved: resolvedList.length > 0, resolvedCount: String(resolvedList.length), resolvedOpen: s.resolvedOpen || !isPhone, resolvedRot: (s.resolvedOpen || !isPhone) ? '180deg' : '0deg',
+      toggleResolved: () => this.setState((x) => ({ resolvedOpen: !x.resolvedOpen })),
+      nbKnob: s.nb ? 'var(--acc)' : 'var(--fg3)', nbLeft: s.nb ? '10px' : '1px', nbHint: typeof Notification !== 'undefined' && Notification.permission === 'denied' ? '브라우저에서 차단됨' : '',
+      askNotify: async () => {
+        if (s.nb) { st.s.notify.browser = false; return this.setState({ nb: false }); }
+        if (typeof Notification === 'undefined') return st.toast('이 브라우저는 알림을 지원하지 않습니다', 'info');
+        const p = Notification.permission === 'granted' ? 'granted' : await Notification.requestPermission();
+        st.s.notify.browser = p === 'granted'; this.setState({ nb: p === 'granted' });
+      },
+      nsKnob: s.ns ? 'var(--acc)' : 'var(--fg3)', nsLeft: s.ns ? '10px' : '1px',
+      toggleSound: () => { st.s.notify.sound = !s.ns; this.setState({ ns: !s.ns }); },
+      openDrawer: () => { this.setState({ drawerMounted: true }); requestAnimationFrame(() => this.setState({ drawer: true })); },
+      closeDrawer: () => this.setState({ drawer: false }),
+      drawerMounted: s.drawerMounted && isPhone, drawerX: s.drawer ? '0%' : '-102%', drawerO: s.drawer ? '1' : '0', drawerPE: s.drawer ? 'auto' : 'none',
+      hasProjectFilter: !!s.pf, projectFilter: s.pf || '', clearProjectFilter: () => this.setState({ pf: null, drawer: false }), allProjBg: s.pf ? 'transparent' : 'var(--acc-tint)',
+      projects: Object.entries([...st.s.threads.values()].reduce((m, T) => { const p = S.proj(T.cwd); m[p] = (m[p] || 0) + 1; return m; }, {})).map(([name, n]) => ({ name, count: String(n), bg: s.pf === name ? 'var(--acc-tint)' : 'transparent', fg: s.pf === name ? 'var(--fg)' : 'var(--fg2)', onTap: () => this.setState({ pf: s.pf === name ? null : name, drawer: false }) })),
+      speedLabel: SPEEDS[s.speedIdx] === 0 ? '정지' : `${SPEEDS[s.speedIdx]}×`,
+      cycleSpeed: () => { const n = (s.speedIdx + 1) % SPEEDS.length; this.client.setSpeed(SPEEDS[n]); this.setState({ speedIdx: n }); },
+      simDisconnect: () => { this.client.simulateDisconnect(); this.setState({ drawer: false }); },
+      showDemoChip: this.mode === 'mock' && !isPhone && s.view === 'board' && !s.selMode && (this.props.showDemo ?? true), isMock: this.mode === 'mock',
+      toasts: st.s.toasts.map((t) => ({ text: t.text, bd: t.kind === 'error' ? 'var(--err)' : 'var(--acc)' })),
+      toastLeft: isPhone ? '14px' : 'auto', toastBottom: isPhone ? (s.view === 'session' ? '130px' : '70px') : '14px',
+      multiBar: s.selMode && Object.values(s.sel).some(Boolean) && s.view === 'board',
+      multiCount: String(Object.values(s.sel).filter(Boolean).length), multiText: s.multiText,
+      onMultiText: (e) => this.setState({ multiText: e.target.value }), multiDisabled: !s.multiText.trim(),
+      multiSend: async () => {
+        const ids = Object.keys(s.sel).filter((k) => s.sel[k]); const text = s.multiText.trim();
+        if (ids.some((id) => this.needsTakeover(st.T(id)))) return this.confirm('takeoverMany', null, { ids, text });
+        await this.sendMany(ids, text);
+      },
+    };
+
+    // ── session detail ──
+    const listFilter = s.lf;
+    const allViews = [...st.s.threads.values()].map((T) => this.sessionView(T, now, lay, null));
+    const ql = s.q.trim().toLowerCase();
+    const listed = allViews.filter((v) => (listFilter === 'all' ? v.col !== 'archived' : v.col === listFilter) && (!ql || `${v.name} ${v.cwd}`.toLowerCase().includes(ql)))
+      .sort((a, b) => (st.T(b.id).updatedAt || 0) - (st.T(a.id).updatedAt || 0));
+    this._list = listed;
+    const counts = Object.fromEntries(S.COLS.map((c) => [c.key, allViews.filter((v) => v.col === c.key).length]));
+    Object.assign(vals, {
+      q: s.q, onQ: (e) => this.setState({ q: e.target.value }),
+      listFilters: [{ key: 'all', label: '전체', color: 'var(--fg)', n: allViews.length - counts.archived }, ...S.COLS.map((c) => ({ key: c.key, label: c.label, color: c.color, n: counts[c.key] }))].map((f) => ({
+        label: f.label, count: String(f.n), dot: f.color, bd: listFilter === f.key ? 'var(--acc)' : 'var(--line)', bg: listFilter === f.key ? 'var(--acc-tint)' : 'transparent', fg: listFilter === f.key ? 'var(--fg)' : 'var(--fg2)', onTap: () => this.setState({ lf: f.key }) })),
+      listItems: listed.map((v, i) => ({ ...v, mini: v.hasReq ? v.reqKind : v.hasTodo ? `${v.todoText} ${v.phaseName}` : v.actLabel, miniColor: v.hasReq ? 'var(--warn)' : 'var(--fg3)',
+        bg: v.id === s.selId ? 'var(--acc-tint)' : 'transparent', bar: v.id === s.selId ? 'inset 2px 0 0 var(--acc)' : 'none', ring: s.view === 'session' && s.focus === i ? '2px solid var(--acc)' : 'none', onTap: () => this.openSession(v.id) })),
+      listEmpty: listed.length === 0, showList: !isPhone && (isDesk || !s.selId), listW: isDesk ? '280px' : '100%',
+    });
+    const T = s.selId ? st.T(s.selId) : null;
+    Object.assign(vals, { hasSel: !!T, noSel: !T && isDesk, showBack: !isDesk });
+    if (!isDesk && !T) { vals.showList = true; vals.listW = '100%'; }
+    if (!isDesk && T) vals.showList = false;
+    if (isPhone && s.view === 'session' && !T) Object.assign(vals, { phoneTop: true, phoneTabBar: true, phoneTitle: '세션', phoneCount: `${listed.length}개`, phoneCountColor: 'var(--fg3)' });
+    if (T) {
+      const sel = allViews.find((v) => v.id === T.id) || this.sessionView(T, now, lay, null);
+      const running = this.running(T.id);
+      const items = S.viewItems(T, now);
+      const live = S.liveStatus(T, now);
+      const todo = S.replayTodos(S.allItems(T));
+      const diff = S.diffFiles(T.diff || '');
+      const tabsDef = [['todo', 'Todo', sel.hasTodo ? sel.todoText : ''], ['agents', '에이전트', (T.tasks || []).length ? String(T.tasks.length) : ''], ['goal', '목표', T.goal ? '●' : ''], ['diff', '변경', diff.length ? String(diff.length) : '']];
+      const rtab = s.rtab, ptab = s.ptab;
+      const panel = isPhone ? ptab : rtab;
+      const g = T.goal;
+      const goalBudgetN = Number(String(s.goalBudgetDraft).replace(/[^\d]/g, '')) || undefined;
+      const mkTab = (cur, set) => ([k, label, count]) => ({ label, count, fg: cur === k ? 'var(--fg)' : 'var(--fg3)', line: cur === k ? 'inset 0 -2px 0 var(--acc)' : 'none', onTap: () => this.setState({ [set]: k }) });
+      Object.assign(vals, {
+        sel, selItems: items, selItemsEmpty: items.length === 0, agentName: 'sisyphus',
+        selTerminal: S.isTerminal(T), selNotSub: !T.subscribed && !T.archived, selNotSubNote: !T.subscribed && !T.archived && T.source !== 'cli',
+        selLost: S.historyLost(T) && !todo, restoreSel: () => st.restoreTodos(T.id), subscribeSel: () => (this.needsTakeover(T) ? this.confirm('takeover', T.id) : st.resume(T.id)), takeoverSel: () => this.confirm('takeover', T.id),
+        goBack: () => this.setState((x) => (isPhone ? { view: x.backTo || 'board', selId: null } : { selId: null })),
+        detailHeadPad: isPhone ? `max(4px, env(safe-area-inset-top)) 4px 0 2px` : '4px 6px 4px 12px', detailTitleSize: isPhone ? '15px' : '16.5px',
+        openMenu: () => this.setState({ menu: true }),
+        rtabs: tabsDef.map(mkTab(rtab, 'rtab')), ptabs: [['tl', '타임라인', ''], ...tabsDef].map(mkTab(ptab, 'ptab')),
+        showRight: !isPhone, rightW: isDesk ? '340px' : '300px',
+        showTimeline: !isPhone || ptab === 'tl', phonePanel: isPhone && ptab !== 'tl',
+        rTodo: panel === 'todo', rAgents: panel === 'agents', rGoal: panel === 'goal', rDiff: panel === 'diff',
+        onTlScroll: (e) => {
+          if (this.pinning) return;
+          const el = e.currentTarget;
+          const gap = el.scrollHeight - el.scrollTop - el.clientHeight;
+          if (gap < 60) this.stick = true;
+          else if (el.scrollTop < (this.lastTop ?? 0)) this.stick = false;
+          this.lastTop = el.scrollTop;
+        },
+        todoPhases: (todo?.phases || []).map((p) => ({ name: p.name, count: `${p.tasks.filter((t) => t.status === 'completed').length}/${p.tasks.filter((t) => t.status !== 'abandoned').length}`,
+          tasks: p.tasks.map((t) => ({ text: t.text, glyph: t.status === 'completed' ? '✓' : t.status === 'in_progress' ? '●' : t.status === 'abandoned' ? '×' : '',
+            bg: t.status === 'completed' ? 'var(--acc)' : 'transparent', bd: t.status === 'pending' ? 'var(--fg3)' : t.status === 'abandoned' ? 'var(--line2)' : 'var(--acc)',
+            gc: t.status === 'completed' ? 'var(--on-acc)' : t.status === 'abandoned' ? 'var(--fg3)' : 'var(--acc-fg)', scale: t.status === 'completed' ? '1' : '0.92',
+            tc: t.status === 'completed' || t.status === 'abandoned' ? 'var(--fg3)' : t.status === 'in_progress' ? 'var(--fg)' : 'var(--fg2)', fw: t.status === 'in_progress' ? '500' : '400', deco: t.status === 'abandoned' ? 'line-through' : 'none' })) })),
+        todoRaw: todo?.raw || '', todoRawShow: !!todo?.raw, todoNone: !todo || (!todo.phases.length && !todo.raw),
+        agentRows: sel.agents.map((a) => ({ ...a, hasFinal: !!a.final, hasChild: !!a.childId, onChild: () => this.openSession(a.childId) })), agentsNone: !sel.agents.length,
+        hasGoal: !!g, noGoal: !g, goalText: g?.objective || '', goalStatus: { active: '진행 중', paused: '일시정지', complete: '완료' }[g?.status] || g?.status || '',
+        goalColor: g?.status === 'complete' ? 'var(--acc-fg)' : g?.status === 'paused' ? 'var(--fg3)' : 'var(--acc-fg)',
+        goalHasBudget: !!g?.tokenBudget, goalPct: `${g?.tokenBudget ? Math.min(100, ((g.tokensUsed || 0) / g.tokenBudget) * 100) : 0}%`,
+        goalBudget: g?.tokenBudget ? `${Math.round((g.tokensUsed || 0) / 1000)}k / ${Math.round(g.tokenBudget / 1000)}k 토큰` : '',
+        goalActions: g ? [
+          g.status === 'paused' ? { label: '재개', fg: 'var(--fg)', onTap: () => st.goalSet(T.id, { status: 'active' }) } : g.status === 'active' ? { label: '일시정지', fg: 'var(--fg)', onTap: () => st.goalSet(T.id, { status: 'paused' }) } : null,
+          g.status !== 'complete' ? { label: '완료로 표시', fg: 'var(--fg)', onTap: () => st.goalSet(T.id, { status: 'complete' }) } : null,
+          { label: '목표 지우기', fg: 'var(--err-fg)', onTap: () => st.goalClear(T.id) },
+        ].filter(Boolean) : [],
+        goalDraft: s.goalDraft, onGoalDraft: (e) => this.setState({ goalDraft: e.target.value }), goalBudgetDraft: s.goalBudgetDraft, onGoalBudgetDraft: (e) => this.setState({ goalBudgetDraft: e.target.value }),
+        goalDraftEmpty: !s.goalDraft.trim(), saveGoal: () => { st.goalSet(T.id, { objective: s.goalDraft.trim(), status: 'active', ...(goalBudgetN ? { tokenBudget: goalBudgetN } : {}) }); this.setState({ goalDraft: '', goalBudgetDraft: '' }); },
+        diffItems: diff.map((f) => ({ key: f.path, isFile: true, files: [{ path: f.path, kind: f.isNew ? 'add' : f.isDel ? 'delete' : 'update', add: f.add, del: f.del, lines: f.text.split('\n').filter((l) => !/^(diff --git|index |--- |\+\+\+ |new file)/.test(l)) }] })),
+        diffNone: diff.length === 0,
+        composer: {
+          running, activity: live ? [live.label, live.elapsed].filter(Boolean).join(' · ') : '', model: T.settings?.model, effort: T.settings?.effort, models: st.s.models, skills: st.s.skills, usage: T.usage || null,
+          padBottom: isPhone ? 'max(10px, env(safe-area-inset-bottom))' : '10px',
+          onSend: (text, images = []) => { const msg = S.withImages(text, images); this.stick = true; if (this.needsTakeover(T)) return this.confirm('takeover', T.id, { text: msg }); st.send(T.id, msg).catch(() => {}); },
+          onUpload: st.c.backend?.upload ? (file) => st.upload(file) : null, imageFiles: S.imageFiles,
+          onInterrupt: () => this.confirm('interrupt', T.id),
+          // thread/settings/update loads the session too, so an unloaded one goes through the same takeover confirmation.
+          onSettings: (patch) => { if (this.needsTakeover(T)) return this.confirm('takeover', T.id, { settings: patch }); st.setSettings(T.id, patch).catch(() => {}); },
+        },
+      });
+      const sep = '1px solid var(--line-soft)';
+      vals.menuItems = [
+        { label: '이름 변경', hint: '', fg: 'var(--fg)', sep: 'none', onTap: () => this.confirm('rename', T.id, { input: T.name || '' }) },
+        { label: '복제 (fork)', hint: '', fg: 'var(--fg)', sep: 'none', onTap: async () => { this.setState({ menu: false }); const id = await st.fork(T.id); this.openSession(id); } },
+        { label: '컨텍스트 압축', hint: '', fg: 'var(--fg)', sep: 'none', onTap: () => { this.setState({ menu: false }); st.compact(T.id).catch(() => {}); } },
+        T.archived ? { label: '보관 해제', hint: '', fg: 'var(--fg)', sep, onTap: () => { this.setState({ menu: false }); st.unarchive(T.id); } } : { label: '보관', hint: '', fg: 'var(--fg)', sep, onTap: () => { this.setState({ menu: false }); st.archive(T.id); } },
+        T.subscribed ? { label: '구독 해제', hint: '실시간 알림 끔', fg: 'var(--fg)', sep: 'none', onTap: () => this.confirm('unsubscribe', T.id) } : { label: '구독', hint: '실시간 알림 켬', fg: 'var(--fg)', sep: 'none', onTap: () => { if (this.needsTakeover(T)) return this.confirm('takeover', T.id); this.setState({ menu: false }); st.resume(T.id); } },
+        { label: '삭제…', hint: '', fg: 'var(--err-fg)', sep, onTap: () => this.confirm('delete', T.id) },
+      ];
+    } else vals.menuItems = [];
+    Object.assign(vals, {
+      menuOpen: s.menu && !!T, closeMenu: () => this.setState({ menu: false }),
+      menuScrim: isPhone ? 'rgba(10,11,12,.5)' : 'transparent', menuJustify: isPhone ? 'stretch' : 'flex-end', menuAlign: isPhone ? 'flex-end' : 'flex-start',
+      menuPad: isPhone ? '0' : `${54 + (vals.connBanner ? 40 : 0) + 44}px ${isDesk ? 350 : 310}px 0 0`, menuW: isPhone ? '100%' : '240px', menuPadBottom: isPhone ? 'max(12px, env(safe-area-inset-bottom))' : '4px',
+    });
+
+    // ── dialogs ──
+    const d = s.dialog;
+    const dT = d ? st.T(d.id) : null;
+    const DLG = {
+      delete: ['세션을 삭제할까요?', `“${dT?.name || ''}” 세션과 기록이 모두 지워집니다. 되돌릴 수 없습니다.`, '삭제', 'var(--err)', async () => { await st.remove(d.id); this.setState({ selId: null, view: s.view === 'session' ? (isPhone ? 'board' : 'session') : s.view }); }],
+      takeover: ['대시보드로 이어 받을까요?', `이 세션을 app-server로 불러옵니다. 터미널 omo에서 같은 세션이 열려 있으면 두 곳에서 동시에 기록해 충돌하니 먼저 종료하세요. 목표(goal)나 끝나지 않은 todo가 있으면 불러오자마자 omo가 이어서 작업할 수 있습니다.${d?.text ? ` 확인하면 메시지 “${d.text.length > 60 ? `${d.text.slice(0, 60)}…` : d.text}”를 보냅니다.` : ''}${d?.settings ? ' 확인하면 모델 설정을 바꿉니다.' : ''}`, d?.text ? '이어 받고 보내기' : '이어 받기', 'var(--acc)', async () => { await st.resume(d.id); if (d.settings) await st.setSettings(d.id, d.settings); if (d.text) await st.send(d.id, d.text); this.openSession(d.id); }],
+      takeoverMany: ['여러 세션에 보낼까요?', `선택한 세션 중 ${(d?.ids || []).filter((id) => this.needsTakeover(st.T(id))).length}개는 아직 app-server에 불러오지 않았습니다. 터미널 omo에서 열려 있으면 충돌할 수 있고, 목표나 끝나지 않은 todo가 있으면 omo가 이어서 작업할 수 있습니다.`, '보내기', 'var(--acc)', () => this.sendMany(d.ids, d.text)],
+      interrupt: ['작업을 중단할까요?', '진행 중인 턴을 멈춥니다. 대기 중인 승인 요청도 함께 취소됩니다.', '중단', 'var(--err)', () => st.interrupt(d.id)],
+      unsubscribe: ['구독을 해제할까요?', '이 세션의 실시간 알림이 더 오지 않습니다. 구독자가 없으면 승인 요청은 자동으로 거절됩니다.', '해제', 'var(--acc)', () => st.unsubscribe(d.id)],
+      rename: ['이름 변경', '', '저장', 'var(--acc)', () => d.input.trim() && st.rename(d.id, d.input.trim())],
+    }[d?.kind] || null;
+    const ok = async () => { const fn = DLG?.[4]; this.setState({ dialog: null }); try { await fn?.(); } catch {} };
+    Object.assign(vals, {
+      dlgOpen: !!DLG, dlgTitle: DLG?.[0] || '', dlgBody: DLG?.[1] || '', dlgConfirm: DLG?.[2] || '', dlgOkBg: DLG?.[3] || 'var(--acc)',
+      dlgHasInput: d?.kind === 'rename', dlgInput: d?.input || '', onDlgInput: (e) => this.setState({ dialog: { ...d, input: e.target.value } }),
+      dlgKey: (e) => { if (e.key === 'Enter') ok(); }, dlgOk: ok, dlgCancel: () => this.setState({ dialog: null }),
+    });
+
+    // ── new session sheet ──
+    const sh = s.sheet;
+    const cw = this.cwdVals(sh, now, isPhone);
+    const shImgs = sh?.images || [];
+    const shUploading = shImgs.some((m) => m.status === 'uploading');
+    const shPaths = shImgs.filter((m) => m.status === 'ready').map((m) => m.path);
+    const canAttachSheet = !!(S && st?.c.backend?.upload);
+    const hasFiles = (e) => [...(e.dataTransfer?.types || [])].includes('Files');
+    Object.assign(vals, cw, {
+      canAttachSheet, sheetFileRef: this.sheetFileRef, pickSheetImage: () => this.sheetFileRef.current?.click(),
+      sheetPlaceholder: canAttachSheet ? '무엇을 할까요? ulw를 붙이면 계획 → 검증까지 진행합니다 · 이미지 붙여넣기' : '무엇을 할까요? ulw를 붙이면 계획 → 검증까지 진행합니다',
+      onSheetPick: (e) => { const files = S.imageFiles(e.target); e.target.value = ''; this.attachSheet(files); },
+      onSheetPaste: (e) => { if (!canAttachSheet) return; const files = S.imageFiles(e.clipboardData, { textWins: true }); if (!files.length) return; e.preventDefault(); this.attachSheet(files); },
+      onSheetDragOver: (e) => { if (canAttachSheet && hasFiles(e)) e.preventDefault(); },
+      onSheetDrop: (e) => { if (!canAttachSheet || !hasFiles(e)) return; e.preventDefault(); this.attachSheet(S.imageFiles(e.dataTransfer)); },
+      sheetImages: shImgs.map((m) => ({
+        key: m.id, preview: m.preview, title: m.status === 'error' ? `올리지 못했습니다: ${m.error}` : m.path || '올리는 중…',
+        bd: m.status === 'error' ? 'var(--err-line)' : 'var(--line2)', opacity: m.status === 'ready' ? '1' : '.55',
+        hasNote: m.status !== 'ready', note: m.status === 'error' ? '실패' : '올리는 중', noteColor: m.status === 'error' ? 'var(--err-fg)' : 'var(--fg2)',
+        onRemove: () => { URL.revokeObjectURL(m.preview); this.setState((x) => (x.sheet ? { sheet: { ...x.sheet, images: (x.sheet.images || []).filter((y) => y.id !== m.id) } } : {})); },
+      })),
+      sheetDisabled: cw.sheetDisabled || shUploading,
+      sheetOpen: !!sh, closeSheet: () => { this.dropSheetImages(sh); this.setState({ sheet: null }); }, sheetAlign: isPhone ? 'flex-end' : 'center', sheetPadBottom: isPhone ? 'max(12px, env(safe-area-inset-bottom))' : '12px',
+      sheetOuterPad: isPhone ? 'max(12px, env(safe-area-inset-top)) 0 0' : '12px', sheetTextH: window.innerHeight < 700 ? '60px' : '90px',
+      sheetText: sh?.text || '', onSheetText: (e) => this.setState({ sheet: { ...sh, text: e.target.value } }),
+      sheetCta: sh?.text?.trim() || shPaths.length ? '만들고 보내기' : '만들기',
+      createSession: async () => {
+        const cwd = cw._full;
+        if (!cw._valid || shUploading) return;
+        const text = S.withImages((sh.text || '').trim(), shPaths);
+        this.dropSheetImages(sh);
+        this.setState({ sheet: null });
+        try { const id = await st.startThread(cwd, text); this.openSession(id); } catch {}
+      },
+    });
+
+    // ── command palette ──
+    const pal = s.pal;
+    if (pal) {
+      const q = pal.q.trim().toLowerCase();
+      const actions = [
+        ['새 세션', 'N', () => this.setState({ sheet: { cwd: '', text: '' } })], ['인박스로 이동', 'g i', () => this.go('inbox')], ['보드로 이동', 'g b', () => this.go('board')],
+        ['세션 화면으로 이동', 'g s', () => this.go('session')], [`테마: ${theme === 'dark' ? '라이트로' : '다크로'} 전환`, '', () => this.setState({ theme: theme === 'dark' ? 'light' : 'dark' })],
+        ['여러 세션에 메시지 보내기', '', () => this.setState({ view: 'board', selMode: true, sel: {} })],
+        ...(this.mode === 'mock' ? [['연결 끊김 시뮬레이션', '데모', () => this.client.simulateDisconnect()]] : []),
+      ].filter(([l]) => !q || l.toLowerCase().includes(q)).map(([label, hint, run]) => ({ label, hint, dot: 'transparent', run }));
+      const sess = allViews.filter((v) => !q || `${v.name} ${v.cwd} ${v.statusLabel}`.toLowerCase().includes(q)).map((v) => ({ label: v.name, hint: `${v.projectName} · ${v.statusLabel}`, dot: v.statusColor, run: () => this.openSession(v.id) }));
+      const flat = [...sess, ...actions];
+      const idx = Math.min(pal.idx, Math.max(0, flat.length - 1));
+      let k = 0;
+      const row = (x) => { const i = k++; return { row: true, ...x, bg: i === idx ? 'var(--acc-tint)' : 'transparent', bar: i === idx ? 'inset 2px 0 0 var(--acc)' : 'none', onTap: (e) => { e.preventDefault(); this.setState({ pal: null }); x.run(); } }; };
+      const items = [];
+      if (sess.length) { items.push({ head: true, label: '세션' }); sess.forEach((x) => items.push(row(x))); }
+      if (actions.length) { items.push({ head: true, label: '동작' }); actions.forEach((x) => items.push(row(x))); }
+      Object.assign(vals, {
+        palOpen: true, palQ: pal.q, palItems: items, palEmpty: flat.length === 0, palPad: isPhone ? '8px' : '12vh 16px 16px',
+        onPalQ: (e) => this.setState({ pal: { q: e.target.value, idx: 0 } }),
+        palKey: (e) => {
+          if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); if (!flat.length) return; this.setState({ pal: { ...pal, idx: (idx + (e.key === 'ArrowDown' ? 1 : -1) + flat.length) % flat.length } }); }
+          else if (e.key === 'Enter') { e.preventDefault(); const x = flat[idx]; if (x) { this.setState({ pal: null }); x.run(); } }
+        },
+        closePalette: () => this.setState({ pal: null }),
+      });
+    } else Object.assign(vals, { palOpen: false, palItems: [] });
+    return vals;
+  }
+}
+</script>
+</body>
+</html>
