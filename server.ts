@@ -322,6 +322,7 @@ async function saveUpload(req: Request) {
 const STATIC = new Set([
   ENTRY, '/support.js', '/app/real-client.js', '/app/mock-client.js', '/app/store.js', '/app/styles.css',
   '/McSessionCard.dc.html', '/McRequestCard.dc.html', '/McItem.dc.html', '/McComposer.dc.html',
+  '/manifest.webmanifest', '/app/icon-180.png', '/app/icon-512.png',
 ]);
 async function serveStatic(pathname: string) {
   if (!STATIC.has(decodeURIComponent(pathname))) return new Response('not found', { status: 404 });
