@@ -1,7 +1,7 @@
 // omonitor local backend — static files + WS relay to `omo app-server`, bound to 127.0.0.1 only.
 //   bun server.ts          # real mode: relays to ws://127.0.0.1:18800 with the token file
 //   bun server.ts --mock   # UI runs on the in-browser simulator (no app-server needed)
-// Env: PORT (4800), OMO_APP_SERVER_URL, OMO_WS_TOKEN_FILE
+// Env: PORT (4800), OMO_APP_SERVER_URL, OMO_WS_TOKEN_FILE, OMONITOR_ORIGINS
 import { mkdir, readFile, readdir, realpath, stat } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -15,7 +15,9 @@ const TOKEN_FILE = process.env.OMO_WS_TOKEN_FILE || join(AGENT_DIR, 'app-server/
 const ROOT = import.meta.dir;
 const ENTRY = '/Mission Control.dc.html';
 const KEY = crypto.randomUUID();
-const ORIGINS = new Set([`http://${HOST}:${PORT}`, `http://localhost:${PORT}`]);
+// OMONITOR_ORIGINS: extra allowed origins (comma-separated), e.g. a reverse-proxy/tunnel hostname in front of this port.
+const EXTRA_ORIGINS = (process.env.OMONITOR_ORIGINS || '').split(',').map((s) => s.trim()).filter(Boolean);
+const ORIGINS = new Set([`http://${HOST}:${PORT}`, `http://localhost:${PORT}`, ...EXTRA_ORIGINS]);
 
 const originOk = (req: Request) => { const o = req.headers.get('origin'); return !o || ORIGINS.has(o); };
 const keyOk = (req: Request, url: URL) => (url.searchParams.get('key') || req.headers.get('x-mc-key')) === KEY;

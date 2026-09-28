@@ -36,6 +36,7 @@ omonitor open     # 브라우저에서 http://127.0.0.1:4800 을 엽니다
 | `PORT` | `4800` | 대시보드 포트 |
 | `OMO_APP_SERVER_URL` | `ws://127.0.0.1:18800` | omo app-server 주소 |
 | `OMO_WS_TOKEN_FILE` | `~/.omo/agent/app-server/ws-token` | app-server 인증 토큰 파일 |
+| `OMONITOR_ORIGINS` | (없음) | 추가로 허용할 Origin (쉼표 구분). 터널·리버스 프록시 주소로 열 때 지정합니다. 예: `https://omo.example.com` |
 
 예: 다른 포트의 app-server에 붙이려면 `OMO_APP_SERVER_URL=ws://127.0.0.1:18990 omonitor start`를 사용하고, app-server의 `--ws-auth` 토큰 경로가 다르면 `OMO_WS_TOKEN_FILE`도 지정합니다. `omonitor start`를 실행할 때의 값(과 `PATH`)이 서비스에 저장되므로, 바꾸려면 새 값으로 `omonitor start`를 다시 실행합니다.
 

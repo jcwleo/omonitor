@@ -19,7 +19,7 @@ const SERVICE_FILE = MAC
   : join(process.env.XDG_CONFIG_HOME || join(HOME, '.config'), 'systemd/user', UNIT_NAME);
 // Settings copied from the installing shell into the service, together with its PATH so the service finds the same
 // omo, bun and node.
-const PASS_ENV = ['OMO_APP_SERVER_URL', 'OMO_WS_TOKEN_FILE'];
+const PASS_ENV = ['OMO_APP_SERVER_URL', 'OMO_WS_TOKEN_FILE', 'OMONITOR_ORIGINS'];
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 function sh(cmd: string[]) {
