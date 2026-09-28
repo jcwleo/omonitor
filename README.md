@@ -68,7 +68,6 @@ omonitor open     # 브라우저에서 http://127.0.0.1:4800 을 엽니다
 | `bin/omonitor.ts` | `omonitor` 명령과 백그라운드 서비스(LaunchAgent·systemd) 관리 |
 | `Mission Control.dc.html`, `Mc*.dc.html` | 대시보드와 UI 컴포넌트 |
 | `app/real-client.js`, `app/store.js` | 실제 클라이언트와 화면 상태 |
+| `app/styles.css` | 디자인 토큰과 버튼·입력창·다이얼로그 스타일 |
 | `app/mock-client.js` | 명시적 시뮬레이터용 클라이언트 |
 | `src/` | 프로토콜 타입과 상태 로직 참고 소스 |
-
-개발용 디자인 탐색 파일(`Board Options.dc.html` 등)은 서버에서 공개되지 않습니다.
