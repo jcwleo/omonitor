@@ -9,6 +9,10 @@
 <x-dc>
 <helmet>
 <link rel="stylesheet" href="app/styles.css">
+<style>
+/* One line of hint: a wrapped placeholder would spill past the one-line box on narrow screens. */
+.mc-compose-ta::placeholder{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+</style>
 </helmet>
 <div style="position:relative;display:flex;flex-direction:column;font-family:var(--font-body);color:var(--fg);background:var(--bg)">
 <sc-if value="{{ palShow }}">
@@ -37,7 +41,7 @@
 <sc-if value="{{ hasImages }}"><div style="display:flex;gap:8px;flex-wrap:wrap;padding:6px 6px 2px 0"><sc-for list="{{ imageChips }}" as="im"><div title="{{ im.title }}" style="position:relative;width:56px;height:56px;flex:none;border:1px solid {{ im.bd }};background:var(--tint)"><img src="{{ im.preview }}" alt="붙여넣은 이미지" style="display:block;width:100%;height:100%;object-fit:cover;opacity:{{ im.opacity }}"><sc-if value="{{ im.hasNote }}"><span style="position:absolute;left:0;right:0;bottom:0;padding:1px 0;font-size:11px;text-align:center;background:rgba(10,11,12,.72);color:{{ im.noteColor }}">{{ im.note }}</span></sc-if><button onClick="{{ im.onRemove }}" title="첨부 빼기" style="all:unset;cursor:pointer;position:absolute;top:-8px;right:-8px;width:22px;height:22px;display:grid;place-items:center;border-radius:50%;background:var(--bg2);border:1px solid var(--line2);font-size:14px;line-height:1;color:var(--fg)">×</button></div></sc-for></div></sc-if>
 <div style="display:grid;grid-template-areas:{{ areas }};grid-template-columns:auto minmax(0,1fr) auto auto;gap:4px;align-items:end">
 <button class="btn btn-secondary" onClick="{{ toggleModel }}" title="{{ modelTitle }}" style="grid-area:model;min-height:44px;min-width:44px;max-width:min(220px,38vw);padding:0 8px;display:flex;align-items:center;gap:5px;white-space:nowrap"><span style="font:12.5px var(--mono);color:var(--fg);overflow:hidden;text-overflow:ellipsis;min-width:0">{{ modelShort }}</span><sc-if value="{{ hasEffortLabel }}"><span style="flex:none;font:12px var(--mono);color:var(--fg3)">{{ effortLabel }}</span></sc-if><span style="flex:none;font-size:11px;color:var(--fg3)">▾</span></button>
-<textarea ref="{{ taRef }}" rows="1" class="input" value="{{ text }}" onChange="{{ onChange }}" onKeyDown="{{ onKey }}" onCompositionEnd="{{ onCompEnd }}" onPaste="{{ onPaste }}" placeholder="{{ placeholder }}" style="grid-area:input;display:block;min-height:44px;height:44px;max-height:150px;resize:none;overflow-y:auto;padding:12px 8px;font-size:14.5px;line-height:1.4;color:var(--fg);min-width:0;width:100%;box-sizing:border-box"></textarea>
+<textarea ref="{{ taRef }}" rows="1" class="input mc-compose-ta" value="{{ text }}" onChange="{{ onChange }}" onKeyDown="{{ onKey }}" onCompositionEnd="{{ onCompEnd }}" onPaste="{{ onPaste }}" placeholder="{{ placeholder }}" style="grid-area:input;display:block;min-height:44px;height:44px;max-height:150px;resize:none;overflow-y:auto;padding:11px 8px;font-size:14.5px;line-height:20px;color:var(--fg);min-width:0;width:100%;box-sizing:border-box"></textarea>
 <button class="btn btn-primary blueprint" disabled="{{ sendDisabled }}" onClick="{{ send }}" style="grid-area:send;min-height:44px;padding:0 9px;font-size:14px;white-space:nowrap"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>{{ sendLabel }}</button>
 <sc-if value="{{ c.running }}"><button class="btn btn-secondary" onClick="{{ c.onInterrupt }}" style="grid-area:stop;min-height:44px;min-width:44px;padding:0 7px;font-size:13px;white-space:nowrap;color:var(--err-fg);border-color:var(--err-line)">중단</button></sc-if>
 <sc-if value="{{ hasUsage }}"><div style="grid-area:ctx;display:flex;align-items:center;gap:6px;padding:0 2px;align-self:center;min-width:0"><div style="flex:1;height:2px;background:var(--line);position:relative;min-width:24px"><div style="position:absolute;inset:0 auto 0 0;width:{{ usagePct }};background:{{ usageColor }};transition:width .4s"></div></div><span style="font:12px var(--mono);color:var(--fg3);white-space:nowrap">{{ usageLabel }}</span></div></sc-if>
@@ -105,8 +109,12 @@ class Component extends DCLogic {
   }
   fit() {
     const el = this.taRef.current; if (!el) return;
+    // Measure without the placeholder: scrollHeight counts its text, which wraps on narrow screens.
+    const ph = el.placeholder;
+    el.placeholder = '';
     el.style.height = '44px';
     el.style.height = `${Math.min(el.scrollHeight + 2, 150)}px`;
+    el.placeholder = ph;
   }
   items(text) {
     const q = text.slice(1).toLowerCase();
