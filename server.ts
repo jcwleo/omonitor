@@ -136,11 +136,14 @@ async function listSkills(cwd?: string) {
 const HISTORY_TURNS = 60;
 const clip = (s: string, n = 4000) => (s.length > n ? `${s.slice(0, n)}\n… (${s.length - n}자 생략)` : s);
 const textOf = (content: any): string => (typeof content === 'string' ? content : Array.isArray(content) ? content.filter((c) => c?.type === 'text').map((c) => c.text).join('\n') : '');
+// app-server names a new session's file at thread/start but writes it only once something is recorded, so a session
+// with nothing sent yet has no file: that is an empty session, not an error.
+const readSession = (path: string) => readFile(path, 'utf8').catch((e: any) => (e?.code === 'ENOENT' ? '' : Promise.reject(e)));
 // Follows the latest entry's parent chain (the active branch) and starts one turn per user message.
 async function parseHistory(path: string) {
   const entries = new Map<string, any>();
   let leaf: string | null = null;
-  for (const line of (await readFile(path, 'utf8')).split('\n')) {
+  for (const line of (await readSession(path)).split('\n')) {
     if (!line.trim()) continue;
     let e: any;
     try { e = JSON.parse(line); } catch { continue; }
@@ -268,7 +271,7 @@ async function threadMeta(threadId: string) {
   if (!path) return { agents: [], usage: null };
   const agents = new Map<string, any>();
   let last: any = null;
-  for (const line of (await readFile(path, 'utf8')).split('\n')) {
+  for (const line of (await readSession(path)).split('\n')) {
     if (!line.includes('"usage"') && !line.includes('"toolName":"task"') && !line.includes('senpi-task.completion') && !line.includes('"type":"compaction"')) continue;
     let e: any;
     try { e = JSON.parse(line); } catch { continue; }

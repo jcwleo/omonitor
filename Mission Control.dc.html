@@ -3,6 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<title>omonitor</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2064%2064'%3E%3Crect%20width%3D'64'%20height%3D'64'%20rx%3D'14'%20fill%3D'%231d1f20'%2F%3E%3Ccircle%20cx%3D'30'%20cy%3D'34'%20r%3D'16'%20fill%3D'none'%20stroke%3D'%2394bce3'%20stroke-width%3D'7'%2F%3E%3Ccircle%20cx%3D'48'%20cy%3D'16'%20r%3D'8'%20fill%3D'%238abeb7'%20stroke%3D'%231d1f20'%20stroke-width%3D'3'%2F%3E%3C%2Fsvg%3E">
 <script src="./support.js"></script>
 </head>
 <body>
@@ -42,6 +44,8 @@ html,body{margin:0;height:100%;background:#1d1f20}
 <button onClick="{{ toggleGroup }}" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:5px;min-height:36px;padding:0 7px;box-sizing:border-box;border:1px solid var(--line)" style-hover="background:var(--hover)"><span style="width:20px;height:11px;border:1px solid var(--fg3);position:relative;display:inline-block"><span style="position:absolute;top:1px;width:7px;height:7px;background:{{ groupKnob }};left:{{ groupLeft }};transition:left .15s"></span></span>프로젝트별</button>
 <button onClick="{{ toggleSelMode }}" style="all:unset;cursor:pointer;min-height:36px;padding:0 7px;box-sizing:border-box;border:1px solid {{ selModeBd }};background:{{ selModeBg }};display:flex;align-items:center" style-hover="background:var(--hover)">{{ selModeLabel }}</button>
 </sc-if>
+<button onClick="{{ askNotify }}" title="{{ nbTitle }}" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:5px;min-height:36px;padding:0 7px;box-sizing:border-box;border:1px solid var(--line)" style-hover="background:var(--hover)"><span style="width:20px;height:11px;border:1px solid var(--fg3);position:relative;display:inline-block"><span style="position:absolute;top:1px;width:7px;height:7px;background:{{ nbKnob }};left:{{ nbLeft }};transition:left .15s"></span></span>알림</button>
+<button onClick="{{ toggleSound }}" title="새 질문·승인 요청이 오면 소리로 알립니다" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:5px;min-height:36px;padding:0 7px;box-sizing:border-box;border:1px solid var(--line)" style-hover="background:var(--hover)"><span style="width:20px;height:11px;border:1px solid var(--fg3);position:relative;display:inline-block"><span style="position:absolute;top:1px;width:7px;height:7px;background:{{ nsKnob }};left:{{ nsLeft }};transition:left .15s"></span></span>알림음</button>
 <button onClick="{{ toggleTheme }}" title="테마 전환" style="all:unset;cursor:pointer;min-height:36px;padding:0 7px;box-sizing:border-box;border:1px solid var(--line);display:flex;align-items:center" style-hover="background:var(--hover)">{{ themeLabel }}</button>
 <button onClick="{{ openPalette }}" style="all:unset;cursor:pointer;min-height:36px;padding:0 6px;box-sizing:border-box;border:1px solid var(--line);font:10px var(--mono);color:var(--fg3);display:flex;align-items:center" style-hover="background:var(--hover)">⌘K</button>
 <button class="btn btn-primary blueprint" onClick="{{ openNew }}" style="font-size:11.5px;min-height:36px;padding:0 10px"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>새 세션</button>
@@ -55,7 +59,6 @@ html,body{margin:0;height:100%;background:#1d1f20}
 <span style="font:600 18.5px/1 var(--font-heading)">{{ phoneTitle }}</span>
 <span style="font:10.5px var(--mono);color:{{ phoneCountColor }};margin-left:6px">{{ phoneCount }}</span>
 <sc-if value="{{ vBoard }}"><button onClick="{{ toggleGroup }}" style="all:unset;cursor:pointer;margin-left:auto;min-height:44px;padding:0 6px;font-size:10.5px;color:{{ groupFg }};display:flex;align-items:center">프로젝트별</button><button onClick="{{ toggleAllC }}" style="all:unset;cursor:pointer;min-height:44px;padding:0 6px;font-size:10.5px;color:var(--fg2);display:flex;align-items:center">{{ allCLabel }}</button><button onClick="{{ toggleSelMode }}" style="all:unset;cursor:pointer;min-height:44px;padding:0 7px 0 4px;font-size:10.5px;color:{{ selModeFg }};display:flex;align-items:center">{{ selModeShort }}</button></sc-if>
-<sc-if value="{{ vInbox }}"><span style="margin-left:auto;display:flex;align-items:center;gap:4px;font-size:10px;color:var(--fg2);padding-right:9px"><span style="width:6px;height:6px;border-radius:50%;background:{{ connDot }}"></span>{{ connLabel }}</span></sc-if>
 </div>
 <sc-if value="{{ hasProjectFilter }}"><div style="padding:0 10px 3px;flex:none"><button onClick="{{ clearProjectFilter }}" style="all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:0 9px;box-sizing:border-box;border:1px solid var(--acc);background:var(--acc-tint);font:10.5px var(--mono)">{{ projectFilter }}<span style="font-family:var(--font-body);color:var(--fg2)">✕</span></button></div></sc-if>
 </sc-if>
@@ -115,24 +118,6 @@ html,body{margin:0;height:100%;background:#1d1f20}
 <sc-if value="{{ sec.isEmpty }}"><div style="border:1px dashed var(--line);padding:7px 9px;font-size:10.5px;color:var(--fg3)">없음</div></sc-if>
 </div></sc-if>
 </sc-for>
-</div>
-</sc-if>
-
-<sc-if value="{{ vInboxReady }}">
-<div style="flex:1;overflow:auto">
-<div style="max-width:760px;margin:0 auto;padding:{{ inboxPad }};display:flex;flex-direction:column;gap:7px">
-<sc-if value="{{ notPhone }}"><div style="display:flex;align-items:flex-end;gap:7px;padding:4px 0 3px"><span style="font:600 25px/1 var(--font-heading)">입력 필요</span><span style="font:500 11.5px var(--mono);color:var(--warn);padding-bottom:2px">{{ inboxCount }}</span><span style="margin-left:auto;font-size:10.5px;color:var(--fg3)">{{ inboxSub }}</span></div></sc-if>
-<div style="display:flex;flex-wrap:wrap;gap:4px;font-size:10.5px;color:var(--fg2)">
-<button onClick="{{ askNotify }}" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:5px;min-height:36px;padding:0 7px;border:1px solid var(--line)"><span style="width:20px;height:11px;border:1px solid var(--fg3);position:relative;display:inline-block"><span style="position:absolute;top:1px;width:7px;height:7px;background:{{ nbKnob }};left:{{ nbLeft }}"></span></span>브라우저 알림<span style="color:var(--fg3)">{{ nbHint }}</span></button>
-<button onClick="{{ toggleSound }}" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:5px;min-height:36px;padding:0 7px;border:1px solid var(--line)"><span style="width:20px;height:11px;border:1px solid var(--fg3);position:relative;display:inline-block"><span style="position:absolute;top:1px;width:7px;height:7px;background:{{ nsKnob }};left:{{ nsLeft }}"></span></span>알림음</button>
-</div>
-<sc-for list="{{ reqs }}" as="r" hint-placeholder-count="2"><dc-import name="McRequestCard" r="{{ r }}" hint-size="100%,220px"></dc-import></sc-for>
-<sc-if value="{{ inboxEmpty }}"><div class="blueprint" style="padding:22px 14px;display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;margin-top:6px"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i><span style="font:600 17.5px var(--font-heading)">기다리는 요청이 없습니다</span><span style="font-size:11px;color:var(--fg2);line-height:1.5">승인 요청이나 질문이 오면 여기에 쌓이고, 알림을 켜 두면 탭이 뒤에 있어도 알려 드립니다.</span></div></sc-if>
-<sc-if value="{{ hasResolved }}">
-<button onClick="{{ toggleResolved }}" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:5px;min-height:44px;font-size:10px;letter-spacing:.06em;color:var(--fg3)">처리함 <span style="font-family:var(--mono)">{{ resolvedCount }}</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="margin-left:auto;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;transition:transform .2s;transform:rotate({{ resolvedRot }})"><path d="m6 9 6 6 6-6"></path></svg></button>
-<sc-if value="{{ resolvedOpen }}"><sc-for list="{{ resolvedList }}" as="x"><div style="display:flex;align-items:center;gap:7px;min-height:40px;border-top:1px solid var(--line-soft);font-size:10.5px"><span style="color:{{ x.color }};white-space:nowrap">{{ x.verdict }}</span><span style="color:var(--fg2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ x.name }}</span><span style="margin-left:auto;font-size:10px;color:var(--fg3);white-space:nowrap">{{ x.ago }}</span></div></sc-for></sc-if>
-</sc-if>
-</div>
 </div>
 </sc-if>
 
@@ -225,7 +210,7 @@ html,body{margin:0;height:100%;background:#1d1f20}
 </div>
 
 <sc-if value="{{ phoneTabBar }}">
-<div style="flex:none;display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--line);padding:2px 6px max(4px, env(safe-area-inset-bottom));background:var(--bg)">
+<div style="flex:none;display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--line);padding:2px 6px max(4px, env(safe-area-inset-bottom));background:var(--bg)">
 <sc-for list="{{ phoneTabs }}" as="t" hint-placeholder-count="4"><button onClick="{{ t.onTap }}" style="all:unset;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:48px;color:{{ t.fg }};font-size:10px;position:relative"><span style="font:13.5px/1 var(--mono);height:20px;display:flex;align-items:center">{{ t.icon }}</span>{{ t.label }}<sc-if value="{{ t.hasBadge }}"><span style="position:absolute;top:3px;left:calc(50% + 6px);font:600 10px var(--mono);background:var(--warn);color:var(--on-acc);padding:0 3px;min-width:14px;text-align:center">{{ t.badge }}</span></sc-if></button></sc-for>
 </div>
 </sc-if>
@@ -259,7 +244,7 @@ html,body{margin:0;height:100%;background:#1d1f20}
 <sc-for list="{{ palItems }}" as="p"><sc-if value="{{ p.head }}"><div style="font-size:10px;letter-spacing:.08em;color:var(--fg3);padding:6px 10px 2px">{{ p.label }}</div></sc-if><sc-if value="{{ p.row }}"><button onMouseDown="{{ p.onTap }}" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:7px;width:100%;box-sizing:border-box;min-height:42px;padding:0 10px;background:{{ p.bg }};box-shadow:{{ p.bar }}"><span style="width:6px;height:6px;border-radius:50%;background:{{ p.dot }};flex:none"></span><span style="font-size:11.5px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ p.label }}</span><span style="font:10px var(--mono);color:var(--fg3);white-space:nowrap">{{ p.hint }}</span></button></sc-if></sc-for>
 <sc-if value="{{ palEmpty }}"><div style="padding:10px;font-size:10.5px;color:var(--fg3)">결과가 없습니다</div></sc-if>
 </div>
-<div style="display:flex;flex-wrap:wrap;column-gap:9px;row-gap:2px;padding:4px 10px;font-size:10px;color:var(--fg3);border-top:1px solid var(--line-soft)"><span style="white-space:nowrap"><span style="font-family:var(--mono)">↑↓</span> 이동</span><span style="white-space:nowrap"><span style="font-family:var(--mono)">Enter</span> 실행</span><span style="white-space:nowrap"><span style="font-family:var(--mono)">g i</span> 인박스</span><span style="white-space:nowrap"><span style="font-family:var(--mono)">g b</span> 보드</span><span style="white-space:nowrap"><span style="font-family:var(--mono)">j/k</span> 목록</span></div>
+<div style="display:flex;flex-wrap:wrap;column-gap:9px;row-gap:2px;padding:4px 10px;font-size:10px;color:var(--fg3);border-top:1px solid var(--line-soft)"><span style="white-space:nowrap"><span style="font-family:var(--mono)">↑↓</span> 이동</span><span style="white-space:nowrap"><span style="font-family:var(--mono)">Enter</span> 실행</span><span style="white-space:nowrap"><span style="font-family:var(--mono)">g b</span> 보드</span><span style="white-space:nowrap"><span style="font-family:var(--mono)">j/k</span> 목록</span></div>
 </div>
 </div>
 </sc-if>
@@ -333,12 +318,15 @@ html,body{margin:0;height:100%;background:#1d1f20}
 </x-dc>
 <script type="text/x-dc" data-dc-script data-props="{&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;dark&quot;,&quot;light&quot;],&quot;default&quot;:&quot;dark&quot;,&quot;tsType&quot;:&quot;'dark' | 'light'&quot;,&quot;section&quot;:&quot;화면&quot;},&quot;showDemo&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;데모&quot;}}">
 const SPEEDS = [1, 2, 4, 0.5, 0];
-const ICON = { inbox: '⊡', board: '▥', sessions: '≡', new: '+' };
+const ICON = { board: '▥', sessions: '≡', new: '+' };
 const GROUP_CAP = 5; // sessions per project shown in a grouped board column before "더 보기"
+// Tab icon: a ring on the dashboard background; the dot turns amber while omo waits for an answer or approval.
+const tabIcon = (dot) => `data:image/svg+xml,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='#1d1f20'/><circle cx='30' cy='34' r='16' fill='none' stroke='#94bce3' stroke-width='7'/><circle cx='48' cy='16' r='8' fill='${dot}' stroke='#1d1f20' stroke-width='3'/></svg>`)}`;
+const TAB_ICON = { ok: tabIcon('#8abeb7'), wait: tabIcon('#e8b75a') };
 class Component extends DCLogic {
   state = { v: 0, now: Date.now(), w: window.innerWidth, view: 'board', selId: null, backTo: 'board', theme: null, drawer: false, drawerMounted: false,
     pal: null, sheet: null, dialog: null, menu: false, selMode: false, sel: {}, multiText: '', grouped: false, groupOpen: {}, panels: { left: false, right: false }, colC: {}, secC: { archived: true },
-    exp: {}, allC: false, inboxOpen: undefined, resolvedOpen: false, rtab: 'todo', ptab: 'tl', q: '', lf: 'all', focus: -1, pf: null, speedIdx: 0,
+    exp: {}, allC: false, rtab: 'todo', ptab: 'tl', q: '', lf: 'all', focus: -1, pf: null, speedIdx: 0,
     goalDraft: '', goalBudgetDraft: '', fatal: null, nb: false, ns: false };
   tlRef = React.createRef();
   sheetFileRef = React.createRef();
@@ -391,7 +379,15 @@ class Component extends DCLogic {
     } catch (e) { console.error(e); this.setState({ fatal: String(e?.message || e) }); }
   }
   componentWillUnmount() { window.removeEventListener('resize', this.onResize); window.removeEventListener('keydown', this.onKey); window.removeEventListener('dragover', this.onWinDrag); window.removeEventListener('drop', this.onWinDrag); clearInterval(this.tick); this.client?.close(); }
+  // The browser tab names the current screen and shows pending questions/approvals, so a background tab tells when
+  // omo is waiting: "(2) 보드 · omonitor" with an amber dot on the icon.
+  syncTab() {
+    if (this._tabTitle && document.title !== this._tabTitle) document.title = this._tabTitle;
+    const link = document.querySelector('link[rel="icon"]');
+    if (link && this._tabIcon && link.getAttribute('href') !== this._tabIcon) link.setAttribute('href', this._tabIcon);
+  }
   componentDidUpdate() {
+    this.syncTab();
     const pin = () => {
       const el = document.querySelector('[data-tl]');
       if (!el || !this.stick) return;
@@ -477,7 +473,7 @@ class Component extends DCLogic {
     if (typing || this.state.pal || this.state.dialog || this.state.sheet) return;
     if (this.gAt && Date.now() - this.gAt < 900) {
       this.gAt = 0;
-      if (e.key === 'i') this.go('inbox'); else if (e.key === 'b') this.go('board'); else if (e.key === 's') this.go('session');
+      if (e.key === 'b') this.go('board'); else if (e.key === 's') this.go('session');
       return;
     }
     if (e.key === 'g') { this.gAt = Date.now(); return; }
@@ -514,25 +510,21 @@ class Component extends DCLogic {
       onAccept: stop(() => st.respondApproval(o.reqId, 'accept')),
       onAcceptSession: stop(() => st.respondApproval(o.reqId, 'acceptForSession')),
       onDecline: stop(() => st.respondApproval(o.reqId, 'decline')),
-      onAnswer: stop(() => this.setState({ view: 'inbox', inboxOpen: o.reqId })),
+      onAnswer: stop(() => this.openSession(T.id)), // the question card waits in the session's timeline
       onTakeover: stop(() => this.confirm('takeover', T.id)),
     });
   }
 
-  // inline: the card sits in its own session's timeline, so it is always open and does not name or link the session.
-  requestView(r, now, lay, inline = false) {
+  // A question/approval card in its own session's timeline: always open, and it does not name or link the session.
+  requestView(r, now) {
     const S = this.S, st = this.store;
     const T = st.T(r.params?.threadId) || {};
     const p = r.params || {};
     const isQ = r.method === 'item/tool/requestUserInput';
-    const openId = this.state.inboxOpen === undefined ? this._firstReq : this.state.inboxOpen;
-    const collapsible = lay === 'phone' && !inline;
-    const open = !collapsible || openId === r.id;
     return {
-      id: r.id, key: r.id, kind: isQ ? `질문 ${(p.questions || []).length}개` : S.REQ_KIND[r.method] || '승인 요청', cwd: S.shortPath(T.cwd || ''), showSession: !inline,
-      sessionName: inline ? (isQ ? '에이전트가 답을 기다립니다' : '에이전트가 승인을 기다립니다') : T.name || T.preview?.slice(0, 30) || '세션',
-      ago: S.ago(now - r.receivedAt), countdown: S.countdown(r, now), isApproval: !isQ, isQuestion: isQ, collapsible, open,
-      onToggle: () => this.setState({ inboxOpen: open ? null : r.id }),
+      id: r.id, key: r.id, kind: isQ ? `질문 ${(p.questions || []).length}개` : S.REQ_KIND[r.method] || '승인 요청', cwd: S.shortPath(T.cwd || ''), showSession: false,
+      sessionName: isQ ? '에이전트가 답을 기다립니다' : '에이전트가 승인을 기다립니다',
+      ago: S.ago(now - r.receivedAt), countdown: S.countdown(r, now), isApproval: !isQ, isQuestion: isQ, collapsible: false, open: true,
       reason: p.reason || '', hasReason: !!p.reason, code: p.command || '', hasCommand: !!p.command,
       files: (p.changes || []).map((c) => {
         const lines = (c.diff || '').split('\n').filter((l) => l && !/^(diff --git|index |--- |\+\+\+ )/.test(l));
@@ -543,7 +535,6 @@ class Component extends DCLogic {
       questions: p.questions || [],
       onAccept: () => st.respondApproval(r.id, 'accept'), onAcceptSession: () => st.respondApproval(r.id, 'acceptForSession'), onDecline: () => st.respondApproval(r.id, 'decline'),
       onAnswer: (answers, comment) => st.answer(r.id, answers, comment).catch(() => {}),
-      onOpenSession: () => this.openSession(T.id),
     };
   }
 
@@ -669,7 +660,6 @@ class Component extends DCLogic {
     const focusId = s.focus >= 0 ? nav[s.focus] : null;
     const views = threads.map((T) => this.sessionView(T, now, lay, focusId));
     const reqsAll = [...st.s.requests.values()].sort((a, b) => a.receivedAt - b.receivedAt);
-    this._firstReq = reqsAll[0]?.id;
     const inboxN = reqsAll.length;
 
     const columns = S.COLS.map((c) => {
@@ -705,14 +695,12 @@ class Component extends DCLogic {
     });
     this._cols = columns;
 
-    const tabDefs = [['board', '보드', ''], ['inbox', '인박스', inboxN ? String(inboxN) : ''], ['session', '세션', '']];
+    const tabDefs = [['board', '보드', inboxN ? String(inboxN) : ''], ['session', '세션', '']];
     const tabs = tabDefs.map(([k, label, badge]) => ({ label, badge, hasBadge: !!badge, fg: s.view === k ? 'var(--fg)' : 'var(--fg2)', line: s.view === k ? 'inset 0 -2px 0 var(--acc)' : 'none', onTap: () => this.go(k) }));
-    const phoneTabs = [['board', '보드', ICON.board], ['inbox', '인박스', ICON.inbox], ['session', '세션', ICON.sessions], ['new', '새 세션', ICON.new]].map(([k, label, icon]) => ({
-      label, icon, badge: k === 'inbox' && inboxN ? String(inboxN) : '', hasBadge: k === 'inbox' && inboxN > 0, fg: s.view === k ? 'var(--acc-fg)' : 'var(--fg3)',
+    const phoneTabs = [['board', '보드', ICON.board], ['session', '세션', ICON.sessions], ['new', '새 세션', ICON.new]].map(([k, label, icon]) => ({
+      label, icon, badge: k === 'board' && inboxN ? String(inboxN) : '', hasBadge: k === 'board' && inboxN > 0, fg: s.view === k ? 'var(--acc-fg)' : 'var(--fg3)',
       onTap: () => (k === 'new' ? this.setState({ sheet: { cwd: '', text: '' } }) : this.go(k)) }));
 
-    const reqs = reqsAll.map((r) => this.requestView(r, now, lay));
-    const resolvedList = st.s.resolved.map((x) => ({ name: st.T(x.threadId)?.name || st.T(x.threadId)?.preview?.slice(0, 30) || '세션', verdict: x.verdict, color: /거절|취소/.test(x.verdict) ? 'var(--err-fg)' : /다른 곳/.test(x.verdict) ? 'var(--fg3)' : 'var(--acc-fg)', ago: S.ago(now - x.at) }));
 
     const connState = conn.state;
     const vals = {
@@ -721,23 +709,21 @@ class Component extends DCLogic {
       reconnectNow: () => this.client.reconnectNow(),
       connDot: connState === 'open' ? 'var(--acc)' : connState === 'reconnecting' || connState === 'connecting' ? 'var(--warn)' : 'var(--err)',
       connLabel: { open: '연결됨', connecting: '연결 중', reconnecting: '재연결 중', closed: '끊김' }[connState] || connState,
-      tabs, phoneTabs, inboxCount: String(inboxN),
-      vBoard: s.view === 'board', vInbox: s.view === 'inbox',
+      tabs, phoneTabs,
+      vBoard: s.view === 'board',
       boardDesk: !loading && s.view === 'board' && !isPhone, boardPhone: !loading && s.view === 'board' && isPhone,
-      vInboxReady: !loading && s.view === 'inbox', vSessionReady: !loading && s.view === 'session',
+      vSessionReady: !loading && s.view === 'session',
       columns, cardGap: isDesk ? '8px' : '6px',
       phoneTop: isPhone && s.view !== 'session', phoneTabBar: isPhone && s.view !== 'session',
-      phoneTitle: s.view === 'inbox' ? '입력 필요' : '보드', phoneCount: s.view === 'inbox' ? String(inboxN) : `${views.filter((v) => v.col !== 'archived').length}개`,
-      phoneCountColor: s.view === 'inbox' ? 'var(--warn)' : 'var(--fg3)',
+      phoneTitle: '보드', phoneCount: `${views.filter((v) => v.col !== 'archived').length}개`,
+      phoneCountColor: 'var(--fg3)',
       toggleAllC: () => this.setState((x) => ({ allC: !x.allC, exp: {} })), allCLabel: s.allC ? '모두 펼치기' : '모두 접기',
       toggleGroup: () => this.setState((x) => ({ grouped: !x.grouped })), groupFg: s.grouped ? 'var(--acc-fg)' : 'var(--fg2)', groupKnob: s.grouped ? 'var(--acc)' : 'var(--fg3)', groupLeft: s.grouped ? '10px' : '1px',
       toggleSelMode: () => this.setState((x) => ({ selMode: !x.selMode, sel: {}, multiText: '' })),
       selModeLabel: s.selMode ? '선택 끝내기' : '여러 세션 선택', selModeShort: s.selMode ? '완료' : '선택', selModeFg: s.selMode ? 'var(--acc-fg)' : 'var(--fg2)',
       selModeBd: s.selMode ? 'var(--acc)' : 'var(--line)', selModeBg: s.selMode ? 'var(--acc-tint)' : 'transparent',
-      reqs, inboxEmpty: reqs.length === 0, inboxSub: reqs.length ? '카드에서 바로 답할 수 있습니다' : '', inboxPad: isPhone ? '2px 10px 14px' : '12px 14px 28px',
-      resolvedList, hasResolved: resolvedList.length > 0, resolvedCount: String(resolvedList.length), resolvedOpen: s.resolvedOpen || !isPhone, resolvedRot: (s.resolvedOpen || !isPhone) ? '180deg' : '0deg',
-      toggleResolved: () => this.setState((x) => ({ resolvedOpen: !x.resolvedOpen })),
       nbKnob: s.nb ? 'var(--acc)' : 'var(--fg3)', nbLeft: s.nb ? '10px' : '1px', nbHint: typeof Notification !== 'undefined' && Notification.permission === 'denied' ? '브라우저에서 차단됨' : '',
+      nbTitle: typeof Notification !== 'undefined' && Notification.permission === 'denied' ? '브라우저 알림: 브라우저에서 차단됨' : '브라우저 알림: 다른 탭에 있을 때 질문·승인 요청을 알립니다',
       askNotify: async () => {
         if (s.nb) { this.saveNotify({ browser: false }); st.s.notify.browser = false; return this.setState({ nb: false }); }
         if (typeof Notification === 'undefined') return st.toast('이 브라우저는 알림을 지원하지 않습니다', 'info');
@@ -785,6 +771,9 @@ class Component extends DCLogic {
       listEmpty: listed.length === 0, showList: !isPhone && (isDesk || !s.selId), listW: isDesk ? '280px' : '100%',
     });
     const T = s.selId ? st.T(s.selId) : null;
+    const screen = s.view === 'session' ? (T ? T.name || T.preview?.slice(0, 30) || '이름 없는 세션' : '세션') : '보드';
+    this._tabTitle = `${inboxN ? `(${inboxN}) ` : ''}${screen} · omonitor`;
+    this._tabIcon = inboxN ? TAB_ICON.wait : TAB_ICON.ok;
     Object.assign(vals, { hasSel: !!T, noSel: !T && isDesk, showBack: !isDesk });
     if (!isDesk && !T) { vals.showList = true; vals.listW = '100%'; }
     if (!isDesk && T) vals.showList = false;
@@ -808,8 +797,8 @@ class Component extends DCLogic {
       const mkTab = (cur, set) => ([k, label, count]) => ({ label, count, fg: cur === k ? 'var(--fg)' : 'var(--fg3)', line: cur === k ? 'inset 0 -2px 0 var(--acc)' : 'none', onTap: () => this.setState({ [set]: k }) });
       Object.assign(vals, {
         sel, selItems: items, selItemsEmpty: items.length === 0, agentName: 'sisyphus',
-        // Questions and approvals for this session are answered right in its timeline, not only in the inbox.
-        selReqs: st.reqsFor(T.id).sort((a, b) => a.receivedAt - b.receivedAt).map((r) => this.requestView(r, now, lay, true)),
+        // Questions and approvals for this session are answered right in its timeline.
+        selReqs: st.reqsFor(T.id).sort((a, b) => a.receivedAt - b.receivedAt).map((r) => this.requestView(r, now)),
         hasSelReqs: st.reqsFor(T.id).length > 0,
         selTerminal: S.isTerminal(T), selNotSub: !T.subscribed && !T.archived, selNotSubNote: !T.subscribed && !T.archived && T.source !== 'cli',
         selLost: S.historyLost(T) && !todo, restoreSel: () => st.restoreTodos(T.id), subscribeSel: () => (this.needsTakeover(T) ? this.confirm('takeover', T.id) : st.resume(T.id)), takeoverSel: () => this.confirm('takeover', T.id),
@@ -934,7 +923,7 @@ class Component extends DCLogic {
     if (pal) {
       const q = pal.q.trim().toLowerCase();
       const actions = [
-        ['새 세션', 'N', () => this.setState({ sheet: { cwd: '', text: '' } })], ['인박스로 이동', 'g i', () => this.go('inbox')], ['보드로 이동', 'g b', () => this.go('board')],
+        ['새 세션', 'N', () => this.setState({ sheet: { cwd: '', text: '' } })], ['보드로 이동', 'g b', () => this.go('board')],
         ['세션 화면으로 이동', 'g s', () => this.go('session')], [`테마: ${theme === 'dark' ? '라이트로' : '다크로'} 전환`, '', () => this.setState({ theme: theme === 'dark' ? 'light' : 'dark' })],
         ['여러 세션에 메시지 보내기', '', () => this.setState({ view: 'board', selMode: true, sel: {} })],
         ...(this.mode === 'mock' ? [['연결 끊김 시뮬레이션', '데모', () => this.client.simulateDisconnect()]] : []),
