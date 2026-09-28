@@ -145,7 +145,7 @@ html,body{margin:0;height:100%;background:#1d1f20}
 <div style="flex:none;display:flex;align-items:center;gap:4px;padding:{{ detailHeadPad }};border-bottom:1px solid var(--line)">
 <sc-if value="{{ showBack }}"><button onClick="{{ goBack }}" style="all:unset;cursor:pointer;width:44px;height:44px;display:grid;place-items:center;color:var(--fg)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round"><path d="m15 18-6-6 6-6"></path></svg></button></sc-if>
 <div style="display:flex;flex-direction:column;min-width:0;flex:1">
-<span style="font:600 {{ detailTitleSize }}/1.15 var(--font-heading);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ sel.name }}</span>
+<button onClick="{{ renameSel }}" title="눌러서 이름 변경" style="all:unset;cursor:pointer;display:block;min-width:0;font:600 {{ detailTitleSize }}/1.15 var(--font-heading);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ sel.name }}</button>
 <span style="font:10px var(--mono);color:var(--fg3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ sel.cwd }} · {{ sel.elapsed }}</span>
 </div>
 <sc-if value="{{ selNotSub }}"><span style="font-size:10px;color:var(--fg3);border:1px dashed var(--line2);padding:1px 4px;white-space:nowrap">구독 안 함</span></sc-if>
@@ -169,6 +169,7 @@ html,body{margin:0;height:100%;background:#1d1f20}
 </sc-if>
 <sc-if value="{{ phonePanel }}"><div style="flex:1;overflow:auto;min-height:0;padding:7px 10px">
 <sc-if value="{{ rTodo }}"><div style="display:contents">
+<sc-if value="{{ hasAsk }}"><button onClick="{{ toggleAsk }}" title="{{ askHint }}" style="all:unset;cursor:pointer;display:flex;flex-direction:column;gap:3px;width:100%;box-sizing:border-box;margin-bottom:10px;padding:7px 9px;border-left:2px solid var(--acc);background:var(--acc-tint)"><span style="font-size:10px;font-weight:600;color:var(--acc-fg)">최근 요청</span><span style="font-size:11.5px;line-height:1.5;color:var(--fg);white-space:pre-wrap;word-break:break-word;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:{{ askClamp }};overflow:hidden">{{ askText }}</span></button></sc-if>
 <sc-for list="{{ todoPhases }}" as="g"><div style="display:flex;flex-direction:column;margin-bottom:9px"><div style="display:flex;align-items:baseline;gap:6px;padding-bottom:3px"><span style="font:600 12.5px var(--font-heading);letter-spacing:.04em">{{ g.name }}</span><span style="font:10px var(--mono);color:var(--fg3)">{{ g.count }}</span></div><sc-for list="{{ g.tasks }}" as="t"><div style="display:flex;align-items:center;gap:7px;min-height:38px;border-top:1px solid var(--line-soft)"><span style="width:16px;height:16px;flex:none;display:grid;place-items:center;font-size:10px;font-weight:700;background:{{ t.bg }};border:1px solid {{ t.bd }};color:{{ t.gc }};transition:background .35s,transform .35s;transform:scale({{ t.scale }})">{{ t.glyph }}</span><span style="font-size:11.5px;color:{{ t.tc }};font-weight:{{ t.fw }};text-decoration:{{ t.deco }}">{{ t.text }}</span></div></sc-for></div></sc-for>
 <sc-if value="{{ todoRawShow }}"><div style="font-size:10px;color:var(--fg3);margin-bottom:4px">todo 인자를 해석하지 못해 결과 텍스트를 그대로 보여줍니다</div><div style="font:10px/1.5 var(--mono);white-space:pre-wrap;background:var(--tint);border:1px solid var(--line-soft);padding:6px 7px">{{ todoRaw }}</div></sc-if>
 <sc-if value="{{ todoNone }}"><div style="font-size:11px;color:var(--fg3);padding:6px 0">이 세션에는 todo가 없습니다.</div></sc-if>
@@ -185,6 +186,7 @@ html,body{margin:0;height:100%;background:#1d1f20}
 <div style="flex:none;display:flex;border-bottom:1px solid var(--line);padding:0 3px"><sc-for list="{{ rtabs }}" as="t"><button onClick="{{ t.onTap }}" style="all:unset;cursor:pointer;flex:1;display:flex;align-items:center;justify-content:center;gap:3px;min-height:42px;font-size:10.5px;color:{{ t.fg }};box-shadow:{{ t.line }}">{{ t.label }}<span style="font:10px var(--mono);color:var(--fg3)">{{ t.count }}</span></button></sc-for><button onClick="{{ toggleRight }}" title="패널 접기" style="all:unset;cursor:pointer;width:32px;flex:none;display:grid;place-items:center;color:var(--fg3)" style-hover="color:var(--fg)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round"><path d="m9 6 6 6-6 6"></path></svg></button></div>
 <div style="flex:1;overflow:auto;padding:9px 10px">
 <sc-if value="{{ rTodo }}"><div style="display:contents">
+<sc-if value="{{ hasAsk }}"><button onClick="{{ toggleAsk }}" title="{{ askHint }}" style="all:unset;cursor:pointer;display:flex;flex-direction:column;gap:3px;width:100%;box-sizing:border-box;margin-bottom:10px;padding:7px 9px;border-left:2px solid var(--acc);background:var(--acc-tint)"><span style="font-size:10px;font-weight:600;color:var(--acc-fg)">최근 요청</span><span style="font-size:11.5px;line-height:1.5;color:var(--fg);white-space:pre-wrap;word-break:break-word;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:{{ askClamp }};overflow:hidden">{{ askText }}</span></button></sc-if>
 <sc-for list="{{ todoPhases }}" as="g"><div style="display:flex;flex-direction:column;margin-bottom:9px"><div style="display:flex;align-items:baseline;gap:6px;padding-bottom:3px"><span style="font:600 12.5px var(--font-heading);letter-spacing:.04em">{{ g.name }}</span><span style="font:10px var(--mono);color:var(--fg3)">{{ g.count }}</span></div><sc-for list="{{ g.tasks }}" as="t"><div style="display:flex;align-items:center;gap:7px;min-height:34px;border-top:1px solid var(--line-soft)"><span style="width:15px;height:15px;flex:none;display:grid;place-items:center;font-size:10px;font-weight:700;background:{{ t.bg }};border:1px solid {{ t.bd }};color:{{ t.gc }};transition:background .35s,transform .35s;transform:scale({{ t.scale }})">{{ t.glyph }}</span><span style="font-size:11px;color:{{ t.tc }};font-weight:{{ t.fw }};text-decoration:{{ t.deco }}">{{ t.text }}</span></div></sc-for></div></sc-for>
 <sc-if value="{{ todoRawShow }}"><div style="font-size:10px;color:var(--fg3);margin-bottom:4px">todo 인자를 해석하지 못해 결과 텍스트를 그대로 보여줍니다</div><div style="font:10px/1.5 var(--mono);white-space:pre-wrap;background:var(--tint);border:1px solid var(--line-soft);padding:6px 7px">{{ todoRaw }}</div></sc-if>
 <sc-if value="{{ todoNone }}"><div style="font-size:11px;color:var(--fg3);padding:6px 0">이 세션에는 todo가 없습니다.</div></sc-if>
@@ -303,7 +305,7 @@ html,body{margin:0;height:100%;background:#1d1f20}
 <div class="dialog blueprint" onClick="{{ stop }}" style="background:var(--bg2);color:var(--fg)"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
 <div class="dialog-title">{{ dlgTitle }}</div>
 <div class="dialog-body" style="line-height:1.55">{{ dlgBody }}</div>
-<sc-if value="{{ dlgHasInput }}"><input class="input" autofocus="{{ true }}" value="{{ dlgInput }}" onChange="{{ onDlgInput }}" onKeyDown="{{ dlgKey }}" style="min-height:44px;font-size:12.5px;color:var(--fg)"></sc-if>
+<sc-if value="{{ dlgHasInput }}"><input class="input" data-dlg-input="1" autofocus="{{ true }}" value="{{ dlgInput }}" onChange="{{ onDlgInput }}" onKeyDown="{{ dlgKey }}" style="min-height:44px;font-size:12.5px;color:var(--fg)"></sc-if>
 <div class="dialog-actions"><button class="btn btn-secondary" onClick="{{ dlgCancel }}" style="min-height:40px;color:var(--fg)">취소</button><button class="btn btn-primary" onClick="{{ dlgOk }}" style="min-height:40px;background:{{ dlgOkBg }};border-color:{{ dlgOkBg }}">{{ dlgConfirm }}</button></div>
 </div>
 </div>
@@ -388,6 +390,10 @@ class Component extends DCLogic {
   }
   componentDidUpdate() {
     this.syncTab();
+    // Focus the rename field with its text selected when the dialog opens, so a new name can be typed right away.
+    const renaming = this.state.dialog?.kind === 'rename';
+    if (renaming && !this._renaming) { const el = document.querySelector('[data-dlg-input]'); el?.focus(); el?.select(); }
+    this._renaming = renaming;
     const pin = () => {
       const el = document.querySelector('[data-tl]');
       if (!el || !this.stick) return;
@@ -768,7 +774,7 @@ class Component extends DCLogic {
         label: f.label, count: String(f.n), dot: f.color, bd: listFilter === f.key ? 'var(--acc)' : 'var(--line)', bg: listFilter === f.key ? 'var(--acc-tint)' : 'transparent', fg: listFilter === f.key ? 'var(--fg)' : 'var(--fg2)', onTap: () => this.setState({ lf: f.key }) })),
       listItems: listed.map((v, i) => ({ ...v, mini: v.hasReq ? v.reqKind : v.hasTodo ? `${v.todoText} ${v.phaseName}` : v.actLabel, miniColor: v.hasReq ? 'var(--warn)' : 'var(--fg3)',
         bg: v.id === s.selId ? 'var(--acc-tint)' : 'transparent', bar: v.id === s.selId ? 'inset 2px 0 0 var(--acc)' : 'none', ring: s.view === 'session' && s.focus === i ? '2px solid var(--acc)' : 'none', onTap: () => this.openSession(v.id) })),
-      listEmpty: listed.length === 0, showList: !isPhone && (isDesk || !s.selId), listW: isDesk ? '280px' : '100%',
+      listEmpty: listed.length === 0, showList: !isPhone && (isDesk || !s.selId), listW: isDesk ? '320px' : '100%',
     });
     const T = s.selId ? st.T(s.selId) : null;
     const screen = s.view === 'session' ? (T ? T.name || T.preview?.slice(0, 30) || '이름 없는 세션' : '세션') : '보드';
@@ -788,6 +794,8 @@ class Component extends DCLogic {
       const items = S.viewItems(T, now);
       const live = S.liveStatus(T, now);
       const todo = S.replayTodos(S.allItems(T));
+      // The latest user message is what the agent is working on now; the Todo panel shows it above the list.
+      const ask = items.findLast((x) => x.isUser);
       const diff = S.diffFiles(T.diff || '');
       const tabsDef = [['todo', 'Todo', sel.hasTodo ? sel.todoText : ''], ['agents', '에이전트', (T.tasks || []).length ? String(T.tasks.length) : ''], ['goal', '목표', T.goal ? '●' : ''], ['diff', '변경', diff.length ? String(diff.length) : '']];
       const rtab = s.rtab, ptab = s.ptab;
@@ -804,9 +812,9 @@ class Component extends DCLogic {
         selLost: S.historyLost(T) && !todo, restoreSel: () => st.restoreTodos(T.id), subscribeSel: () => (this.needsTakeover(T) ? this.confirm('takeover', T.id) : st.resume(T.id)), takeoverSel: () => this.confirm('takeover', T.id),
         goBack: () => this.setState((x) => (isPhone ? { view: x.backTo || 'board', selId: null } : { selId: null })),
         detailHeadPad: isPhone ? `max(4px, env(safe-area-inset-top)) 4px 0 2px` : '4px 6px 4px 12px', detailTitleSize: isPhone ? '15px' : '16.5px',
-        openMenu: () => this.setState({ menu: true }),
+        openMenu: () => this.setState({ menu: true }), renameSel: () => this.confirm('rename', T.id, { input: T.name || '' }),
         rtabs: tabsDef.map(mkTab(rtab, 'rtab')), ptabs: [['tl', '타임라인', ''], ...tabsDef].map(mkTab(ptab, 'ptab')),
-        showRight: !isPhone && !s.panels.right, showRightRail: !isPhone && s.panels.right, rightW: isDesk ? '340px' : '300px',
+        showRight: !isPhone && !s.panels.right, showRightRail: !isPhone && s.panels.right, rightW: isDesk ? '320px' : '300px',
         showTimeline: !isPhone || ptab === 'tl', phonePanel: isPhone && ptab !== 'tl',
         rTodo: panel === 'todo', rAgents: panel === 'agents', rGoal: panel === 'goal', rDiff: panel === 'diff',
         onTlScroll: (e) => {
@@ -823,6 +831,8 @@ class Component extends DCLogic {
             gc: t.status === 'completed' ? 'var(--on-acc)' : t.status === 'abandoned' ? 'var(--fg3)' : 'var(--acc-fg)', scale: t.status === 'completed' ? '1' : '0.92',
             tc: t.status === 'completed' || t.status === 'abandoned' ? 'var(--fg3)' : t.status === 'in_progress' ? 'var(--fg)' : 'var(--fg2)', fw: t.status === 'in_progress' ? '500' : '400', deco: t.status === 'abandoned' ? 'line-through' : 'none' })) })),
         todoRaw: todo?.raw || '', todoRawShow: !!todo?.raw, todoNone: !todo || (!todo.phases.length && !todo.raw),
+        hasAsk: !!ask, askText: ask ? ask.text || `이미지 ${ask.images.length}장` : '', askClamp: s.askOpen === T.id ? 'none' : '4',
+        askHint: s.askOpen === T.id ? '눌러서 접기' : '눌러서 전체 보기', toggleAsk: () => this.setState({ askOpen: s.askOpen === T.id ? null : T.id }),
         agentRows: sel.agents.map((a) => ({ ...a, hasFinal: !!a.final, hasChild: !!a.childId, onChild: () => this.openSession(a.childId) })), agentsNone: !sel.agents.length,
         hasGoal: !!g, noGoal: !g, goalText: g?.objective || '', goalStatus: { active: '진행 중', paused: '일시정지', complete: '완료' }[g?.status] || g?.status || '',
         goalColor: g?.status === 'complete' ? 'var(--acc-fg)' : g?.status === 'paused' ? 'var(--fg3)' : 'var(--acc-fg)',
@@ -861,7 +871,7 @@ class Component extends DCLogic {
     Object.assign(vals, {
       menuOpen: s.menu && !!T, closeMenu: () => this.setState({ menu: false }),
       menuScrim: isPhone ? 'rgba(10,11,12,.5)' : 'transparent', menuJustify: isPhone ? 'stretch' : 'flex-end', menuAlign: isPhone ? 'flex-end' : 'flex-start',
-      menuPad: isPhone ? '0' : `${54 + (vals.connBanner ? 40 : 0) + 44}px ${isDesk ? 350 : 310}px 0 0`, menuW: isPhone ? '100%' : '240px', menuPadBottom: isPhone ? 'max(12px, env(safe-area-inset-bottom))' : '4px',
+      menuPad: isPhone ? '0' : `${54 + (vals.connBanner ? 40 : 0) + 44}px ${isDesk ? 330 : 310}px 0 0`, menuW: isPhone ? '100%' : '240px', menuPadBottom: isPhone ? 'max(12px, env(safe-area-inset-bottom))' : '4px',
     });
 
     // ── dialogs ──
@@ -873,7 +883,8 @@ class Component extends DCLogic {
       takeoverMany: ['여러 세션에 보낼까요?', `선택한 세션 중 ${(d?.ids || []).filter((id) => this.needsTakeover(st.T(id))).length}개는 아직 app-server에 불러오지 않았습니다. 터미널 omo에서 열려 있으면 충돌할 수 있고, 목표나 끝나지 않은 todo가 있으면 omo가 이어서 작업할 수 있습니다.`, '보내기', 'var(--acc)', () => this.sendMany(d.ids, d.text)],
       interrupt: ['작업을 중단할까요?', '진행 중인 턴을 멈춥니다. 대기 중인 승인 요청도 함께 취소됩니다.', '중단', 'var(--err)', () => st.interrupt(d.id)],
       unsubscribe: ['구독을 해제할까요?', '이 세션의 실시간 알림이 더 오지 않습니다. 구독자가 없으면 승인 요청은 자동으로 거절됩니다.', '해제', 'var(--acc)', () => st.unsubscribe(d.id)],
-      rename: ['이름 변경', '', '저장', 'var(--acc)', () => d.input.trim() && st.rename(d.id, d.input.trim())],
+      // thread/name/set resumes the thread, so renaming an unloaded one carries the same risks as a takeover.
+      rename: ['이름 변경', this.needsTakeover(dT) ? '이 세션은 아직 app-server에 불러오지 않았습니다. 이름을 바꾸면 세션을 불러오므로, 터미널 omo에서 열려 있으면 먼저 종료하세요. 목표나 끝나지 않은 todo가 있으면 omo가 이어서 작업할 수 있습니다.' : '', '저장', 'var(--acc)', () => d.input.trim() && st.rename(d.id, d.input.trim())],
     }[d?.kind] || null;
     const ok = async () => { const fn = DLG?.[4]; this.setState({ dialog: null }); try { await fn?.(); } catch {} };
     Object.assign(vals, {
