@@ -49,6 +49,9 @@
 <script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:400,&quot;height&quot;:200},&quot;c&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;ComposerProps&quot;}}">
 const GROUP = { command: '명령', skill: '스킬', keyword: '키워드' };
 const PROVIDER = { 'anthropic-subscription': 'CLAUDE 구독', anthropic: 'CLAUDE', 'chatgpt-subscription': 'CHATGPT 구독', openai: 'OPENAI' };
+// Touch-first devices type on an on-screen keyboard, where Return inserts a line break (see onKey).
+const TOUCH_KEYBOARD = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
+const HANGUL = /[\u1100-\u11ff\u3130-\u318f\uac00-\ud7a3]/;
 const fmtK = (n) => (n >= 1e6 ? `${+(n / 1e6).toFixed(1)}M` : n >= 1000 ? `${Math.round(n / 1000)}k` : String(n));
 class Component extends DCLogic {
   state = { text: '', idx: 0, wide: false, modelOpen: false, images: [], drag: false };
@@ -213,7 +216,7 @@ class Component extends DCLogic {
       padBottom: c.padBottom || '7px',
       hasUsage: !!(u && u.window),
       usagePct: `${(pct * 100).toFixed(1)}%`, usageColor: pct > 0.85 ? 'var(--warn)' : 'var(--acc)',
-      usageLabel: u && u.window ? `${wide ? '' : '컨텍스트 '}${fmtK(u.used)} / ${fmtK(u.window)}${wide ? ' · ⌘↵ 보내기' : ''}` : '',
+      usageLabel: u && u.window ? `${wide ? '' : '컨텍스트 '}${fmtK(u.used)} / ${fmtK(u.window)}${wide && !TOUCH_KEYBOARD ? ' · ↵ 보내기 · ⇧↵ 줄바꿈' : ''}` : '',
       modelShort: cur ? (cur.displayName || cur.id).replace(/^Claude /, '') : c.model ? c.model.replace(/^.*\//, '') : '모델',
       modelTitle: [cur?.displayName || c.model, c.effort].filter(Boolean).join(' · '),
       effortLabel: c.effort || '', hasEffortLabel: !!c.effort,
@@ -233,11 +236,19 @@ class Component extends DCLogic {
         const w = v.includes('\n') || (this.state.wide ? v.length > 0 : (el && el.scrollHeight > 46));
         this.setState({ text: v, idx: 0, wide: !!w }, () => requestAnimationFrame(() => this.fit()));
       },
-      // While a Hangul (IME) syllable is being composed, its commit lands after this keydown: sending now would clear the
-      // box and leave that last character behind. Keys go to the IME, and Cmd/Ctrl+Enter sends once composition ends.
+      // Enter sends and Shift+Enter breaks the line; Cmd/Ctrl+Enter sends too. On touch screens Return stays a line
+      // break: the iOS on-screen keyboard has no Shift+Return, and its auto-capitalization Shift makes Return arrive as
+      // Shift+Enter at random, so there the send button sends (and Cmd+Enter from a hardware keyboard).
+      // A Hangul (IME) syllable still being composed commits after its keydown, so sending then would leave that last
+      // character in the box; such an Enter sends once composition ends. Chrome follows up with a plain Enter keydown
+      // (whichever send runs first empties the box, the other finds nothing), and Safari ends composition before its
+      // keydown, which then still carries keyCode 229.
       onKey: (e) => {
-        if (e.nativeEvent?.isComposing || e.keyCode === 229) {
-          if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); this.sendOnCompose = true; }
+        const sendKey = e.key === 'Enter' && !e.shiftKey && !e.altKey && (e.metaKey || e.ctrlKey || !TOUCH_KEYBOARD);
+        const justComposed = !e.nativeEvent?.isComposing && performance.now() - (this.compEndAt || 0) < 100;
+        if ((e.nativeEvent?.isComposing || e.keyCode === 229) && !justComposed) {
+          if (sendKey) this.sendOnCompose = e.metaKey || e.ctrlKey ? 'always' : 'hangul';
+          if (sendKey && (e.metaKey || e.ctrlKey)) e.preventDefault();
           return;
         }
         this.sendOnCompose = false;
@@ -256,12 +267,15 @@ class Component extends DCLogic {
           else if (c.running) c.onInterrupt?.();
           return;
         }
-        if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); this.send(); }
+        if (sendKey) { e.preventDefault(); this.send(); }
       },
       // The committed syllable reaches the textarea around compositionend, so the send reads the box right after it.
-      onCompEnd: () => {
-        if (!this.sendOnCompose) return;
+      // A plain Enter only sends for Hangul: in Japanese or Chinese input, Enter confirms the conversion.
+      onCompEnd: (e) => {
+        this.compEndAt = performance.now();
+        const mode = this.sendOnCompose;
         this.sendOnCompose = false;
+        if (!mode || (mode === 'hangul' && !HANGUL.test(e?.data || ''))) return;
         setTimeout(() => this.send(this.taRef.current?.value ?? this.state.text), 0);
       },
       send: () => this.send(),
