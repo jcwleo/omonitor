@@ -296,6 +296,14 @@ html,body{margin:0;height:100%;background:#1d1f20}
 </div>
 <sc-if value="{{ notPhone }}"><div style="display:flex;flex-wrap:wrap;column-gap:9px;font-size:12px;color:var(--fg3)"><span style="white-space:nowrap"><span style="font-family:var(--mono);color:var(--fg2)">↑↓</span> 이동</span><span style="white-space:nowrap"><span style="font-family:var(--mono);color:var(--fg2)">Tab</span> 자동완성</span><span style="white-space:nowrap"><span style="font-family:var(--mono);color:var(--fg2)">/</span>로 끝내면 하위 폴더</span><span style="white-space:nowrap">목록은 기존 세션에서 모았습니다</span></div></sc-if>
 </div>
+<div style="display:flex;flex-direction:column;gap:4px">
+<span style="font-size:12px;color:var(--fg2)">모델 · effort</span>
+<select class="input" value="{{ sheetModel }}" onChange="{{ onSheetModel }}" style="min-height:44px;font:13.5px var(--mono);color:var(--fg)">
+<option value="">기본 (app-server 설정)</option>
+<sc-for list="{{ sheetModelGroups }}" as="g"><optgroup label="{{ g.label }}"><sc-for list="{{ g.items }}" as="m"><option value="{{ m.id }}">{{ m.label }}</option></sc-for></optgroup></sc-for>
+</select>
+<sc-if value="{{ sheetHasEfforts }}"><div style="display:flex;gap:3px;flex-wrap:wrap"><sc-for list="{{ sheetEfforts }}" as="e"><button onClick="{{ e.onTap }}" style="all:unset;cursor:pointer;min-height:36px;padding:0 10px;box-sizing:border-box;display:flex;align-items:center;font:12.5px var(--mono);border:1px solid {{ e.bd }};background:{{ e.bg }};color:{{ e.fg }}">{{ e.label }}</button></sc-for></div></sc-if>
+</div>
 <div class="field"><label>첫 메시지 (선택)</label><textarea class="input" value="{{ sheetText }}" onChange="{{ onSheetText }}" onPaste="{{ onSheetPaste }}" onDragOver="{{ onSheetDragOver }}" onDrop="{{ onSheetDrop }}" placeholder="{{ sheetPlaceholder }}" style="min-height:{{ sheetTextH }};font-size:14.5px;color:var(--fg)"></textarea>
 <sc-if value="{{ canAttachSheet }}"><div style="display:flex;align-items:flex-start;gap:8px;flex-wrap:wrap;padding-top:8px"><sc-for list="{{ sheetImages }}" as="im"><div title="{{ im.title }}" style="position:relative;width:56px;height:56px;flex:none;border:1px solid {{ im.bd }};background:var(--tint)"><img src="{{ im.preview }}" alt="붙여넣은 이미지" style="display:block;width:100%;height:100%;object-fit:cover;opacity:{{ im.opacity }}"><sc-if value="{{ im.hasNote }}"><span style="position:absolute;left:0;right:0;bottom:0;padding:1px 0;font-size:11px;text-align:center;background:rgba(10,11,12,.72);color:{{ im.noteColor }}">{{ im.note }}</span></sc-if><button onClick="{{ im.onRemove }}" title="첨부 빼기" style="all:unset;cursor:pointer;position:absolute;top:-8px;right:-8px;width:22px;height:22px;display:grid;place-items:center;border-radius:50%;background:var(--bg2);border:1px solid var(--line2);font-size:14px;line-height:1;color:var(--fg)">×</button></div></sc-for><button onClick="{{ pickSheetImage }}" title="이미지 첨부 — 붙여넣기(⌘V)나 끌어다 놓기도 됩니다" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:4px;min-height:32px;padding:0 8px;font-size:12.5px;color:var(--fg2);border:1px dashed var(--line2)" style-hover="color:var(--fg)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round"><rect x="3" y="4" width="18" height="16" rx="1"></rect><circle cx="9" cy="10" r="1.6"></circle><path d="m21 16-5-5-9 9"></path></svg>이미지</button><input ref="{{ sheetFileRef }}" type="file" accept="image/png,image/jpeg,image/gif,image/webp" multiple onChange="{{ onSheetPick }}" style="display:none"></div></sc-if></div>
 </div>
@@ -371,6 +379,7 @@ class Component extends DCLogic {
     try { this.setState({ panels: { left: false, right: false, ...JSON.parse(localStorage.getItem('mc.panels') || '{}') } }); } catch {}
     // Notification switches keep the user's choice across reloads; browser notifications also need the permission.
     try { this.notify = { browser: true, sound: false, ...JSON.parse(localStorage.getItem('mc.notify') || '{}') }; } catch { this.notify = { browser: true, sound: false }; }
+    try { this.lastNew = JSON.parse(localStorage.getItem('mc.newSession') || '{}') || {}; } catch { this.lastNew = {}; }
     this.setState({ nb: this.notify.browser && this.notifyAllowed(), ns: !!this.notify.sound });
     try {
       const base = new URL('.', location.href).href;
@@ -459,6 +468,8 @@ class Component extends DCLogic {
     if (!T) { st?.resume(id).catch(() => {}); return; }
     if (!T.historyLoaded) st.guard(st.loadHistory(id), '세션 기록을 읽지 못했습니다').catch(() => {});
   }
+  // A new session starts from the model and effort of the last one created here (mc.newSession); '' is the app-server default.
+  newSheet() { return { cwd: '', text: '', model: this.lastNew?.model || '', effort: this.lastNew?.effort || '' }; }
   confirm(kind, id, extra = {}) { this.setState({ dialog: { kind, id, input: extra.input || '', text: extra.text || '', ids: extra.ids || null }, menu: false }); }
   // Loading a saved thread can collide with a terminal omo that has it open, and omo may auto-continue its goal/todo.
   needsTakeover(T) { return !!T && !T.subscribed && !T.archived && T.status?.type === 'notLoaded'; }
@@ -665,7 +676,7 @@ class Component extends DCLogic {
     const base = {
       theme, isPhone, notPhone: !isPhone, fatal: s.fatal, stop: (e) => e.stopPropagation(),
       toggleTheme: () => this.setState({ theme: theme === 'dark' ? 'light' : 'dark' }), themeLabel: theme === 'dark' ? '다크' : '라이트',
-      openPalette: () => this.setState({ pal: { q: '', idx: 0 } }), openNew: () => this.setState({ sheet: { cwd: '', text: '' } }),
+      openPalette: () => this.setState({ pal: { q: '', idx: 0 } }), openNew: () => this.setState({ sheet: this.newSheet() }),
       serverInfo: this.info || '', skel: [1, 2, 3, 4, 5].slice(0, isPhone ? 1 : isDesk ? 5 : 4).map((k) => ({ h1: `${120 + (k % 3) * 40}px`, h2: `${80 + (k % 2) * 60}px` })),
       skelCols: `repeat(${isPhone ? 1 : isDesk ? 5 : 4}, minmax(0,1fr))`,
       toasts: [], connBanner: false, loading: true, connLabel: '연결 중', connDot: 'var(--warn)',
@@ -717,7 +728,7 @@ class Component extends DCLogic {
     const tabs = tabDefs.map(([k, label, badge]) => ({ label, badge, hasBadge: !!badge, fg: s.view === k ? 'var(--fg)' : 'var(--fg2)', line: s.view === k ? 'inset 0 -2px 0 var(--acc)' : 'none', onTap: () => this.go(k) }));
     const phoneTabs = [['board', '보드', ICON.board], ['session', '세션', ICON.sessions], ['new', '새 세션', ICON.new]].map(([k, label, icon]) => ({
       label, icon, badge: k === 'board' && inboxN ? String(inboxN) : '', hasBadge: k === 'board' && inboxN > 0, fg: s.view === k ? 'var(--acc-fg)' : 'var(--fg3)',
-      onTap: () => (k === 'new' ? this.setState({ sheet: { cwd: '', text: '' } }) : this.go(k)) }));
+      onTap: () => (k === 'new' ? this.setState({ sheet: this.newSheet() }) : this.go(k)) }));
 
 
     const connState = conn.state;
@@ -913,7 +924,25 @@ class Component extends DCLogic {
     const shPaths = shImgs.filter((m) => m.status === 'ready').map((m) => m.path);
     const canAttachSheet = !!(S && st?.c.backend?.upload);
     const hasFiles = (e) => [...(e.dataTransfer?.types || [])].includes('Files');
+    // Model and effort for the new session. A saved model missing from model/list falls back to '' (app-server default),
+    // and so does an effort the chosen model does not support.
+    const shModels = st?.s.models || [];
+    const shModel = sh?.model && shModels.some((m) => m.id === sh.model) ? sh.model : '';
+    const shEfforts = (shModels.find((m) => m.id === shModel)?.supportedReasoningEfforts || []).map((e) => (typeof e === 'string' ? e : e?.reasoningEffort)).filter(Boolean);
+    const shEffort = shEfforts.includes(sh?.effort) ? sh.effort : '';
+    const PROV = { 'anthropic-subscription': 'CLAUDE 구독', anthropic: 'CLAUDE', 'chatgpt-subscription': 'CHATGPT 구독', openai: 'OPENAI' };
+    const shGroups = new Map();
+    for (const m of shModels) {
+      const p = m.id.includes('/') ? m.id.slice(0, m.id.indexOf('/')) : '';
+      if (!shGroups.has(p)) shGroups.set(p, []);
+      shGroups.get(p).push({ id: m.id, label: m.displayName || m.id });
+    }
+    const provRank = (p) => (p in PROV ? Object.keys(PROV).indexOf(p) : 99);
     Object.assign(vals, cw, {
+      sheetModel: shModel, onSheetModel: (e) => this.setState({ sheet: { ...sh, model: e.target.value } }),
+      sheetModelGroups: [...shGroups].sort((a, b) => provRank(a[0]) - provRank(b[0])).map(([p, items]) => ({ label: PROV[p] || p || '모델', items })),
+      sheetHasEfforts: shEfforts.length > 0,
+      sheetEfforts: ['', ...shEfforts].map((e) => ({ label: e || '기본', bd: e === shEffort ? 'var(--acc)' : 'var(--line2)', bg: e === shEffort ? 'var(--acc-tint)' : 'transparent', fg: e === shEffort ? 'var(--fg)' : 'var(--fg2)', onTap: () => this.setState({ sheet: { ...sh, effort: e } }) })),
       canAttachSheet, sheetFileRef: this.sheetFileRef, pickSheetImage: () => this.sheetFileRef.current?.click(),
       sheetPlaceholder: canAttachSheet ? '무엇을 할까요? ulw를 붙이면 계획 → 검증까지 진행합니다 · 이미지 붙여넣기' : '무엇을 할까요? ulw를 붙이면 계획 → 검증까지 진행합니다',
       onSheetPick: (e) => { const files = S.imageFiles(e.target); e.target.value = ''; this.attachSheet(files); },
@@ -935,9 +964,12 @@ class Component extends DCLogic {
         const cwd = cw._full;
         if (!cw._valid || shUploading) return;
         const text = S.withImages((sh.text || '').trim(), shPaths);
+        const settings = { model: shModel, effort: shEffort };
+        // Remembered only once model/list is in, so an early click cannot overwrite the saved choice with the default.
+        if (shModels.length) { this.lastNew = settings; try { localStorage.setItem('mc.newSession', JSON.stringify(settings)); } catch {} }
         this.dropSheetImages(sh);
         this.setState({ sheet: null });
-        try { const id = await st.startThread(cwd, text); this.openSession(id); } catch {}
+        try { const id = await st.startThread(cwd, text, settings); this.openSession(id); } catch {}
       },
     });
 
@@ -946,7 +978,7 @@ class Component extends DCLogic {
     if (pal) {
       const q = pal.q.trim().toLowerCase();
       const actions = [
-        ['새 세션', 'N', () => this.setState({ sheet: { cwd: '', text: '' } })], ['보드로 이동', 'g b', () => this.go('board')],
+        ['새 세션', 'N', () => this.setState({ sheet: this.newSheet() })], ['보드로 이동', 'g b', () => this.go('board')],
         ['세션 화면으로 이동', 'g s', () => this.go('session')], [`테마: ${theme === 'dark' ? '라이트로' : '다크로'} 전환`, '', () => this.setState({ theme: theme === 'dark' ? 'light' : 'dark' })],
         ['여러 세션에 메시지 보내기', '', () => this.setState({ view: 'board', selMode: true, sel: {} })],
         ...(this.mode === 'mock' ? [['연결 끊김 시뮬레이션', '데모', () => this.client.simulateDisconnect()]] : []),
