@@ -122,7 +122,8 @@ export function parseTasks(data) {
     const live = t.live_progress && typeof t.live_progress === 'object' ? t.live_progress : null;
     const state = t.error_message ? 'error' : live ? 'running' : t.final_response ? 'done' : 'queued';
     return {
-      id: String(t.task_id ?? t.name ?? i), name: String(t.name ?? t.task_summary ?? t.description ?? t.agent_type ?? '작업'),
+      // omo names an unnamed task after its id (st_...), which says nothing about the work; task_summary does.
+      id: String(t.task_id ?? t.name ?? i), name: String((t.name !== t.task_id && t.name) || t.task_summary || t.description || t.agent_type || '작업'),
       summary: t.task_summary ? String(t.task_summary) : '', type: String(t.agent_type ?? t.category ?? 'agent'), category: t.category ? String(t.category) : '',
       model: t.model ? String(t.model) : '', childId: t.child_session_id ? String(t.child_session_id) : null,
       activity: live?.activity ? String(live.activity) : '', tool: live?.current_tool ? String(live.current_tool) : '', startedAt: Number(live?.started_at) || null,
@@ -259,11 +260,15 @@ export function viewSession(T, reqs, now) {
     Object.assign(o, { hasTodo: true, todoText: `${sum.done}/${sum.total}`, phaseName: sum.phase, currentTask: sum.current, todoRaw: todo.raw || '' });
   } else Object.assign(o, { hasTodo: false, phases: [], todoRaw: todo?.raw || '' });
   const tasks = T.tasks || [];
-  o.hasAgents = tasks.length > 0;
-  o.agents = tasks.map((t) => ({ ...t, ...AG[t.state], stateLabel: AG[t.state].label,
-    act: t.state === 'running' ? [t.activity, t.tool, t.startedAt && dur(now - t.startedAt)].filter(Boolean).join(' · ') : t.state === 'done' ? `완료${t.stats?.duration_ms ? ` · ${dur(t.stats.duration_ms)}` : ''}${t.stats?.tool_calls ? ` · 도구 ${t.stats.tool_calls}회` : ''}` : t.error || '대기 중' }));
+  const agentView = (t) => ({ ...t, ...AG[t.state], stateLabel: AG[t.state].label,
+    act: t.state === 'running' ? [t.activity, t.tool, t.startedAt && dur(now - t.startedAt)].filter(Boolean).join(' · ') : t.state === 'done' ? `완료${t.stats?.duration_ms ? ` · ${dur(t.stats.duration_ms)}` : ''}${t.stats?.tool_calls ? ` · 도구 ${t.stats.tool_calls}회` : ''}` : t.error || '대기 중' });
+  // Finished subagents (done or failed) leave the cards; the session's agents tab keeps them behind a toggle.
+  const ended = (t) => t.state === 'done' || t.state === 'error';
+  o.agents = tasks.filter((t) => !ended(t)).map(agentView);
+  o.doneAgents = tasks.filter(ended).map(agentView);
+  o.hasAgents = o.agents.length > 0;
   const n = (s) => tasks.filter((t) => t.state === s).length;
-  o.agentSummary = [n('running') && `실행 ${n('running')}`, n('done') && `완료 ${n('done')}`, n('error') && `오류 ${n('error')}`].filter(Boolean).join(' · ');
+  o.agentSummary = [n('running') && `실행 ${n('running')}`, n('queued') && `대기 ${n('queued')}`].filter(Boolean).join(' · ');
   const r = reqs[0];
   o.hasReq = !!r;
   o.isApproval = !!r && r.method !== 'item/tool/requestUserInput';
