@@ -250,17 +250,21 @@ async function activityTimes() {
 // spawn (task tool result details), completion (senpi-task.completion) and model response usage.
 // The shape matches omo.task.updated so the store's parseTasks reads both.
 function spawnedTask(d: any, at: string) {
-  return {
+  const task = {
     task_id: d.task_id, name: d.name, task_summary: d.task_summary, agent_type: d.subagent_type ?? d.agent_type, category: d.category,
-    model: d.resolved_model?.display ?? d.model, live_progress: { activity: '실행 중', started_at: Date.parse(at) || null },
+    model: d.resolved_model?.display ?? d.model,
   };
+  // A foreground task (run_in_background: false) or one that failed to start is already over when the task tool
+  // returns, and no senpi-task.completion follows.
+  if (d.status && !['running', 'queued', 'pending'].includes(d.status)) return { ...finishedTask(d), ...task };
+  return { ...task, live_progress: { activity: '실행 중', started_at: Date.parse(at) || null } };
 }
 function finishedTask(d: any) {
   const ok = d.status === 'completed';
   return {
     task_id: d.task_id, name: d.name, agent_type: d.agent_type, category: d.category, model: d.resolved_model?.display ?? d.model, live_progress: null,
-    final_response: ok ? String(d.final_response || '완료') : '', error_message: ok ? '' : String(d.error_message || d.error || (d.status === 'cancelled' ? '취소됨' : d.status || '실패')),
-    run_stats: { duration_ms: d.duration_ms, tool_calls: d.run_stats?.tool_calls },
+    final_response: ok ? String(d.final_response || '완료') : '', error_message: ok ? '' : String(d.error_message || d.error || d.reason || (d.status === 'cancelled' ? '취소됨' : d.status || '실패')),
+    run_stats: { duration_ms: d.duration_ms ?? d.run_stats?.runtime_ms, tool_calls: d.run_stats?.tool_calls },
   };
 }
 async function contextWindow(provider: string, model: string): Promise<number | null> {
