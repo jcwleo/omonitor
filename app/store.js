@@ -38,15 +38,16 @@ const toMs = (v) => (typeof v === 'number' && v > 0 && v < 1e12 ? Math.round(v *
 const normChanges = (changes) => (Array.isArray(changes) ? changes.map((c) => (c && c.kind && typeof c.kind === 'object' ? { ...c, kind: c.kind.type || 'update' } : c)) : changes);
 const normItem = (i) => (i && i.type === 'fileChange' ? { ...i, changes: normChanges(i.changes) } : i);
 const normTurns = (turns) => (turns || []).map((u) => ({ ...u, items: (u.items || []).map(normItem) }));
-// History from thread/read wins, unless live notifications already carry more items for the same turn.
-function mergeTurns(hist, live) {
+// History wins, unless live notifications already carry more items for the same turn.
+// File history defines membership and order; turns outside its window or branch must not return.
+function mergeTurns(hist, live, includeUnseen = true) {
   const byId = new Map((live || []).map((u) => [u.id, u]));
   const out = hist.map((h) => {
     const l = byId.get(h.id);
     byId.delete(h.id);
     return l && (l.items || []).length > (h.items || []).length ? l : h;
   });
-  return [...out, ...byId.values()];
+  return includeUnseen ? [...out, ...byId.values()] : out;
 }
 // A running turn that a background result woke (no user message of its own) is also the tail of the file's last turn.
 // Tool call ids are the same in both; the agent text just before the first shared call belongs to that same reply.
@@ -490,7 +491,7 @@ export class Store {
     if (!cur) return;
     // File turns start at user messages, app-server turns at every agent run, so their ids never match. Turns kept from
     // live notifications are already inside the file history, except the running one.
-    cur.turns = mergeTurns(normTurns(turns), fromFile ? cur.turns.filter((u) => u.id.startsWith('file-') || u.id === live?.id) : cur.turns);
+    cur.turns = mergeTurns(normTurns(turns), fromFile ? cur.turns.filter((u) => u.id.startsWith('file-') || u.id === live?.id) : cur.turns, !fromFile);
     Object.assign(cur, { historyLoaded: true, historyFromFile: fromFile });
     this.emit();
     this.loadMeta(id);
