@@ -162,11 +162,13 @@ async function parseHistory(path: string) {
   let cur: any = null;
   const turn = (id: string) => (cur = turns[turns.push({ id: `file-${id}`, status: 'completed', items: [] }) - 1]);
   const push = (item: any) => (cur || turn(item.id)).items.push(item);
+  // lastAt (ms): when the turn's latest message was written, shown at the end of the turn in the timeline.
+  const stamp = (e: any) => { const at = Date.parse(e.timestamp); if (cur && at) cur.lastAt = at; };
   for (const e of chain) {
-    if (e.type === 'compaction') { push({ type: 'contextCompaction', id: e.id, status: 'completed' }); continue; }
+    if (e.type === 'compaction') { push({ type: 'contextCompaction', id: e.id, status: 'completed' }); stamp(e); continue; }
     if (e.type !== 'message' || !e.message) continue;
     const m = e.message;
-    if (m.role === 'user') { turn(e.id).items.push({ type: 'userMessage', id: e.id, content: [{ type: 'text', text: textOf(m.content) }] }); continue; }
+    if (m.role === 'user') { turn(e.id).items.push({ type: 'userMessage', id: e.id, content: [{ type: 'text', text: textOf(m.content) }] }); stamp(e); continue; }
     if (m.role === 'assistant') {
       (m.content || []).forEach((b: any, k: number) => {
         if (b?.type === 'text' && b.text?.trim()) push({ type: 'agentMessage', id: `${e.id}:${k}`, text: b.text, status: 'completed' });
@@ -181,6 +183,7 @@ async function parseHistory(path: string) {
         cur.status = m.stopReason === 'error' ? 'failed' : m.stopReason === 'aborted' ? 'interrupted' : 'completed';
         if (m.stopReason === 'error') cur.error = { message: m.errorMessage || '오류로 턴이 끝났습니다' };
       }
+      stamp(e);
       continue;
     }
     if (m.role === 'toolResult') {
@@ -188,7 +191,7 @@ async function parseHistory(path: string) {
       if (it) Object.assign(it, { success: !m.isError, status: m.isError ? 'failed' : 'completed', contentItems: [{ type: 'inputText', text: clip(textOf(m.content)) }] });
       continue;
     }
-    if (m.role === 'bashExecution') push({ type: 'commandExecution', id: e.id, command: m.command, aggregatedOutput: clip(m.output || ''), exitCode: m.exitCode ?? null, status: m.cancelled ? 'interrupted' : 'completed' });
+    if (m.role === 'bashExecution') { push({ type: 'commandExecution', id: e.id, command: m.command, aggregatedOutput: clip(m.output || ''), exitCode: m.exitCode ?? null, status: m.cancelled ? 'interrupted' : 'completed' }); stamp(e); }
   }
   return turns;
 }

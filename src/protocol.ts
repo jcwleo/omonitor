@@ -42,7 +42,7 @@ export interface Model { id: string; displayName?: string; supportedReasoningEff
 
 // ── turns & items ──
 export type TurnStatus = 'inProgress' | 'completed' | 'failed' | 'interrupted' | (string & {});
-export interface Turn { id: string; status: TurnStatus; items: Item[]; error?: { message: string } }
+export interface Turn { id: string; status: TurnStatus; items: Item[]; error?: { message: string }; /** ms of the turn's latest message; set by omonitor's file history, not app-server */ lastAt?: number }
 export type TextInput = { type: 'text'; text: string };
 
 export type ItemStatus = 'inProgress' | 'completed' | 'failed' | 'declined' | 'interrupted' | (string & {});

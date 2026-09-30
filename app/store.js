@@ -20,6 +20,13 @@ export const dur = (ms) => {
   return `${Math.floor(h / 24)}일`;
 };
 export const ago = (ms) => (ms < 60000 ? `${Math.max(1, Math.floor(ms / 1000))}초 전` : `${dur(ms)} 전`);
+// Wall-clock time of a message: "오후 2:32" today, with the date on other days (and the year in other years).
+export function clock(ms, now) {
+  const d = new Date(ms), n = new Date(now);
+  const time = d.toLocaleTimeString('ko-KR', { hour: 'numeric', minute: '2-digit' });
+  if (d.toDateString() === n.toDateString()) return time;
+  return `${d.toLocaleDateString('ko-KR', { ...(d.getFullYear() !== n.getFullYear() && { year: 'numeric' }), month: 'long', day: 'numeric' })} ${time}`;
+}
 export const proj = (cwd = '') => cwd.split('/').filter(Boolean).pop() || cwd;
 export const shortPath = (p = '') => p.replace(/^\/Users\/[^/]+/, '~');
 const textOf = (it) => (it.contentItems || []).map((c) => c.text).filter(Boolean).join('\n');
@@ -311,6 +318,9 @@ export function viewItems(T, now = Date.now()) {
     (u.items || []).filter((i) => !isEmptyReasoning(i)).forEach((i) => out.push(viewItem(i)));
     if (live?.turnId === u.id) out.push({ key: `live-${u.id}`, isLive: true, text: live.label, code: live.code, hasCode: !!live.code, meta: live.elapsed });
     if (u.error?.message) out.push({ key: `err-${u.id}`, isError: true, text: u.error.message });
+    // A finished turn ends with the time of its last message (file history: lastAt; live: last item event).
+    const at = u.lastAt || toMs(u.completedAt);
+    if (u.status !== 'inProgress' && at) out.push({ key: `at-${u.id}`, isTime: true, text: clock(at, now), title: new Date(at).toLocaleString('ko-KR') });
   });
   return out;
 }
@@ -562,7 +572,7 @@ export class Store {
       case 'thread/tokenUsage/updated': if (T) T.usage = { used: p.tokenUsage?.total?.totalTokens ?? 0, window: p.tokenUsage?.modelContextWindow ?? 0 }; break;
       // A subagent's completion wakes its parent with a new turn, so turn starts refresh the agents tab too.
       case 'turn/started': if (T) { const u = this.turnFor(T, p.turn.id); u.status = 'inProgress'; u.phaseAt = Date.now(); T.diff = ''; this.loadMeta(T.id); } break;
-      case 'turn/completed': if (T) { const u = this.turnFor(T, p.turn.id); u.status = p.turn.status; if (T.pendingStatus) { T.status = T.pendingStatus; T.pendingStatus = null; } if (p.turn.items?.length) u.items = p.turn.items.map(normItem); if (p.turn.error) { u.error = p.turn.error; T.lastError = p.turn.error.message; } this.loadMeta(T.id); } break;
+      case 'turn/completed': if (T) { const u = this.turnFor(T, p.turn.id); u.status = p.turn.status; u.lastAt ||= Date.now(); if (T.pendingStatus) { T.status = T.pendingStatus; T.pendingStatus = null; } if (p.turn.items?.length) u.items = p.turn.items.map(normItem); if (p.turn.error) { u.error = p.turn.error; T.lastError = p.turn.error.message; } this.loadMeta(T.id); } break;
       case 'item/started': case 'item/completed': if (T) {
         const u = this.turnFor(T, p.turnId);
         const item = normItem(p.item);
@@ -572,7 +582,7 @@ export class Store {
         if (item.status == null) item.status = method === 'item/started' ? 'inProgress' : 'completed';
         const i = u.items.findIndex((x) => x.id === item.id);
         u.items = i >= 0 ? u.items.map((x, k) => (k === i ? { ...x, ...item } : x)) : [...u.items, item];
-        T.updatedAt = T.liveAt = u.phaseAt = Date.now();
+        T.updatedAt = T.liveAt = u.phaseAt = u.lastAt = Date.now();
         // Subagent spawns and control calls (task, task_cancel, ...) change the agents tab.
         if (method === 'item/completed' && item.type === 'dynamicToolCall' && /^task/.test(item.tool || '')) this.loadMeta(T.id);
       } break;
