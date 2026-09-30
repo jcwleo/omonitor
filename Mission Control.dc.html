@@ -357,10 +357,11 @@ const tabIcon = (dot) => `data:image/svg+xml,${encodeURIComponent(`<svg xmlns='h
 const TAB_ICON = { ok: tabIcon('#8abeb7'), wait: tabIcon('#e8b75a') };
 // Touch-first screens get no keyboard hints and no automatic focus (it would raise the on-screen keyboard).
 const COARSE = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
+const ESC_MS = 800; // a second Esc within this window stops the running turn (see escStop)
 class Component extends DCLogic {
   state = { v: 0, now: Date.now(), w: window.innerWidth, view: 'board', selId: null, backTo: 'board', theme: null, drawer: false, drawerMounted: false,
     pal: null, sheet: null, dialog: null, menu: false, selMode: false, sel: {}, multiText: '', grouped: false, groupOpen: {}, panels: { left: false, right: false }, colC: {}, secC: { archived: true },
-    exp: {}, agentOpen: {}, doneOpen: null, allC: false, rtab: 'todo', ptab: 'tl', q: '', lf: 'all', focus: -1, pf: null, speedIdx: 0,
+    exp: {}, agentOpen: {}, doneOpen: null, escArmed: null, allC: false, rtab: 'todo', ptab: 'tl', q: '', lf: 'all', focus: -1, pf: null, speedIdx: 0,
     goalDraft: '', goalBudgetDraft: '', fatal: null, nb: false, ns: false };
   tlRef = React.createRef();
   sheetFileRef = React.createRef();
@@ -518,6 +519,20 @@ class Component extends DCLogic {
   // An opened session takes typing right away (not on touch screens, see COARSE). The composer takes the request when
   // it next renders (see takeFocus), since the first open from the board mounts it only after its component file loads.
   focusComposer(on = true) { this.wantFocus = on && !COARSE; }
+  // Esc twice stops the running turn with no confirm dialog: the double press is the confirmation. The first press only
+  // arms it, and the composer says so until the window passes.
+  escStop(id) {
+    clearTimeout(this.escT);
+    if (this.escFor === id && Date.now() - this.escAt < ESC_MS) {
+      this.escFor = null;
+      this.setState({ escArmed: null });
+      if (this.running(id)) this.store.interrupt(id).catch(() => {});
+      return;
+    }
+    this.escFor = id; this.escAt = Date.now();
+    this.setState({ escArmed: id });
+    this.escT = setTimeout(() => { this.escFor = null; this.setState({ escArmed: null }); }, ESC_MS);
+  }
   // A new session starts from the model and effort of the last one created here (mc.newSession); '' is the app-server default.
   newSheet() { return { cwd: '', text: '', model: this.lastNew?.model || '', effort: this.lastNew?.effort || '' }; }
   confirm(kind, id, extra = {}) { this.setState({ dialog: { kind, id, input: extra.input || '', text: extra.text || '', ids: extra.ids || null }, menu: false }); }
@@ -546,7 +561,8 @@ class Component extends DCLogic {
       if (s.menu) return this.setState({ menu: false });
       if (s.drawer) return this.setState({ drawer: false });
       if (s.selMode) return this.setState({ selMode: false, sel: {} });
-      if (!typing && s.view === 'session' && s.selId && this.running(s.selId)) this.confirm('interrupt', s.selId);
+      // Inside the message box the composer counts the press (onEscape).
+      if (!typing && s.view === 'session' && s.selId && this.running(s.selId)) this.escStop(s.selId);
       return;
     }
     if (this.state.pal || this.state.dialog || this.state.sheet) return;
@@ -960,7 +976,7 @@ class Component extends DCLogic {
           takeFocus: () => { const w = this.wantFocus; this.wantFocus = false; return w; },
           onSend: (text, images = []) => { const msg = S.withImages(text, images); this.stick = true; if (this.needsTakeover(T)) return this.confirm('takeover', T.id, { text: msg }); st.send(T.id, msg).catch(() => {}); },
           onUpload: st.c.backend?.upload ? (file) => st.upload(file) : null, imageFiles: S.imageFiles,
-          onInterrupt: () => this.confirm('interrupt', T.id),
+          onInterrupt: () => this.confirm('interrupt', T.id), onEscape: () => this.escStop(T.id), escArmed: s.escArmed === T.id,
           // thread/settings/update loads the session too, so an unloaded one goes through the same takeover confirmation.
           onSettings: (patch) => { if (this.needsTakeover(T)) return this.confirm('takeover', T.id, { settings: patch }); st.setSettings(T.id, patch).catch(() => {}); },
         },
