@@ -162,7 +162,7 @@ html,body{margin:0;height:100%;background:#1d1f20;overflow:hidden;overscroll-beh
 </sc-if>
 <sc-if value="{{ noSel }}"><div style="flex:1;display:grid;place-items:center;padding:17px"><div style="display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center"><span style="font:600 18.5px var(--font-heading)">세션을 고르세요</span><span style="font-size:13px;color:var(--fg2)">왼쪽 목록에서 고르거나 <span style="font-family:var(--mono)">⌘K</span>로 찾을 수 있습니다.</span></div></div></sc-if>
 <sc-if value="{{ hasSel }}">
-<div style="flex:1;min-width:0;display:flex;flex-direction:column;min-height:0">
+<div ref="{{ detailRef }}" style="flex:1;min-width:0;display:flex;flex-direction:column;min-height:0">
 <div style="flex:none;display:flex;align-items:center;gap:4px;padding:{{ detailHeadPad }};border-bottom:1px solid var(--line)">
 <sc-if value="{{ showBack }}"><button onClick="{{ goBack }}" style="all:unset;cursor:pointer;width:44px;height:44px;display:grid;place-items:center;color:var(--fg)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round"><path d="m15 18-6-6 6-6"></path></svg></button></sc-if>
 <div style="display:flex;flex-direction:column;min-width:0;flex:1">
@@ -358,12 +358,14 @@ const TAB_ICON = { ok: tabIcon('#8abeb7'), wait: tabIcon('#e8b75a') };
 // Touch-first screens get no keyboard hints and no automatic focus (it would raise the on-screen keyboard).
 const COARSE = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
 const ESC_MS = 800; // a second Esc within this window stops the running turn (see escStop)
+const EDGE_PX = 24; // a back swipe starts this close to the left edge (see onTouchStart)
 class Component extends DCLogic {
   state = { v: 0, now: Date.now(), w: window.innerWidth, view: 'board', selId: null, backTo: 'board', theme: null, drawer: false, drawerMounted: false,
     pal: null, sheet: null, dialog: null, menu: false, selMode: false, sel: {}, multiText: '', grouped: false, groupOpen: {}, panels: { left: false, right: false }, colC: {}, secC: { archived: true },
     exp: {}, agentOpen: {}, doneOpen: null, escArmed: null, allC: false, rtab: 'todo', ptab: 'tl', q: '', lf: 'all', focus: -1, pf: null, speedIdx: 0,
     goalDraft: '', goalBudgetDraft: '', fatal: null, nb: false, ns: false };
   tlRef = React.createRef();
+  detailRef = React.createRef();
   sheetFileRef = React.createRef();
   stick = true;
   // Images for the new-session sheet's first message, uploaded like the session composer's.
@@ -404,7 +406,12 @@ class Component extends DCLogic {
       this.fitViewport();
     }
     // Only panels scroll: a one-finger drag that starts outside a scrollable panel or a text box would pan the page.
+    // A drag from the left edge of an open conversation goes back, like Safari's back swipe, which a home-screen web
+    // app lacks: it follows the finger once it moves sideways, and past a third of the width (or on a quick flick) it
+    // does what the back button does. A drag that turns vertical first is left to scroll the panel.
     this.onTouchStart = (e) => {
+      const t = e.touches[0];
+      this.edge = e.touches.length === 1 && this.swipeBack && t.clientX <= EDGE_PX ? { x: t.clientX, y: t.clientY, dx: 0, v: 0, at: e.timeStamp, on: false, back: this.swipeBack } : null;
       this.dragOk = e.touches.length !== 1;
       for (let el = e.target; el && el !== document.body && !this.dragOk; el = el.parentElement) {
         if (el.isContentEditable || el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') this.dragOk = true;
@@ -414,9 +421,29 @@ class Component extends DCLogic {
         }
       }
     };
-    this.onTouchMove = (e) => { if (!this.dragOk && e.touches.length === 1 && e.cancelable) e.preventDefault(); };
+    this.onTouchMove = (e) => {
+      const g = this.edge;
+      if (g && e.touches.length === 1) {
+        const t = e.touches[0], dx = t.clientX - g.x, dy = t.clientY - g.y;
+        if (!g.on && (dx < 0 || Math.abs(dy) > Math.abs(dx))) this.edge = null;
+        else {
+          if (e.cancelable) e.preventDefault(); // keeps the panel under the finger from scrolling
+          if (dx > 10) g.on = true;
+          if (g.on) { g.v = (dx - g.dx) / Math.max(1, e.timeStamp - g.at); g.dx = dx; g.at = e.timeStamp; this.slideDetail(Math.max(0, dx)); }
+          return;
+        }
+      }
+      if (!this.dragOk && e.touches.length === 1 && e.cancelable) e.preventDefault();
+    };
+    this.onTouchEnd = (e) => {
+      const g = this.edge;
+      this.edge = null;
+      if (g?.on) this.settleDetail(e.type === 'touchend' && (g.dx > window.innerWidth / 3 || (g.v > 0.5 && g.dx > 40)), g.back);
+    };
     document.addEventListener('touchstart', this.onTouchStart, { passive: true });
     document.addEventListener('touchmove', this.onTouchMove, { passive: false });
+    document.addEventListener('touchend', this.onTouchEnd, { passive: true });
+    document.addEventListener('touchcancel', this.onTouchEnd, { passive: true });
     // A file dropped outside a drop target would make the browser navigate to it and leave the dashboard.
     this.onWinDrag = (e) => { if ([...(e.dataTransfer?.types || [])].includes('Files')) e.preventDefault(); };
     window.addEventListener('dragover', this.onWinDrag);
@@ -448,7 +475,25 @@ class Component extends DCLogic {
       this.info = real ? `${this.client.serverInfo ? `${this.client.serverInfo.name} ${this.client.serverInfo.version}` : 'omo app-server'} · ${this.upstream}` : 'mock 시뮬레이터 · 실제 서버 아님';
     } catch (e) { console.error(e); this.setState({ fatal: String(e?.message || e) }); }
   }
-  componentWillUnmount() { window.visualViewport?.removeEventListener('resize', this.fitViewport); window.visualViewport?.removeEventListener('scroll', this.fitViewport); window.removeEventListener('scroll', this.fitViewport); document.removeEventListener('touchstart', this.onTouchStart); document.removeEventListener('touchmove', this.onTouchMove); window.removeEventListener('resize', this.onResize); window.removeEventListener('keydown', this.onKey); window.removeEventListener('dragover', this.onWinDrag); window.removeEventListener('drop', this.onWinDrag); clearInterval(this.tick); this.client?.close(); }
+  componentWillUnmount() { window.visualViewport?.removeEventListener('resize', this.fitViewport); window.visualViewport?.removeEventListener('scroll', this.fitViewport); window.removeEventListener('scroll', this.fitViewport); document.removeEventListener('touchstart', this.onTouchStart); document.removeEventListener('touchmove', this.onTouchMove); document.removeEventListener('touchend', this.onTouchEnd); document.removeEventListener('touchcancel', this.onTouchEnd); window.removeEventListener('resize', this.onResize); window.removeEventListener('keydown', this.onKey); window.removeEventListener('dragover', this.onWinDrag); window.removeEventListener('drop', this.onWinDrag); clearInterval(this.tick); this.client?.close(); }
+  // The conversation follows the finger during a back swipe. Styles go straight to the element so the drag does not
+  // re-render; React leaves them alone because the template sets no transform, transition or shadow there.
+  slideDetail(dx) {
+    const el = this.detailRef.current;
+    if (!el) return;
+    el.style.transition = 'none';
+    el.style.transform = `translateX(${dx}px)`;
+    el.style.boxShadow = '-10px 0 24px rgba(0,0,0,.35)';
+  }
+  settleDetail(go, back) {
+    const el = this.detailRef.current;
+    if (!el) return;
+    const reset = () => { el.style.transition = ''; el.style.transform = ''; el.style.boxShadow = ''; };
+    el.style.transition = 'transform .18s ease-out';
+    el.style.transform = go ? 'translateX(100%)' : 'translateX(0)';
+    // Going back unmounts the conversation, so it is reset only if it is somehow still on screen.
+    setTimeout(() => { if (!go) return reset(); back(); setTimeout(() => el.isConnected && reset(), 300); }, 180);
+  }
   // The browser tab names the current screen and shows pending questions/approvals, so a background tab tells when
   // omo is waiting: "(2) 보드 · omonitor" with an amber dot on the icon.
   syncTab() {
@@ -512,7 +557,9 @@ class Component extends DCLogic {
     const st = this.store; const T = st?.T(id);
     this.stick = true;
     this.focusComposer(focus);
-    this.setState((s) => ({ view: 'session', selId: id, backTo: s.view === 'session' ? s.backTo : s.view, ptab: 'tl', pal: null, drawer: false }));
+    // Back (button or edge swipe) returns to where the session was opened: the board, or the session list (the session
+    // view with nothing selected). Moving between sessions keeps the original origin.
+    this.setState((s) => ({ view: 'session', selId: id, backTo: s.view !== 'session' ? s.view : s.selId ? s.backTo : 'session', ptab: 'tl', pal: null, drawer: false }));
     if (!T) { st?.resume(id).catch(() => {}); return; }
     if (!T.historyLoaded) st.guard(st.loadHistory(id), '세션 기록을 읽지 못했습니다').catch(() => {});
   }
@@ -890,7 +937,10 @@ class Component extends DCLogic {
     const screen = s.view === 'session' ? (T ? T.name || T.preview?.slice(0, 30) || '이름 없는 세션' : '세션') : '보드';
     this._tabTitle = `${inboxN ? `(${inboxN}) ` : ''}${screen} · omonitor`;
     this._tabIcon = inboxN ? TAB_ICON.wait : TAB_ICON.ok;
-    Object.assign(vals, { hasSel: !!T, noSel: !T && isDesk, showBack: !isDesk });
+    Object.assign(vals, { hasSel: !!T, noSel: !T && isDesk, showBack: !isDesk, detailRef: this.detailRef });
+    const goBack = () => this.setState((x) => (isPhone ? { view: x.backTo || 'board', selId: null } : { selId: null }));
+    // The left-edge swipe (onTouchStart) does the back button's job, unless something is open over the conversation.
+    this.swipeBack = T && !isDesk && !(s.pal || s.sheet || s.dialog || s.menu) ? goBack : null;
     if (!isDesk && !T) { vals.showList = true; vals.listW = '100%'; }
     if (!isDesk && T) vals.showList = false;
     // The session list only folds on desktop with a session open, where it sits beside the conversation.
@@ -922,7 +972,7 @@ class Component extends DCLogic {
         hasSelReqs: st.reqsFor(T.id).length > 0,
         selTerminal: S.isTerminal(T), selNotSub: !T.subscribed && !T.archived, selNotSubNote: !T.subscribed && !T.archived && T.source !== 'cli',
         selLost: S.historyLost(T) && !todo, restoreSel: () => st.restoreTodos(T.id), subscribeSel: () => (this.needsTakeover(T) ? this.confirm('takeover', T.id) : st.resume(T.id)), takeoverSel: () => this.confirm('takeover', T.id),
-        goBack: () => this.setState((x) => (isPhone ? { view: x.backTo || 'board', selId: null } : { selId: null })),
+        goBack,
         detailHeadPad: isPhone ? `max(4px, env(safe-area-inset-top)) 4px 0 2px` : '4px 6px 4px 12px', detailTitleSize: isPhone ? '17px' : '18.5px',
         openMenu: () => this.setState({ menu: true }), renameSel: () => this.confirm('rename', T.id, { input: T.name || '' }),
         rtabs: tabsDef.map(mkTab(rtab, 'rtab')), ptabs: [['tl', '타임라인', ''], ...tabsDef].map(mkTab(ptab, 'ptab')),
