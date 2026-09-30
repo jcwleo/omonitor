@@ -62,9 +62,12 @@ class Component extends DCLogic {
   // The draft (text and attached images) lives with the parent per session: switching to the inbox or board unmounts
   // this component, and switching sessions reuses it, so it loads the session's draft and saves every change back.
   // DCLogic calls componentDidUpdate with prevProps only, so changes are detected against what was last saved.
-  componentDidMount() { this.mounted = true; this.loadDraft(); }
+  componentDidMount() { this.mounted = true; this.loadDraft(); this.takeFocus(); }
   componentWillUnmount() { this.mounted = false; }
+  // The parent asks for the cursor here when a session is opened.
+  takeFocus() { if (this.props.c?.takeFocus?.()) this.taRef.current?.focus({ preventScroll: true }); }
   componentDidUpdate() {
+    this.takeFocus();
     const id = this.props.c?.threadId;
     if (this.draftFor !== id) { this.loadDraft(); return; }
     const { text, images } = this.state;

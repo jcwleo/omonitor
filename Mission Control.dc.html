@@ -56,7 +56,7 @@ html,body{margin:0;height:100%;background:#1d1f20;overflow:hidden;overscroll-beh
 <div style="flex:none;display:flex;align-items:center;gap:10px;padding:0 12px;min-height:44px;border-bottom:1px solid var(--line)">
 <div style="font:600 17.5px var(--font-heading);letter-spacing:.02em;white-space:nowrap">omonitor</div>
 <div style="display:flex">
-<sc-for list="{{ tabs }}" as="t" hint-placeholder-count="3"><button onClick="{{ t.onTap }}" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:4px;min-height:44px;padding:0 8px;font-size:13.5px;color:{{ t.fg }};box-shadow:{{ t.line }}" style-hover="color:var(--fg)">{{ t.label }}<sc-if value="{{ t.hasBadge }}"><span style="font:600 12px var(--mono);background:var(--warn);color:var(--on-acc);padding:0 4px;min-width:18px;text-align:center">{{ t.badge }}</span></sc-if></button></sc-for>
+<sc-for list="{{ tabs }}" as="t" hint-placeholder-count="3"><button onClick="{{ t.onTap }}" title="{{ t.title }}" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:4px;min-height:44px;padding:0 8px;font-size:13.5px;color:{{ t.fg }};box-shadow:{{ t.line }}" style-hover="color:var(--fg)">{{ t.label }}<sc-if value="{{ t.hasKey }}"><span style="font:12px var(--mono);color:var(--fg3)">{{ t.key }}</span></sc-if><sc-if value="{{ t.hasBadge }}"><span style="font:600 12px var(--mono);background:var(--warn);color:var(--on-acc);padding:0 4px;min-width:18px;text-align:center">{{ t.badge }}</span></sc-if></button></sc-for>
 </div>
 <div style="margin-left:auto;display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--fg2)">
 <span style="display:flex;align-items:center;gap:4px;white-space:nowrap"><span style="width:6px;height:6px;border-radius:50%;background:{{ connDot }}"></span>{{ connLabel }}</span>
@@ -157,6 +157,7 @@ html,body{margin:0;height:100%;background:#1d1f20;overflow:hidden;overscroll-beh
 </button></sc-for>
 <sc-if value="{{ listEmpty }}"><div style="padding:12px 9px;font-size:12.5px;color:var(--fg3)">일치하는 세션이 없습니다</div></sc-if>
 </div>
+<sc-if value="{{ listKeys }}"><div style="flex:none;display:flex;flex-wrap:wrap;column-gap:9px;row-gap:2px;padding:6px 9px;font-size:12px;color:var(--fg3);border-top:1px solid var(--line-soft)"><span style="white-space:nowrap"><span style="font-family:var(--mono);color:var(--fg2)">⌥↑ ⌥↓</span> 이전·다음 세션</span><span style="white-space:nowrap">입력 중에도 됩니다</span></div></sc-if>
 </div>
 </sc-if>
 <sc-if value="{{ noSel }}"><div style="flex:1;display:grid;place-items:center;padding:17px"><div style="display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center"><span style="font:600 18.5px var(--font-heading)">세션을 고르세요</span><span style="font-size:13px;color:var(--fg2)">왼쪽 목록에서 고르거나 <span style="font-family:var(--mono)">⌘K</span>로 찾을 수 있습니다.</span></div></div></sc-if>
@@ -168,6 +169,7 @@ html,body{margin:0;height:100%;background:#1d1f20;overflow:hidden;overscroll-beh
 <button onClick="{{ renameSel }}" title="눌러서 이름 변경" style="all:unset;cursor:pointer;display:block;min-width:0;font:600 {{ detailTitleSize }}/1.15 var(--font-heading);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ sel.name }}</button>
 <span style="font:12px var(--mono);color:var(--fg3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ sel.cwd }} · {{ sel.elapsed }}</span>
 </div>
+<sc-if value="{{ headKeys }}"><span title="이전·다음 세션" style="font:12px var(--mono);color:var(--fg3);white-space:nowrap;padding:0 4px">⌥↑ ⌥↓ 세션</span></sc-if>
 <sc-if value="{{ selNotSub }}"><span style="font-size:12px;color:var(--fg3);border:1px dashed var(--line2);padding:1px 4px;white-space:nowrap">구독 안 함</span></sc-if>
 <span class="tag" style="font-size:12px;padding:1px 5px;white-space:nowrap;color:{{ sel.statusColor }};border:1px solid {{ sel.statusColor }};transition:color .3s,border-color .3s">{{ sel.statusLabel }}</span>
 <button onClick="{{ openMenu }}" title="세션 관리" style="all:unset;cursor:pointer;width:44px;height:44px;display:grid;place-items:center;color:var(--fg2)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="stroke-width:1.5;stroke-linecap:round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg></button>
@@ -353,6 +355,8 @@ const GROUP_CAP = 5; // sessions per project shown in a grouped board column bef
 // Tab icon: a ring on the dashboard background; the dot turns amber while omo waits for an answer or approval.
 const tabIcon = (dot) => `data:image/svg+xml,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='#1d1f20'/><circle cx='30' cy='34' r='16' fill='none' stroke='#94bce3' stroke-width='7'/><circle cx='48' cy='16' r='8' fill='${dot}' stroke='#1d1f20' stroke-width='3'/></svg>`)}`;
 const TAB_ICON = { ok: tabIcon('#8abeb7'), wait: tabIcon('#e8b75a') };
+// Touch-first screens get no keyboard hints and no automatic focus (it would raise the on-screen keyboard).
+const COARSE = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
 class Component extends DCLogic {
   state = { v: 0, now: Date.now(), w: window.innerWidth, view: 'board', selId: null, backTo: 'board', theme: null, drawer: false, drawerMounted: false,
     pal: null, sheet: null, dialog: null, menu: false, selMode: false, sel: {}, multiText: '', grouped: false, groupOpen: {}, panels: { left: false, right: false }, colC: {}, secC: { archived: true },
@@ -503,13 +507,17 @@ class Component extends DCLogic {
       return { panels };
     });
   }
-  openSession(id) {
+  openSession(id, focus = true) {
     const st = this.store; const T = st?.T(id);
     this.stick = true;
+    this.focusComposer(focus);
     this.setState((s) => ({ view: 'session', selId: id, backTo: s.view === 'session' ? s.backTo : s.view, ptab: 'tl', pal: null, drawer: false }));
     if (!T) { st?.resume(id).catch(() => {}); return; }
     if (!T.historyLoaded) st.guard(st.loadHistory(id), '세션 기록을 읽지 못했습니다').catch(() => {});
   }
+  // An opened session takes typing right away (not on touch screens, see COARSE). The composer takes the request when
+  // it next renders (see takeFocus), since the first open from the board mounts it only after its component file loads.
+  focusComposer(on = true) { this.wantFocus = on && !COARSE; }
   // A new session starts from the model and effort of the last one created here (mc.newSession); '' is the app-server default.
   newSheet() { return { cwd: '', text: '', model: this.lastNew?.model || '', effort: this.lastNew?.effort || '' }; }
   confirm(kind, id, extra = {}) { this.setState({ dialog: { kind, id, input: extra.input || '', text: extra.text || '', ids: extra.ids || null }, menu: false }); }
@@ -541,22 +549,40 @@ class Component extends DCLogic {
       if (!typing && s.view === 'session' && s.selId && this.running(s.selId)) this.confirm('interrupt', s.selId);
       return;
     }
-    if (typing || this.state.pal || this.state.dialog || this.state.sheet) return;
+    if (this.state.pal || this.state.dialog || this.state.sheet) return;
+    // Option+1/2 switch screens and Option+Up/Down step through sessions, also from inside the message box (an opened
+    // session focuses it). Matched on e.code: Option changes e.key on macOS.
+    if (e.altKey && !e.metaKey && !e.ctrlKey && !e.defaultPrevented && !e.isComposing && e.keyCode !== 229) {
+      if (e.code === 'Digit1' || e.code === 'Digit2') {
+        e.preventDefault();
+        if (e.code === 'Digit2' && this.state.selId) this.focusComposer();
+        this.go(e.code === 'Digit1' ? 'board' : 'session');
+        return;
+      }
+      if (e.code === 'ArrowUp' || e.code === 'ArrowDown') { e.preventDefault(); this.step(e.code === 'ArrowDown' ? 1 : -1, true); return; }
+    }
+    if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
+    // Letter keys by position, so they also work while a Korean input source turns e.key into jamo (j -> ㅓ).
+    const k = /^Key[A-Z]$/.test(e.code) ? e.code.slice(3).toLowerCase() : e.key;
     if (this.gAt && Date.now() - this.gAt < 900) {
       this.gAt = 0;
-      if (e.key === 'b') this.go('board'); else if (e.key === 's') this.go('session');
+      if (k === 'b') this.go('board'); else if (k === 's') this.go('session');
       return;
     }
-    if (e.key === 'g') { this.gAt = Date.now(); return; }
-    if (e.key === 'j' || e.key === 'k') {
-      e.preventDefault();
-      const ids = this.navIds(); if (!ids.length) return;
-      const n = Math.max(0, Math.min(ids.length - 1, this.state.focus + (e.key === 'j' ? 1 : -1)));
-      this.setState({ focus: n });
-      if (this.state.view === 'session') this.openSession(ids[n]);
-      return;
-    }
-    if (e.key === 'Enter' && this.state.focus >= 0) { const id = this.navIds()[this.state.focus]; if (id) this.openSession(id); }
+    if (k === 'g') { this.gAt = Date.now(); return; }
+    // j/k keep focus on the list so they can repeat; Enter then opens the session into its message box.
+    if (k === 'j' || k === 'k') { e.preventDefault(); this.step(k === 'j' ? 1 : -1, false); return; }
+    // preventDefault: the message box takes focus before this Enter's line break would land in it.
+    if (e.key === 'Enter' && this.state.focus >= 0) { const id = this.navIds()[this.state.focus]; if (id) { e.preventDefault(); this.openSession(id); } }
+  }
+  // Moves the list focus by d. In the session view it moves from the session shown and opens the next one.
+  step(d, focus) {
+    const ids = this.navIds(); if (!ids.length) return;
+    const s = this.state;
+    const cur = s.view === 'session' && ids.includes(s.selId) ? ids.indexOf(s.selId) : s.focus;
+    const n = cur < 0 ? (d > 0 ? 0 : ids.length - 1) : Math.max(0, Math.min(ids.length - 1, cur + d));
+    this.setState({ focus: n });
+    if (s.view === 'session') this.openSession(ids[n], focus);
   }
 
   sessionView(T, now, lay, focusId) {
@@ -770,7 +796,7 @@ class Component extends DCLogic {
     this._cols = columns;
 
     const tabDefs = [['board', '보드', inboxN ? String(inboxN) : ''], ['session', '세션', '']];
-    const tabs = tabDefs.map(([k, label, badge]) => ({ label, badge, hasBadge: !!badge, fg: s.view === k ? 'var(--fg)' : 'var(--fg2)', line: s.view === k ? 'inset 0 -2px 0 var(--acc)' : 'none', onTap: () => this.go(k) }));
+    const tabs = tabDefs.map(([k, label, badge]) => ({ label, badge, hasBadge: !!badge, title: `${label} (⌥${k === 'board' ? 1 : 2})`, key: `⌥${k === 'board' ? 1 : 2}`, hasKey: !COARSE, fg: s.view === k ? 'var(--fg)' : 'var(--fg2)', line: s.view === k ? 'inset 0 -2px 0 var(--acc)' : 'none', onTap: () => this.go(k) }));
     const phoneTabs = [['board', '보드', ICON.board], ['session', '세션', ICON.sessions], ['new', '새 세션', ICON.new]].map(([k, label, icon]) => ({
       label, icon, badge: k === 'board' && inboxN ? String(inboxN) : '', hasBadge: k === 'board' && inboxN > 0, fg: s.view === k ? 'var(--acc-fg)' : 'var(--fg3)',
       onTap: () => (k === 'new' ? this.setState({ sheet: this.newSheet() }) : this.go(k)) }));
@@ -855,6 +881,8 @@ class Component extends DCLogic {
     const canFoldList = isDesk && s.view === 'session' && !!T;
     Object.assign(vals, { canFoldList, toggleList: () => this.togglePanel('left'), toggleRight: () => this.togglePanel('right') });
     if (canFoldList && s.panels.left) Object.assign(vals, { showList: false, showListRail: true });
+    // Keyboard hints stay on screen: under the session list, or in the session header while the list is hidden.
+    Object.assign(vals, { listKeys: !COARSE, headKeys: !!T && !isPhone && !COARSE && !vals.showList });
     if (isPhone && s.view === 'session' && !T) Object.assign(vals, { phoneTop: true, phoneTabBar: true, phoneTitle: '세션', phoneCount: `${listed.length}개`, phoneCountColor: 'var(--fg3)' });
     if (T) {
       const sel = allViews.find((v) => v.id === T.id) || this.sessionView(T, now, lay, null);
@@ -929,6 +957,7 @@ class Component extends DCLogic {
           running, activity: live ? [live.label, live.elapsed].filter(Boolean).join(' · ') : '', model: T.settings?.model, effort: T.settings?.effort, models: st.s.models, skills: st.s.skills, usage: T.usage || null,
           padBottom: isPhone ? 'max(10px, env(safe-area-inset-bottom))' : '10px',
           threadId: T.id, draft: this.draftOf(T.id), onDraft: (id, d) => this.saveDraft(id, d), patchDraftImage: (id, imgId, patch) => this.patchDraftImage(id, imgId, patch),
+          takeFocus: () => { const w = this.wantFocus; this.wantFocus = false; return w; },
           onSend: (text, images = []) => { const msg = S.withImages(text, images); this.stick = true; if (this.needsTakeover(T)) return this.confirm('takeover', T.id, { text: msg }); st.send(T.id, msg).catch(() => {}); },
           onUpload: st.c.backend?.upload ? (file) => st.upload(file) : null, imageFiles: S.imageFiles,
           onInterrupt: () => this.confirm('interrupt', T.id),
@@ -1033,8 +1062,8 @@ class Component extends DCLogic {
     if (pal) {
       const q = pal.q.trim().toLowerCase();
       const actions = [
-        ['새 세션', 'N', () => this.setState({ sheet: this.newSheet() })], ['보드로 이동', 'g b', () => this.go('board')],
-        ['세션 화면으로 이동', 'g s', () => this.go('session')], [`테마: ${theme === 'dark' ? '라이트로' : '다크로'} 전환`, '', () => this.setState({ theme: theme === 'dark' ? 'light' : 'dark' })],
+        ['새 세션', 'N', () => this.setState({ sheet: this.newSheet() })], ['보드로 이동', '⌥1 · g b', () => this.go('board')],
+        ['세션 화면으로 이동', '⌥2 · g s', () => this.go('session')], [`테마: ${theme === 'dark' ? '라이트로' : '다크로'} 전환`, '', () => this.setState({ theme: theme === 'dark' ? 'light' : 'dark' })],
         ['여러 세션에 메시지 보내기', '', () => this.setState({ view: 'board', selMode: true, sel: {} })],
         ...(this.mode === 'mock' ? [['연결 끊김 시뮬레이션', '데모', () => this.client.simulateDisconnect()]] : []),
       ].filter(([l]) => !q || l.toLowerCase().includes(q)).map(([label, hint, run]) => ({ label, hint, dot: 'transparent', run }));
