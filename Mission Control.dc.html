@@ -24,7 +24,14 @@
 <link rel="stylesheet" href="app/styles.css">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap">
 <style>
-html,body{margin:0;height:100%;background:#1d1f20}
+/* The app is one fixed screen; only its panels scroll. Without this, iOS (home-screen web app) drags and rubber-bands
+   the whole page, header and composer included, whenever a panel is pushed past its end. */
+html,body{margin:0;height:100%;background:#1d1f20;overflow:hidden;overscroll-behavior:none}
+.mc *{overscroll-behavior:contain}
+/* Except the overflow:hidden boxes that clip ellipsis text: the browser counts them as scroll containers, so a wheel or
+   swipe over a row's label stopped there and never scrolled the list around it (the model picker over its rows).
+   Matched on text-overflow because React serializes inline styles ("overflow: hidden") and no scroller carries it. */
+.mc [style*="text-overflow"]{overscroll-behavior:auto}
 /* One font everywhere: the terminal font of iTerm2's default profile (MesloLGS NF). Menlo, which it is derived from, and
    JetBrains Mono stand in where it is not installed; Hangul falls back to the system font, as it does in iTerm2. */
 :root{--term:"MesloLGS NF",Menlo,"JetBrains Mono",ui-monospace,monospace;--font-body:var(--term);--font-heading:var(--term)}
@@ -36,11 +43,12 @@ html,body{margin:0;height:100%;background:#1d1f20}
 .mc[data-theme="light"]{--md-text:#1f2328;--md-heading:#9a7326;--md-code:#5a8080;--md-codeblock:#588458;--md-codeblock-border:#6c6c6c;--md-link:#547da7;--md-quote:#6c6c6c;--md-quote-border:#6c6c6c;--md-hr:#6c6c6c;--md-bullet:#588458}
 @keyframes mcPulse{0%,100%{opacity:.45}50%{opacity:.9}}
 /* 100vh is taller than the visible area on iOS (Safari toolbars, home-screen web app status bar) and pushes the
-   composer off-screen; dvh tracks the viewport actually shown. */
-.mc{height:100vh;height:100dvh}
+   composer off-screen; dvh tracks the viewport actually shown. --app-h and --app-shift fit it to the visual viewport
+   while an on-screen keyboard or iPadOS's floating shortcut bar covers part of the screen (see fitViewport). */
+.mc{height:100vh;height:100dvh;height:var(--app-h, 100dvh);transform:var(--app-shift, none)}
 </style>
 </helmet>
-<div class="mc" data-theme="{{ theme }}" style="display:flex;flex-direction:column;background:var(--bg);color:var(--fg);font-family:var(--font-body);overflow:hidden;position:relative">
+<div class="mc" data-theme="{{ theme }}" style="display:flex;flex-direction:column;background:var(--bg);color:var(--fg);font-family:var(--font-body);overflow:hidden;position:relative;padding-top:{{ safeTop }}">
 
 <sc-if value="{{ connBanner }}"><div style="flex:none;display:flex;align-items:center;gap:7px;padding:6px 10px;background:var(--warn-tint);border-bottom:1px solid var(--warn-line);font-size:12.5px;color:var(--fg)"><span style="width:7px;height:7px;border-radius:50%;background:var(--warn);animation:mcPulse 1.2s infinite"></span><span style="flex:1;min-width:0">{{ connText }}</span><button class="btn btn-secondary" onClick="{{ reconnectNow }}" style="font-size:12.5px;padding:3px 7px;min-height:32px;color:var(--fg)">지금 다시 연결</button></div></sc-if>
 
@@ -370,6 +378,40 @@ class Component extends DCLogic {
     this.onKey = (e) => this.key(e);
     window.addEventListener('resize', this.onResize);
     window.addEventListener('keydown', this.onKey);
+    // A focused text box brings up the iOS keyboard, or with a hardware keyboard iPadOS's floating shortcut bar. iOS
+    // then shrinks the visual viewport and pans it down over the page, which neither 100dvh nor overflow:hidden stops:
+    // the app slid up under the status bar and the page could be dragged. So the app is sized to the visual viewport
+    // and moved along with its pan (--app-h, --app-shift). Not while pinch-zoomed, where the visual viewport is a
+    // magnified part of the page.
+    const vv = window.visualViewport;
+    if (vv) {
+      this.fitViewport = () => {
+        const root = document.documentElement;
+        if (Math.abs(vv.scale - 1) > 0.01) { root.style.removeProperty('--app-h'); root.style.removeProperty('--app-shift'); return; }
+        if (window.scrollY) window.scrollTo(0, 0);
+        root.style.setProperty('--app-h', `${Math.round(vv.height)}px`);
+        const y = Math.round(vv.pageTop);
+        if (y > 0) root.style.setProperty('--app-shift', `translateY(${y}px)`); else root.style.removeProperty('--app-shift');
+      };
+      vv.addEventListener('resize', this.fitViewport);
+      vv.addEventListener('scroll', this.fitViewport);
+      window.addEventListener('scroll', this.fitViewport);
+      this.fitViewport();
+    }
+    // Only panels scroll: a one-finger drag that starts outside a scrollable panel or a text box would pan the page.
+    this.onTouchStart = (e) => {
+      this.dragOk = e.touches.length !== 1;
+      for (let el = e.target; el && el !== document.body && !this.dragOk; el = el.parentElement) {
+        if (el.isContentEditable || el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') this.dragOk = true;
+        else {
+          const s = getComputedStyle(el);
+          this.dragOk = (/auto|scroll/.test(s.overflowY) && el.scrollHeight > el.clientHeight) || (/auto|scroll/.test(s.overflowX) && el.scrollWidth > el.clientWidth);
+        }
+      }
+    };
+    this.onTouchMove = (e) => { if (!this.dragOk && e.touches.length === 1 && e.cancelable) e.preventDefault(); };
+    document.addEventListener('touchstart', this.onTouchStart, { passive: true });
+    document.addEventListener('touchmove', this.onTouchMove, { passive: false });
     // A file dropped outside a drop target would make the browser navigate to it and leave the dashboard.
     this.onWinDrag = (e) => { if ([...(e.dataTransfer?.types || [])].includes('Files')) e.preventDefault(); };
     window.addEventListener('dragover', this.onWinDrag);
@@ -401,7 +443,7 @@ class Component extends DCLogic {
       this.info = real ? `${this.client.serverInfo ? `${this.client.serverInfo.name} ${this.client.serverInfo.version}` : 'omo app-server'} · ${this.upstream}` : 'mock 시뮬레이터 · 실제 서버 아님';
     } catch (e) { console.error(e); this.setState({ fatal: String(e?.message || e) }); }
   }
-  componentWillUnmount() { window.removeEventListener('resize', this.onResize); window.removeEventListener('keydown', this.onKey); window.removeEventListener('dragover', this.onWinDrag); window.removeEventListener('drop', this.onWinDrag); clearInterval(this.tick); this.client?.close(); }
+  componentWillUnmount() { window.visualViewport?.removeEventListener('resize', this.fitViewport); window.visualViewport?.removeEventListener('scroll', this.fitViewport); window.removeEventListener('scroll', this.fitViewport); document.removeEventListener('touchstart', this.onTouchStart); document.removeEventListener('touchmove', this.onTouchMove); window.removeEventListener('resize', this.onResize); window.removeEventListener('keydown', this.onKey); window.removeEventListener('dragover', this.onWinDrag); window.removeEventListener('drop', this.onWinDrag); clearInterval(this.tick); this.client?.close(); }
   // The browser tab names the current screen and shows pending questions/approvals, so a background tab tells when
   // omo is waiting: "(2) 보드 · omonitor" with an amber dot on the icon.
   syncTab() {
@@ -675,6 +717,9 @@ class Component extends DCLogic {
     const now = s.now;
     const base = {
       theme, isPhone, notPhone: !isPhone, fatal: s.fatal, stop: (e) => e.stopPropagation(),
+      // The home-screen app draws under the iOS status bar (black-translucent). Phone bars pad themselves; the wider
+      // layouts (iPad) start below it here.
+      safeTop: isPhone ? '0px' : 'env(safe-area-inset-top)',
       toggleTheme: () => this.setState({ theme: theme === 'dark' ? 'light' : 'dark' }), themeLabel: theme === 'dark' ? '다크' : '라이트',
       openPalette: () => this.setState({ pal: { q: '', idx: 0 } }), openNew: () => this.setState({ sheet: this.newSheet() }),
       serverInfo: this.info || '', skel: [1, 2, 3, 4, 5].slice(0, isPhone ? 1 : isDesk ? 5 : 4).map((k) => ({ h1: `${120 + (k % 3) * 40}px`, h2: `${80 + (k % 2) * 60}px` })),
@@ -904,7 +949,7 @@ class Component extends DCLogic {
     Object.assign(vals, {
       menuOpen: s.menu && !!T, closeMenu: () => this.setState({ menu: false }),
       menuScrim: isPhone ? 'rgba(10,11,12,.5)' : 'transparent', menuJustify: isPhone ? 'stretch' : 'flex-end', menuAlign: isPhone ? 'flex-end' : 'flex-start',
-      menuPad: isPhone ? '0' : `${54 + (vals.connBanner ? 40 : 0) + 44}px ${isDesk ? 330 : 310}px 0 0`, menuW: isPhone ? '100%' : '240px', menuPadBottom: isPhone ? 'max(12px, env(safe-area-inset-bottom))' : '4px',
+      menuPad: isPhone ? '0' : `calc(${54 + (vals.connBanner ? 40 : 0) + 44}px + env(safe-area-inset-top)) ${isDesk ? 330 : 310}px 0 0`, menuW: isPhone ? '100%' : '240px', menuPadBottom: isPhone ? 'max(12px, env(safe-area-inset-bottom))' : '4px',
     });
 
     // ── dialogs ──
