@@ -117,3 +117,7 @@ export interface UserInputAnsweredParams { answers: Record<string, { answers: st
 
 // ── Bun backend extras (not app-server) ──
 export interface Skill { kind: 'command' | 'skill' | 'keyword'; name: string; desc: string; source: 'builtin' | 'user'; insert?: string; label?: string }
+/** GET /api/omo/version: the installed omo against the npm `latest` tag (cached 10 minutes by the backend). */
+export interface OmoVersion { current: string; latest: string; updateAvailable: boolean; checkedAt: number }
+/** POST /api/omo/update: `omo update`, then `omo app-server daemon restart`. restartError means the update went in but the restart failed. */
+export interface OmoUpdateResult { update: string; restart?: string; restartError?: string }

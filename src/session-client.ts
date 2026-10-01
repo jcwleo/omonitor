@@ -1,6 +1,6 @@
 // SessionClient — the only thing the UI talks to. MockClient (app/mock-client.js) and RealClient
 // below implement the same contract, so swapping them needs no UI change.
-import type { RequestId, RpcNotification, ServerRequest, Skill, Item, InitializeParams, Turn } from './protocol';
+import type { RequestId, RpcNotification, ServerRequest, Skill, Item, InitializeParams, Turn, Model, OmoVersion, OmoUpdateResult } from './protocol';
 
 export type ConnectionState = 'connecting' | 'open' | 'reconnecting' | 'closed';
 export interface ConnectionEvent { state: ConnectionState; attempt?: number; retryInMs?: number; reconnected?: boolean }
@@ -26,6 +26,11 @@ export interface SessionClient {
     /** Subagent runs (omo.task.updated shape) and context usage, read from the session file. */
     meta(threadId: string): Promise<{ agents: unknown[]; usage: { used: number; window: number } | null }>;
     restoreTodos(threadId: string): Promise<Item[]>;
+    /** Models of extension-registered providers (Claude subscription) that model/list does not return. */
+    extraModels(): Promise<Model[]>;
+    omoVersion(): Promise<OmoVersion>;
+    /** Updates omo and restarts the app-server daemon, which ends every session running under it. */
+    omoUpdate(): Promise<OmoUpdateResult>;
   };
 }
 
@@ -74,6 +79,21 @@ export class RealClient implements SessionClient {
     },
     restoreTodos: async (threadId: string): Promise<Item[]> => {
       const r = await fetch(`/api/threads/${encodeURIComponent(threadId)}/restore-todos`, { method: 'POST', headers: this.hdr() });
+      if (!r.ok) throw new Error(await r.text());
+      return r.json();
+    },
+    extraModels: async (): Promise<Model[]> => {
+      const r = await fetch('/api/models/extra', { headers: this.hdr() });
+      if (!r.ok) throw new Error(await r.text());
+      return r.json();
+    },
+    omoVersion: async (): Promise<OmoVersion> => {
+      const r = await fetch('/api/omo/version', { headers: this.hdr() });
+      if (!r.ok) throw new Error(await r.text());
+      return r.json();
+    },
+    omoUpdate: async (): Promise<OmoUpdateResult> => {
+      const r = await fetch('/api/omo/update', { method: 'POST', headers: this.hdr() });
       if (!r.ok) throw new Error(await r.text());
       return r.json();
     },
