@@ -95,6 +95,49 @@ async function extraModels() {
   });
 }
 
+// ── omo version check and update ──
+let versionCache: { current: string; latest: string; updateAvailable: boolean; checkedAt: number } | null = null;
+const VERSION_CACHE_MS = 10 * 60 * 1000; // 10 minutes
+
+function semverGt(a: string, b: string): boolean {
+  const pa = a.split('.').map(Number), pb = b.split('.').map(Number);
+  for (let i = 0; i < 3; i++) { if ((pa[i] || 0) > (pb[i] || 0)) return true; if ((pa[i] || 0) < (pb[i] || 0)) return false; }
+  return false;
+}
+
+async function omoVersion() {
+  if (versionCache && Date.now() - versionCache.checkedAt < VERSION_CACHE_MS) return versionCache;
+  const proc = Bun.spawn(['omo', '--version'], { stdout: 'pipe', stderr: 'pipe' });
+  const current = (await new Response(proc.stdout).text()).match(/omo (\d+\.\d+\.\d+)/)?.[1] || '';
+  await proc.exited;
+  let latest = '';
+  try {
+    const res = await fetch('https://registry.npmjs.org/omo-ai/latest', { signal: AbortSignal.timeout(5000) });
+    if (res.ok) latest = (await res.json()).version || '';
+  } catch {}
+  const updateAvailable = !!(current && latest && latest !== current && semverGt(latest, current));
+  versionCache = { current, latest, updateAvailable, checkedAt: Date.now() };
+  return versionCache;
+}
+
+async function omoUpdate() {
+  const run = async (cmd: string[], env: Record<string, string> = {}) => {
+    const p = Bun.spawn(cmd, { stdout: 'pipe', stderr: 'pipe', env: { ...process.env, ...env } });
+    const out = await new Response(p.stdout).text();
+    const err = await new Response(p.stderr).text();
+    const code = await p.exited;
+    if (code !== 0) throw new Error((err || out).trim() || `exit ${code}`);
+    return (out + '\n' + err).trim();
+  };
+  const update = await run(['omo', 'update']);
+  piAi = null; // omo binary changed; drop cached module
+  versionCache = null;
+  // Under bun (this server) senpi's daemon launcher falls back to a hardcoded /opt/homebrew/bin/node and fails with
+  // "failed to spawn daemon process"; OMO_RUNTIME=node makes it use the node on PATH.
+  try { return { update, restart: await run(['omo', 'app-server', 'daemon', 'restart'], { OMO_RUNTIME: 'node' }) }; }
+  catch (e: any) { return { update, restartError: String(e?.message || e) }; }
+}
+
 // ── skills: builtin + SKILL.md folders (same precedence as omo) ──
 const BUILTIN = [
   ...[['goal', '세션 목표 설정·조회·일시정지·해제'], ['ulw-execute', 'Prometheus 계획으로 Atlas 실행 시작'], ['refactor', 'LSP·AST-grep 기반 리팩터링 + TDD 검증'], ['handoff', '새 세션으로 넘길 인계 요약 작성'], ['stop-continuation', 'todo 이어가기·목표 등 자동 진행 모두 중단'], ['remove-ai-slops', '브랜치 변경에서 AI 티 나는 코드 정리'], ['hyperplan', '팀 모드 적대적 계획 (team_mode 필요)']].map(([name, desc]) => ({ kind: 'command', name, desc, source: 'builtin' })),
@@ -373,6 +416,8 @@ Bun.serve<Data>({
         if (mt && req.method === 'GET') return Response.json(await threadMeta(decodeURIComponent(mt[1])));
         const m = url.pathname.match(/^\/api\/threads\/([^/]+)\/restore-todos$/);
         if (m && req.method === 'POST') return Response.json(await restoreTodos(decodeURIComponent(m[1])));
+        if (url.pathname === '/api/omo/version') return Response.json(await omoVersion());
+        if (url.pathname === '/api/omo/update' && req.method === 'POST') return Response.json(await omoUpdate());
       } catch (e: any) { return new Response(String(e?.message || e), { status: 500 }); }
       return new Response('not found', { status: 404 });
     }

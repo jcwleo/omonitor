@@ -265,6 +265,14 @@ export class MockClient {
           { type: 'dynamicToolCall', id: nid('it'), tool: 'todo', status: 'completed', success: true, contentItems: [], arguments: { op: 'done', task: '이미지 최적화 캐시' } },
         ];
       },
+      omoVersion: async () => {
+        await sleep(300);
+        return { current: '5.1.5', latest: '5.2.0', updateAvailable: true, checkedAt: Date.now() };
+      },
+      omoUpdate: async () => {
+        await sleep(3000);
+        return { update: 'omo-ai@5.2.0 설치 완료', restart: 'app-server 데몬을 재시작했습니다' };
+      },
     };
   }
   _usage(t, add = 0) {

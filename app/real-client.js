@@ -55,6 +55,16 @@ export class RealClient {
         if (!r.ok) throw new Error(await r.text());
         return r.json();
       },
+      omoVersion: async () => {
+        const r = await fetch(api('api/omo/version'), { headers: hdr() });
+        if (!r.ok) throw new Error(await r.text());
+        return r.json();
+      },
+      omoUpdate: async () => {
+        const r = await fetch(api('api/omo/update'), { method: 'POST', headers: hdr() });
+        if (!r.ok) throw new Error(await r.text());
+        return r.json();
+      },
     };
   }
   on(ev, cb) { this.ls[ev].add(cb); return () => this.ls[ev].delete(cb); }

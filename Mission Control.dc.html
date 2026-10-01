@@ -343,6 +343,7 @@ html,body{margin:0;height:100%;background:#1d1f20;overflow:hidden;overscroll-beh
 
 <div style="position:absolute;z-index:70;right:14px;left:{{ toastLeft }};bottom:{{ toastBottom }};display:flex;flex-direction:column;gap:4px;align-items:flex-end;pointer-events:none">
 <sc-for list="{{ toasts }}" as="t"><div style="pointer-events:auto;max-width:420px;background:var(--bg2);border:1px solid {{ t.bd }};box-shadow:var(--shadow-lg);padding:7px 9px;font-size:13px;display:flex;gap:6px;align-items:flex-start"><span style="width:7px;height:7px;margin-top:4px;flex:none;background:{{ t.bd }}"></span>{{ t.text }}</div></sc-for>
+<sc-if value="{{ showUpdateBtn }}"><button onClick="{{ onUpdateBtn }}" title="{{ updateTitle }}" style="all:unset;pointer-events:auto;cursor:pointer;display:flex;align-items:center;gap:6px;padding:5px 10px;background:{{ updateBg }};border:1px solid {{ updateBd }};font:12px var(--mono);color:{{ updateFg }};animation:{{ updateAnim }}" style-hover="background:var(--hover)"><sc-if value="{{ updateHasDot }}"><span style="width:6px;height:6px;border-radius:50%;background:{{ updateDot }};flex:none"></span></sc-if>{{ updateLabel }}</button></sc-if>
 </div>
 
 <sc-if value="{{ fatal }}"><div style="position:absolute;inset:0;display:grid;place-items:center;background:var(--bg);z-index:80"><div style="max-width:420px;padding:14px;text-align:center;display:flex;flex-direction:column;gap:6px"><span style="font:600 18.5px var(--font-heading)">대시보드를 시작하지 못했습니다</span><span style="font:12px var(--mono);color:var(--err-fg)">{{ fatal }}</span></div></div></sc-if>
@@ -363,7 +364,7 @@ class Component extends DCLogic {
   state = { v: 0, now: Date.now(), w: window.innerWidth, view: 'board', selId: null, backTo: 'board', theme: null, drawer: false, drawerMounted: false,
     pal: null, sheet: null, dialog: null, menu: false, selMode: false, sel: {}, multiText: '', grouped: false, groupOpen: {}, panels: { left: false, right: false }, colC: {}, secC: { archived: true },
     exp: {}, agentOpen: {}, doneOpen: null, escArmed: null, allC: false, rtab: 'todo', ptab: 'tl', q: '', lf: 'all', focus: -1, pf: null, speedIdx: 0,
-    goalDraft: '', goalBudgetDraft: '', fatal: null, nb: false, ns: false };
+    goalDraft: '', goalBudgetDraft: '', fatal: null, nb: false, ns: false, omoVer: null, omoUpdating: false };
   tlRef = React.createRef();
   detailRef = React.createRef();
   sheetFileRef = React.createRef();
@@ -473,9 +474,11 @@ class Component extends DCLogic {
       this.setState({ v: 1 });
       await this.store.init();
       this.info = real ? `${this.client.serverInfo ? `${this.client.serverInfo.name} ${this.client.serverInfo.version}` : 'omo app-server'} · ${this.upstream}` : 'mock 시뮬레이터 · 실제 서버 아님';
+      this.checkOmoVersion();
+      this.versionTick = setInterval(() => this.checkOmoVersion(), 30 * 60 * 1000);
     } catch (e) { console.error(e); this.setState({ fatal: String(e?.message || e) }); }
   }
-  componentWillUnmount() { window.visualViewport?.removeEventListener('resize', this.fitViewport); window.visualViewport?.removeEventListener('scroll', this.fitViewport); window.removeEventListener('scroll', this.fitViewport); document.removeEventListener('touchstart', this.onTouchStart); document.removeEventListener('touchmove', this.onTouchMove); document.removeEventListener('touchend', this.onTouchEnd); document.removeEventListener('touchcancel', this.onTouchEnd); window.removeEventListener('resize', this.onResize); window.removeEventListener('keydown', this.onKey); window.removeEventListener('dragover', this.onWinDrag); window.removeEventListener('drop', this.onWinDrag); clearInterval(this.tick); this.client?.close(); }
+  componentWillUnmount() { window.visualViewport?.removeEventListener('resize', this.fitViewport); window.visualViewport?.removeEventListener('scroll', this.fitViewport); window.removeEventListener('scroll', this.fitViewport); document.removeEventListener('touchstart', this.onTouchStart); document.removeEventListener('touchmove', this.onTouchMove); document.removeEventListener('touchend', this.onTouchEnd); document.removeEventListener('touchcancel', this.onTouchEnd); window.removeEventListener('resize', this.onResize); window.removeEventListener('keydown', this.onKey); window.removeEventListener('dragover', this.onWinDrag); window.removeEventListener('drop', this.onWinDrag); clearInterval(this.tick); clearInterval(this.versionTick); this.client?.close(); }
   // The conversation follows the finger during a back swipe. Styles go straight to the element so the drag does not
   // re-render; React leaves them alone because the template sets no transform, transition or shadow there.
   slideDetail(dx) {
@@ -541,6 +544,18 @@ class Component extends DCLogic {
     if (d) this.drafts.set(id, { ...d, images: d.images.map((m) => (m.id === imgId ? { ...m, ...patch } : m)) });
   }
   notifyAllowed() { return typeof Notification !== 'undefined' && Notification.permission === 'granted'; }
+  async checkOmoVersion() { try { const ver = await this.client?.backend?.omoVersion?.(); if (ver) this.setState({ omoVer: ver }); } catch {} }
+  async runOmoUpdate() {
+    const st = this.store;
+    this.setState({ omoUpdating: true });
+    try {
+      const r = await this.client.backend.omoUpdate();
+      if (r?.restartError) st.toast(`omo는 업데이트했지만 데몬을 재시작하지 못했습니다: ${r.restartError}`, 'error');
+      else st.toast('omo 업데이트 완료! 데몬을 재시작했습니다', 'info');
+      this.checkOmoVersion();
+    } catch (e) { st.toast(`업데이트 실패: ${e?.message || e}`, 'error'); }
+    finally { this.setState({ omoUpdating: false }); }
+  }
   saveNotify(patch) {
     this.notify = { ...this.notify, ...patch };
     try { localStorage.setItem('mc.notify', JSON.stringify(this.notify)); } catch {}
@@ -1058,6 +1073,8 @@ class Component extends DCLogic {
       unsubscribe: ['구독을 해제할까요?', '이 세션의 실시간 알림이 더 오지 않습니다. 구독자가 없으면 승인 요청은 자동으로 거절됩니다.', '해제', 'var(--acc)', () => st.unsubscribe(d.id)],
       // thread/name/set resumes the thread, so renaming an unloaded one carries the same risks as a takeover.
       rename: ['이름 변경', this.needsTakeover(dT) ? '이 세션은 아직 app-server에 불러오지 않았습니다. 이름을 바꾸면 세션을 불러오므로, 터미널 omo에서 열려 있으면 먼저 종료하세요. 목표나 끝나지 않은 todo가 있으면 omo가 이어서 작업할 수 있습니다.' : '', '저장', 'var(--acc)', () => d.input.trim() && st.rename(d.id, d.input.trim())],
+      // The daemon restart ends every session running under it (including agent sessions driven from here).
+      omoUpdate: ['omo를 업데이트할까요?', `v${s.omoVer?.current || '?'} → v${s.omoVer?.latest || '?'}로 업데이트한 뒤 app-server 데몬을 재시작합니다. 재시작하면 데몬에서 돌던 세션이 모두 끊깁니다${[...st.s.threads.values()].filter((x) => x.status?.type === 'active').length ? ` (지금 작업 중인 세션 ${[...st.s.threads.values()].filter((x) => x.status?.type === 'active').length}개 포함)` : ''}. omonitor는 자동으로 다시 연결합니다.`, '업데이트하고 재시작', 'var(--acc)', () => this.runOmoUpdate()],
     }[d?.kind] || null;
     const ok = async () => { const fn = DLG?.[4]; this.setState({ dialog: null }); try { await fn?.(); } catch {} };
     Object.assign(vals, {
@@ -1120,6 +1137,27 @@ class Component extends DCLogic {
         this.dropSheetImages(sh);
         this.setState({ sheet: null });
         try { const id = await st.startThread(cwd, text, settings); this.openSession(id); } catch {}
+      },
+    });
+
+    // ── omo update ──
+    const ver = s.omoVer;
+    const omoUpdating = s.omoUpdating;
+    const hasOmoUpdate = !!ver?.updateAvailable && !omoUpdating;
+    Object.assign(vals, {
+      showUpdateBtn: !!ver,
+      updateHasDot: hasOmoUpdate,
+      updateDot: 'var(--acc)',
+      updateAnim: omoUpdating ? 'mcPulse 1.2s infinite' : 'none',
+      updateLabel: omoUpdating ? '업데이트 중…' : hasOmoUpdate ? `v${ver.latest} 업데이트` : `omo v${ver?.current || ''}`,
+      updateTitle: omoUpdating ? 'omo를 업데이트하고 있습니다' : hasOmoUpdate ? `현재 v${ver.current} → 최신 v${ver.latest}` : `omo v${ver?.current || ''} · 최신 버전입니다`,
+      updateBg: hasOmoUpdate ? 'var(--acc-tint)' : 'transparent',
+      updateBd: hasOmoUpdate ? 'var(--acc)' : 'var(--line)',
+      updateFg: hasOmoUpdate ? 'var(--acc-fg)' : 'var(--fg3)',
+      onUpdateBtn: async () => {
+        if (omoUpdating) return;
+        if (!hasOmoUpdate) { st.toast('최신 버전입니다', 'info'); this.checkOmoVersion(); return; }
+        this.confirm('omoUpdate', null);
       },
     });
 
