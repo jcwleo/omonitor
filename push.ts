@@ -133,8 +133,16 @@ export class PushService {
   }
 }
 
+// A reply may open with a quoted status block (omo's "> Ask: … For you: …" handoff); the notification starts at the
+// reply itself, unless the whole reply is quoted.
+const skipLeadingQuote = (s: string) => {
+  const lines = s.split('\n');
+  let i = 0;
+  while (i < lines.length && (/^\s*>/.test(lines[i]) || !lines[i].trim())) i++;
+  return i < lines.length ? lines.slice(i).join('\n') : s;
+};
 const clip = (s: string, n = 140) => {
-  const t = s.replace(/```[\s\S]*?```/g, ' ').replace(/[*_`#>]+/g, '').replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').replace(/\s+/g, ' ').trim();
+  const t = skipLeadingQuote(s).replace(/```[\s\S]*?```/g, ' ').replace(/^\s*\|?[\s:|-]*-{3,}[\s:|-]*$/gm, ' ').replace(/\|/g, ' ').replace(/[*_`#>]+/g, '').replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').replace(/\s+/g, ' ').trim();
   return t.length > n ? `${t.slice(0, n - 1)}…` : t;
 };
 const nameOf = (t: { name?: string | null; preview?: string } | undefined) => t?.name || (t?.preview || '').slice(0, 40) || '이름 없는 세션';
