@@ -28,6 +28,10 @@
    the whole page, header and composer included, whenever a panel is pushed past its end. */
 html,body{margin:0;height:100%;background:#1d1f20;overflow:hidden;overscroll-behavior:none}
 .mc *{overscroll-behavior:contain}
+.mc .pane-resizer{position:absolute;top:0;bottom:0;width:10px;z-index:5;display:flex;align-items:center;justify-content:center;cursor:col-resize;touch-action:none;user-select:none}
+.mc .pane-resizer span{width:2px;height:32px;background:var(--line2);pointer-events:none}
+.mc .pane-resizer:hover span,.mc .pane-resizer:active span{background:var(--fg3)}
+.mc .pane-resizer:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
 /* Except the overflow:hidden boxes that clip ellipsis text: the browser counts them as scroll containers, so a wheel or
    swipe over a row's label stopped there and never scrolled the list around it (the model picker over its rows).
    Matched on text-overflow because React serializes inline styles ("overflow: hidden") and no scroller carries it. */
@@ -145,7 +149,8 @@ html,body{margin:0;height:100%;background:#1d1f20;overflow:hidden;overscroll-beh
 <div style="flex:1;min-height:0;display:flex">
 <sc-if value="{{ showListRail }}"><button onClick="{{ toggleList }}" title="세션 목록 펼치기" style="all:unset;cursor:pointer;width:36px;flex:none;border-right:1px solid var(--line);display:flex;flex-direction:column;align-items:center;gap:8px;padding:12px 0;box-sizing:border-box;background:var(--tint);color:var(--fg2)" style-hover="background:var(--hover)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round"><path d="m9 6 6 6-6 6"></path></svg><span style="writing-mode:vertical-rl;font:600 14px var(--font-heading);letter-spacing:.08em">세션 목록</span></button></sc-if>
 <sc-if value="{{ showList }}">
-<div style="width:{{ listW }};flex:none;border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0">
+<div data-pane="left" style="position:relative;width:{{ listW }};flex:none;border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0">
+<sc-if value="{{ resizeList }}"><div class="pane-resizer" role="separator" tabindex="0" aria-label="세션 목록 너비 조절" aria-orientation="vertical" aria-valuemin="220" aria-valuemax="{{ leftMax }}" aria-valuenow="{{ leftSize }}" title="드래그로 너비 조절 · 더블클릭 초기화 · ← →" onPointerDown="{{ dragLeft }}" onPointerMove="{{ dragPane }}" onPointerUp="{{ endPane }}" onPointerCancel="{{ endPane }}" onLostPointerCapture="{{ endPane }}" onDoubleClick="{{ resetLeft }}" onKeyDown="{{ keyLeft }}" style="right:-5px"><span></span></div></sc-if>
 <div style="padding:7px 7px 4px;display:flex;flex-direction:column;gap:4px">
 <div style="display:flex;gap:4px;min-width:0"><input class="input" value="{{ q }}" onChange="{{ onQ }}" placeholder="세션 검색 (이름·경로)" style="flex:1;min-width:0;min-height:36px;font-size:13px;color:var(--fg)"><sc-if value="{{ canFoldList }}"><button onClick="{{ toggleList }}" title="세션 목록 접기" style="all:unset;cursor:pointer;width:36px;height:36px;flex:none;box-sizing:border-box;display:grid;place-items:center;color:var(--fg3);border:1px solid var(--line)" style-hover="color:var(--fg)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round"><path d="m15 6-6 6 6 6"></path></svg></button></sc-if></div>
 <div style="display:flex;gap:3px;flex-wrap:wrap"><sc-for list="{{ listFilters }}" as="f"><button onClick="{{ f.onTap }}" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:4px;min-height:28px;padding:0 6px;font-size:12px;border:1px solid {{ f.bd }};background:{{ f.bg }};color:{{ f.fg }}"><span style="width:5px;height:5px;background:{{ f.dot }}"></span>{{ f.label }}<span style="font:12px var(--mono);opacity:.8">{{ f.count }}</span></button></sc-for></div>
@@ -205,7 +210,8 @@ html,body{margin:0;height:100%;background:#1d1f20;overflow:hidden;overscroll-beh
 </div>
 <sc-if value="{{ showRightRail }}"><button onClick="{{ toggleRight }}" title="Todo·에이전트·목표·변경 펼치기" style="all:unset;cursor:pointer;width:36px;flex:none;border-left:1px solid var(--line);display:flex;flex-direction:column;align-items:center;gap:8px;padding:12px 0;box-sizing:border-box;background:var(--tint);color:var(--fg2)" style-hover="background:var(--hover)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round"><path d="m15 6-6 6 6 6"></path></svg><span style="writing-mode:vertical-rl;font:600 14px var(--font-heading);letter-spacing:.08em">Todo · 에이전트 · 목표 · 변경</span></button></sc-if>
 <sc-if value="{{ showRight }}">
-<div style="width:{{ rightW }};flex:none;border-left:1px solid var(--line);display:flex;flex-direction:column;min-height:0">
+<div data-pane="right" style="position:relative;width:{{ rightW }};flex:none;border-left:1px solid var(--line);display:flex;flex-direction:column;min-height:0">
+<div class="pane-resizer" role="separator" tabindex="0" aria-label="보조 패널 너비 조절" aria-orientation="vertical" aria-valuemin="260" aria-valuemax="{{ rightMax }}" aria-valuenow="{{ rightSize }}" title="드래그로 너비 조절 · 더블클릭 초기화 · ← →" onPointerDown="{{ dragRight }}" onPointerMove="{{ dragPane }}" onPointerUp="{{ endPane }}" onPointerCancel="{{ endPane }}" onLostPointerCapture="{{ endPane }}" onDoubleClick="{{ resetRight }}" onKeyDown="{{ keyRight }}" style="left:-5px"><span></span></div>
 <div style="flex:none;display:flex;border-bottom:1px solid var(--line);padding:0 3px"><sc-for list="{{ rtabs }}" as="t"><button onClick="{{ t.onTap }}" style="all:unset;cursor:pointer;flex:1;display:flex;align-items:center;justify-content:center;gap:3px;min-height:42px;font-size:12.5px;color:{{ t.fg }};box-shadow:{{ t.line }}">{{ t.label }}<span style="font:12px var(--mono);color:var(--fg3)">{{ t.count }}</span></button></sc-for><button onClick="{{ toggleRight }}" title="패널 접기" style="all:unset;cursor:pointer;width:32px;flex:none;display:grid;place-items:center;color:var(--fg3)" style-hover="color:var(--fg)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round"><path d="m9 6 6 6-6 6"></path></svg></button></div>
 <div style="flex:1;min-height:0;overflow:auto;padding:9px 10px">
 <sc-if value="{{ rTerminal }}"><mc-terminal session-id="{{ terminalSessionId }}" cwd="{{ terminalCwd }}" style="display:block;height:100%;min-height:0"></mc-terminal></sc-if>
@@ -366,7 +372,7 @@ class Component extends DCLogic {
   state = { v: 0, now: Date.now(), w: window.innerWidth, view: 'board', selId: null, backTo: 'board', theme: null, drawer: false, drawerMounted: false,
     pal: null, sheet: null, dialog: null, menu: false, selMode: false, sel: {}, multiText: '', grouped: false, groupOpen: {}, panels: { left: false, right: false }, colC: {}, secC: { archived: true },
     exp: {}, agentOpen: {}, doneOpen: null, escArmed: null, allC: false, rtab: 'todo', ptab: 'tl', q: '', lf: 'all', focus: -1, pf: null, speedIdx: 0,
-    goalDraft: '', goalBudgetDraft: '', fatal: null, nb: false, ns: false, omoVer: null, omoUpdating: false };
+    goalDraft: '', goalBudgetDraft: '', fatal: null, nb: false, ns: false, omoVer: null, omoUpdating: false, panelWidths: {} };
   tlRef = React.createRef();
   detailRef = React.createRef();
   sheetFileRef = React.createRef();
@@ -455,6 +461,10 @@ class Component extends DCLogic {
     this.tick = setInterval(() => this.setState({ now: Date.now() }), 1000);
     try { this.setState({ favs: JSON.parse(localStorage.getItem('mc.favCwds') || '[]') }); } catch {}
     try { this.setState({ panels: { left: false, right: false, ...JSON.parse(localStorage.getItem('mc.panels') || '{}') } }); } catch {}
+    try {
+      const saved = JSON.parse(localStorage.getItem('mc.panelWidths') || '{}');
+      this.setState({ panelWidths: Object.fromEntries(['left', 'right'].filter((side) => Number.isFinite(saved?.[side]) && saved[side] > 0).map((side) => [side, saved[side]])) });
+    } catch {}
     // Notification switches keep the user's choice across reloads; browser notifications also need the permission.
     try { this.notify = { browser: true, sound: false, ...JSON.parse(localStorage.getItem('mc.notify') || '{}') }; } catch { this.notify = { browser: true, sound: false }; }
     try { this.lastNew = JSON.parse(localStorage.getItem('mc.newSession') || '{}') || {}; } catch { this.lastNew = {}; }
@@ -571,6 +581,65 @@ class Component extends DCLogic {
       try { localStorage.setItem('mc.panels', JSON.stringify(panels)); } catch {}
       return { panels };
     });
+  }
+  paneSizes() {
+    const s = this.state, desk = this.layout() === 'desktop';
+    const selected = !!this.store?.T(s.selId);
+    const center = desk ? 320 : 280;
+    const rightOpen = selected && !s.panels.right;
+    const leftOpen = desk && !(selected && s.panels.left);
+    const leftMax = Math.max(220, Math.min(500, s.w - center - (rightOpen ? 260 : selected ? 36 : 0)));
+    const left = Math.min(leftMax, Math.max(220, s.panelWidths.left || 320));
+    const leftSpace = desk ? (leftOpen ? left : 36) : 0;
+    const rightMax = Math.max(260, Math.min(720, s.w - leftSpace - center));
+    const rightDefault = s.rtab === 'terminal' ? Math.min(720, s.w * .45) : desk ? 320 : 300;
+    const right = Math.min(rightMax, Math.max(260, s.panelWidths.right || rightDefault));
+    return { left, right, leftMax, rightMax, leftSpace, center, rightOpen };
+  }
+  setPaneWidth(side, width, persist = false) {
+    const p = this.paneSizes();
+    const max = side === 'left' ? Math.min(p.leftMax, this.state.w - p.center - (p.rightOpen ? p.right : this.state.selId ? 36 : 0)) : p.rightMax;
+    const value = Math.round(Math.max(side === 'left' ? 220 : 260, Math.min(max, width)));
+    this.setState((s) => {
+      const panelWidths = { ...s.panelWidths, [side]: value };
+      if (persist) try { localStorage.setItem('mc.panelWidths', JSON.stringify(panelWidths)); } catch {}
+      return { panelWidths };
+    });
+  }
+  startPaneDrag(side, e) {
+    if (e.button !== 0 || this.paneDrag) return;
+    e.preventDefault();
+    e.stopPropagation();
+    e.currentTarget.focus({ preventScroll: true });
+    this.paneDrag = { side, id: e.pointerId, x: e.clientX, width: this.paneSizes()[side] };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  }
+  movePaneDrag(e) {
+    const d = this.paneDrag;
+    if (!d || e.pointerId !== d.id) return;
+    this.setPaneWidth(d.side, d.width + (e.clientX - d.x) * (d.side === 'left' ? 1 : -1));
+  }
+  endPaneDrag(e) {
+    if (!this.paneDrag || e.pointerId !== this.paneDrag.id) return;
+    this.paneDrag = null;
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
+    this.setState((s) => {
+      try { localStorage.setItem('mc.panelWidths', JSON.stringify(s.panelWidths)); } catch {}
+      return {};
+    });
+  }
+  resetPaneWidth(side) {
+    this.setState((s) => {
+      const panelWidths = { ...s.panelWidths };
+      delete panelWidths[side];
+      try { localStorage.setItem('mc.panelWidths', JSON.stringify(panelWidths)); } catch {}
+      return { panelWidths };
+    });
+  }
+  paneKey(side, e) {
+    if (!['ArrowLeft', 'ArrowRight'].includes(e.key)) return;
+    e.preventDefault(); e.stopPropagation();
+    this.setPaneWidth(side, this.paneSizes()[side] + (e.key === 'ArrowRight' ? 16 : -16) * (side === 'left' ? 1 : -1), true);
   }
   openSession(id, focus = true) {
     const st = this.store; const T = st?.T(id);
@@ -954,6 +1023,16 @@ class Component extends DCLogic {
       listEmpty: listed.length === 0, showList: !isPhone && (isDesk || !s.selId), listW: isDesk ? '320px' : '100%',
     });
     const T = s.selId ? st.T(s.selId) : null;
+    const sizes = this.paneSizes();
+    if (isDesk) vals.listW = `${sizes.left}px`;
+    Object.assign(vals, {
+      resizeList: isDesk, leftSize: sizes.left, rightSize: sizes.right,
+      leftMax: Math.min(sizes.leftMax, s.w - sizes.center - (sizes.rightOpen ? sizes.right : T ? 36 : 0)), rightMax: sizes.rightMax,
+      dragLeft: (e) => this.startPaneDrag('left', e), dragRight: (e) => this.startPaneDrag('right', e),
+      dragPane: (e) => this.movePaneDrag(e), endPane: (e) => this.endPaneDrag(e),
+      resetLeft: () => this.resetPaneWidth('left'), resetRight: () => this.resetPaneWidth('right'),
+      keyLeft: (e) => this.paneKey('left', e), keyRight: (e) => this.paneKey('right', e),
+    });
     const screen = s.view === 'session' ? (T ? T.name || T.preview?.slice(0, 30) || '이름 없는 세션' : '세션') : '보드';
     this._tabTitle = `${inboxN ? `(${inboxN}) ` : ''}${screen} · omonitor`;
     this._tabIcon = inboxN ? TAB_ICON.wait : TAB_ICON.ok;
@@ -996,7 +1075,7 @@ class Component extends DCLogic {
         detailHeadPad: isPhone ? `max(4px, env(safe-area-inset-top)) 4px 0 2px` : '4px 6px 4px 12px', detailTitleSize: isPhone ? '17px' : '18.5px',
         openMenu: () => this.setState({ menu: true }), renameSel: () => this.confirm('rename', T.id, { input: T.name || '' }),
         rtabs: tabsDef.map(mkTab(rtab, 'rtab')), ptabs: [['tl', '타임라인', ''], ...tabsDef].map(mkTab(ptab, 'ptab')),
-        showRight: !isPhone && !s.panels.right, showRightRail: !isPhone && s.panels.right, rightW: panel === 'terminal' ? (isDesk ? 'min(45vw, 720px)' : '45%') : isDesk ? '320px' : '300px',
+        showRight: !isPhone && !s.panels.right, showRightRail: !isPhone && s.panels.right, rightW: `${sizes.right}px`,
         showTimeline: !isPhone || ptab === 'tl', phonePanel: isPhone && ptab !== 'tl',
         rTodo: panel === 'todo', rAgents: panel === 'agents', rGoal: panel === 'goal', rDiff: panel === 'diff', rTerminal: panel === 'terminal',
         terminalSessionId: T.id, terminalCwd: T.cwd || '', showComposer: !isPhone || panel !== 'terminal',
