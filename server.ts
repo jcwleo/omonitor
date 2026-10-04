@@ -374,7 +374,7 @@ async function saveUpload(req: Request) {
 const STATIC = new Set([
   ENTRY, '/support.js', '/app/real-client.js', '/app/mock-client.js', '/app/store.js', '/app/styles.css',
   '/McSessionCard.dc.html', '/McRequestCard.dc.html', '/McItem.dc.html', '/McComposer.dc.html',
-  '/manifest.webmanifest', '/app/icon-180.png', '/app/icon-512.png',
+  '/manifest.webmanifest', '/app/icon-180.png', '/app/icon-512.png', '/app/icon-maskable-512.png',
   '/app/terminal.js', '/app/terminal-input.js', '/app/terminal-clipboard.js',
   '/app/terminal-reports.js', '/app/terminal-keys.js', '/app/terminal.css',
 ]);

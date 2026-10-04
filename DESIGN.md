@@ -69,3 +69,17 @@ t3code(pingdotgg/t3code)를 참고한 평면 스타일이다. 박스 테두리 �
   떠 있는 면은 `--shadow-lg`를 쓰고 뒤 배경을 4px 흐린다.
 - 헤더: 화면 탭은 세그먼트, 검색은 ⌘K 표시가 붙은 버튼이다. 테마, 브라우저 알림,
   알림음은 설정 팝오버(휴대전화는 서랍)에 둔다. 단축키 표시는 화면에 남긴다.
+
+## 앱 아이콘
+
+링(omonitor의 o)과 상태 점을 Liquid Glass 층으로 그린다. 바탕은 짙은 남색 그라데이션이고,
+링은 하늘색 반투명 유리, 점은 민트 유리로 링 위에 겹친다. 빛은 위에서 오며 각 층은 위쪽
+가장자리에 흰 하이라이트와 아래로 옅은 그림자를 갖는다. 원본은 `app/icon*.svg`다.
+
+- `app/icon-180.png`(`icon.svg`): iPhone·iPad 홈 화면용 정사각형. 모서리는 iOS가 깎는다.
+  `Mission Control.dc.html`의 인라인 apple-touch-icon과 같은 이미지다.
+- `app/icon-512.png`(`icon-mac.svg`): manifest `any`. Mac Chrome 앱이 그대로 쓰므로
+  macOS 틀(1024 중 824 squircle, 여백과 그림자)을 넣어 둔다.
+- `app/icon-maskable-512.png`(`icon-maskable.svg`): manifest `maskable`. 내용을 92%로 줄여
+  안전 영역 안에 둔다.
+- 탭 아이콘은 같은 모양을 유리 효과 없이 그리며, 질문·승인 대기 중에는 점이 호박색이 된다.

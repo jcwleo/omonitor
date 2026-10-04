@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024"><defs>
+<linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#34425a"/><stop offset=".5" stop-color="#1d2533"/><stop offset="1" stop-color="#11151c"/></linearGradient>
+<radialGradient id="glow" cx="0.45703125" cy="0.513671875" r=".52"><stop offset="0" stop-color="#94bce3" stop-opacity=".34"/><stop offset=".55" stop-color="#94bce3" stop-opacity=".08"/><stop offset="1" stop-color="#94bce3" stop-opacity="0"/></radialGradient>
+<linearGradient id="ringFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d3e6fa" stop-opacity=".95"/><stop offset=".5" stop-color="#9ec3ea" stop-opacity=".88"/><stop offset="1" stop-color="#6f9fd2" stop-opacity=".88"/></linearGradient>
+<linearGradient id="dotFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#dcf5f0" stop-opacity=".95"/><stop offset=".55" stop-color="#a6dbd2" stop-opacity=".88"/><stop offset="1" stop-color="#7fc0b5" stop-opacity=".86"/></linearGradient>
+<linearGradient id="hiTop" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="1"/><stop offset=".35" stop-color="#fff" stop-opacity=".25"/><stop offset=".55" stop-color="#fff" stop-opacity="0"/></linearGradient>
+<linearGradient id="hiBot" x1="0" y1="0" x2="0" y2="1"><stop offset=".5" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#fff" stop-opacity=".6"/></linearGradient>
+<linearGradient id="shadeBot" x1="0" y1="0" x2="0" y2="1"><stop offset=".6" stop-color="#0d2238" stop-opacity="0"/><stop offset="1" stop-color="#0d2238" stop-opacity=".16"/></linearGradient>
+<radialGradient id="frost" cx=".3" cy=".2" r=".7"><stop offset="0" stop-color="#fff" stop-opacity=".28"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+<clipPath id="ringClip"><path d="M200 556a268 268 0 1 0 536 0a268 268 0 1 0 -536 0ZM310 556a158 158 0 1 1 316 0a158 158 0 1 1 -316 0Z" clip-rule="evenodd"/></clipPath>
+<clipPath id="dotClip"><circle cx="728" cy="304" r="114"/></clipPath>
+<filter id="soft" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="24"/></filter></defs><rect width="1024" height="1024" fill="url(#bg)"/><rect width="1024" height="1024" fill="url(#glow)"/><g transform="translate(512 512) scale(0.92) translate(-512 -512)">
+<path d="M200 556a268 268 0 1 0 536 0a268 268 0 1 0 -536 0ZM310 556a158 158 0 1 1 316 0a158 158 0 1 1 -316 0Z" fill-rule="evenodd" fill="#020611" opacity=".38" transform="translate(0 22)" filter="url(#soft)"/>
+<path d="M200 556a268 268 0 1 0 536 0a268 268 0 1 0 -536 0ZM310 556a158 158 0 1 1 316 0a158 158 0 1 1 -316 0Z" fill-rule="evenodd" fill="url(#ringFill)"/>
+<g clip-path="url(#ringClip)">
+  <rect width="1024" height="1024" fill="url(#shadeBot)"/>
+  <rect x="200" y="288" width="536" height="536" fill="url(#frost)"/>
+  <circle cx="468" cy="556" r="265.5" fill="none" stroke="#fff" stroke-opacity=".22" stroke-width="5"/>
+  <circle cx="468" cy="556" r="265" fill="none" stroke="url(#hiTop)" stroke-width="6"/>
+  <circle cx="468" cy="556" r="160.5" fill="none" stroke="url(#hiBot)" stroke-width="5"/>
+</g>
+<circle cx="728" cy="322" r="114" fill="#020611" opacity=".32" filter="url(#soft)"/>
+<circle cx="728" cy="304" r="114" fill="url(#dotFill)"/>
+<g clip-path="url(#dotClip)">
+  <rect x="614" y="190" width="228" height="228" fill="url(#frost)"/>
+  <circle cx="728" cy="304" r="111.5" fill="none" stroke="#fff" stroke-opacity=".25" stroke-width="5"/>
+  <circle cx="728" cy="304" r="111" fill="none" stroke="url(#hiTop)" stroke-width="6"/>
+</g>
+</g></svg>

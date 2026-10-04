@@ -8,7 +8,7 @@
   "background_color": "#161618",
   "theme_color": "#161618",
   "icons": [
-    { "src": "app/icon-180.png", "sizes": "180x180", "type": "image/png" },
-    { "src": "app/icon-512.png", "sizes": "512x512", "type": "image/png" }
+    { "src": "app/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "app/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ]
 }
