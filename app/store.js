@@ -144,7 +144,8 @@ export function activity(T) {
       case 'commandExecution': return ['명령 실행 중', live.command || ''];
       case 'fileChange': return ['파일 수정 중', live.changes?.[0]?.path || ''];
       case 'mcpToolCall': return ['도구 호출 중', `${live.server || ''}.${live.tool || ''}`];
-      case 'dynamicToolCall': return live.tool === 'request_user_input' ? ['답변 기다리는 중', ''] : ['도구 호출 중', live.tool || ''];
+      // omo names its question tool after the model family: request_user_input for GPT, ask_user_question for Claude.
+      case 'dynamicToolCall': return live.tool === 'request_user_input' || live.tool === 'ask_user_question' ? ['답변 기다리는 중', ''] : ['도구 호출 중', live.tool || ''];
       case 'agentMessage': return ['응답 작성 중', ''];
       case 'reasoning': return ['생각 중', ''];
       case 'webSearch': return ['웹 검색 중', live.query || ''];

@@ -425,7 +425,10 @@ export class MockClient {
         [700, () => this._endTurn(ci, ciTurn)],
       ]);
     });
-    this._serverRequest('item/tool/requestUserInput', { threadId: copy.id, turnId: copyTurn.id, itemId: nid('it'), waitForAnswer: true, timeoutMs: 8 * M, questions: [
+    // The question tool is named after the model family; this Claude session asks through ask_user_question.
+    const askItem = { type: 'dynamicToolCall', id: nid('it'), tool: 'ask_user_question', arguments: {}, status: 'inProgress', contentItems: null, success: null };
+    copyTurn.items.push(askItem);
+    this._serverRequest('item/tool/requestUserInput', { threadId: copy.id, turnId: copyTurn.id, itemId: askItem.id, waitForAnswer: true, timeoutMs: 8 * M, questions: [
       { id: 'tone', header: '톤', question: '온보딩 카피의 톤을 어떻게 할까요?', multiSelect: false, options: [
         { label: '친근한 존댓말', description: '“시작해 볼까요?” 처럼 가볍고 부드럽게' },
         { label: '표준 존댓말', description: '“시작해 보세요” 처럼 무난하게' },
@@ -433,6 +436,7 @@ export class MockClient {
       { id: 'scope', header: '범위', question: '이번에 카피를 바꿀 화면을 모두 골라 주세요.', multiSelect: true, options: [
         { label: '환영', description: '첫 화면 제목·부제' }, { label: '권한 요청', description: '알림·위치 권한 안내' }, { label: '프로필 설정', description: '입력 필드 라벨·도움말' }, { label: '완료', description: '마지막 CTA' } ] },
     ] }, (res) => {
+      this._doneItem(copy, copyTurn, askItem, { contentItems: [{ type: 'inputText', text: res.timedOut ? '답 없음' : '답변 받음' }], success: true });
       if (res.timedOut) { this._run(copy, [[400, (r) => this._stream(r, copy, copyTurn, '답이 없어 **표준 존댓말**로 전체 화면을 수정하겠습니다.')], [600, () => this._endTurn(copy, copyTurn)]]); return; }
       const tone = res.answers?.tone?.answers?.[0] ?? '표준 존댓말';
       const scope = res.answers?.scope?.answers ?? [];
