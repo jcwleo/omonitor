@@ -26,7 +26,7 @@
 <style>
 /* The app is one fixed screen; only its panels scroll. Without this, iOS (home-screen web app) drags and rubber-bands
    the whole page, header and composer included, whenever a panel is pushed past its end. */
-html,body{margin:0;height:100%;background:#161618;overflow:hidden;overscroll-behavior:none}
+html,body{margin:0;height:var(--root-h, 100%);background:#161618;overflow:hidden;overscroll-behavior:none}
 .mc *{overscroll-behavior:contain}
 .mc .pane-resizer{position:absolute;top:0;bottom:0;width:10px;z-index:5;display:flex;align-items:center;justify-content:center;cursor:col-resize;touch-action:none;user-select:none}
 .mc .pane-resizer span{width:2px;height:32px;background:var(--line2);pointer-events:none}
@@ -414,12 +414,24 @@ class Component extends DCLogic {
     // the app slid up under the status bar and the page could be dragged. So the app is sized to the visual viewport
     // and moved along with its pan (--app-h, --app-shift). Not while pinch-zoomed in, where the visual viewport is a
     // magnified part of the page; a zoomed-out page still has to fit, or the keyboard covers its bottom (terminal keys).
+    // A home-screen app (navigator.standalone) also reports the visual viewport, innerHeight and 100dvh shorter than the
+    // screen by the top safe area (WebKit bug 254868), which left an empty band at the bottom; there only 100vh is the
+    // full screen. So it fills 100vh (html and body too, which clip) unless the keyboard is up, told apart by the visual
+    // viewport dropping well below its tallest height at this width.
     const vv = window.visualViewport;
     if (vv) {
+      let rest = { w: 0, h: 0 };
       this.fitViewport = () => {
         const root = document.documentElement;
-        if (vv.scale > 1.01) { root.style.removeProperty('--app-h'); root.style.removeProperty('--app-shift'); return; }
+        if (vv.scale > 1.01) { for (const p of ['--app-h', '--app-shift', '--root-h']) root.style.removeProperty(p); return; }
         if (window.scrollY) window.scrollTo(0, 0);
+        if (vv.width !== rest.w) rest = { w: vv.width, h: 0 };
+        rest.h = Math.max(rest.h, vv.height);
+        if (navigator.standalone === true && vv.height > rest.h - 120) {
+          root.style.setProperty('--app-h', '100vh'); root.style.setProperty('--root-h', '100vh'); root.style.removeProperty('--app-shift');
+          return;
+        }
+        root.style.removeProperty('--root-h');
         root.style.setProperty('--app-h', `${Math.round(vv.height)}px`);
         const y = Math.round(vv.pageTop);
         if (y > 0) root.style.setProperty('--app-shift', `translateY(${y}px)`); else root.style.removeProperty('--app-shift');
