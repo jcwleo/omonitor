@@ -412,13 +412,13 @@ class Component extends DCLogic {
     // A focused text box brings up the iOS keyboard, or with a hardware keyboard iPadOS's floating shortcut bar. iOS
     // then shrinks the visual viewport and pans it down over the page, which neither 100dvh nor overflow:hidden stops:
     // the app slid up under the status bar and the page could be dragged. So the app is sized to the visual viewport
-    // and moved along with its pan (--app-h, --app-shift). Not while pinch-zoomed, where the visual viewport is a
-    // magnified part of the page.
+    // and moved along with its pan (--app-h, --app-shift). Not while pinch-zoomed in, where the visual viewport is a
+    // magnified part of the page; a zoomed-out page still has to fit, or the keyboard covers its bottom (terminal keys).
     const vv = window.visualViewport;
     if (vv) {
       this.fitViewport = () => {
         const root = document.documentElement;
-        if (Math.abs(vv.scale - 1) > 0.01) { root.style.removeProperty('--app-h'); root.style.removeProperty('--app-shift'); return; }
+        if (vv.scale > 1.01) { root.style.removeProperty('--app-h'); root.style.removeProperty('--app-shift'); return; }
         if (window.scrollY) window.scrollTo(0, 0);
         root.style.setProperty('--app-h', `${Math.round(vv.height)}px`);
         const y = Math.round(vv.pageTop);
