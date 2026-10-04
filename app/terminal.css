@@ -4,22 +4,22 @@
 .terminal{display:flex;flex-direction:column;height:100%;min-width:0;min-height:0;gap:6px}
 header{display:flex;align-items:center;gap:6px;flex:none}
 .status{flex:1;font-size:12px;color:var(--fg2)}
-button{font:12px var(--font-body,sans-serif);color:var(--fg);background:var(--bg2);border:1px solid var(--line);padding:5px 8px;min-height:36px;cursor:pointer}
+button{font:12px var(--font-body,sans-serif);color:var(--fg);background:var(--bg2);border:1px solid var(--line);border-radius:var(--r-md,8px);padding:5px 8px;min-height:36px;cursor:pointer}
 button:hover{background:var(--hover)}
 button:focus-visible,textarea:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
 button:disabled{opacity:.5;cursor:default}
-button[aria-pressed=true]{color:var(--bg);background:var(--acc)}
+button[aria-pressed=true]{color:var(--on-acc,var(--bg));background:var(--acc)}
 .cwd{font:11px var(--mono,monospace);color:var(--fg3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:none}
-.screen{flex:1;min-width:0;min-height:0;overflow:hidden;background:#0a0d10;padding:4px}
+.screen{flex:1;min-width:0;min-height:0;overflow:hidden;background:#0a0d10;padding:4px;border-radius:var(--r-md,8px)}
 .screen:empty{display:none}
 .xterm{height:100%}
 .xterm-viewport{overscroll-behavior:contain}
 .empty{flex:1;display:flex;align-items:center;justify-content:center;padding:16px;color:var(--fg3);font-size:13px;line-height:1.6;text-align:center}
 .keys{display:flex;flex-wrap:wrap;gap:3px;flex:none}
 .keys button{flex:1 0 auto;min-width:32px;padding:4px 6px}
-.paste{display:flex;flex-direction:column;gap:6px;flex:none;padding:8px;border:1px solid var(--line);background:var(--bg2)}
+.paste{display:flex;flex-direction:column;gap:6px;flex:none;padding:8px;border:1px solid var(--line);border-radius:var(--r-md,8px);background:var(--bg2)}
 .paste label{display:flex;flex-direction:column;gap:4px;font-size:12px}
-.paste textarea{width:100%;min-width:0;resize:vertical;max-height:140px;font:16px var(--mono,monospace);color:var(--fg);background:var(--bg);border:1px solid var(--line);padding:6px}
+.paste textarea{width:100%;min-width:0;resize:vertical;max-height:140px;font:16px var(--mono,monospace);color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:var(--r-sm,6px);padding:6px}
 .paste span{font-size:11px;color:var(--fg3)}
 .paste div{display:flex;justify-content:flex-end;gap:6px}
 .error{flex:none;color:var(--err-fg);font-size:12px;line-height:1.4;overflow-wrap:anywhere;max-height:72px;overflow:auto}

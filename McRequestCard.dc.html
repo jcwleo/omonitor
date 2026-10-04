@@ -10,12 +10,12 @@
 <helmet>
 <link rel="stylesheet" href="app/styles.css">
 </helmet>
-<div style="border:1px solid var(--line2);display:flex;flex-direction:column;background:var(--bg);color:var(--fg);font-family:var(--font-body)">
+<div style="border:1px solid var(--warn-line);border-radius:var(--r);overflow:hidden;display:flex;flex-direction:column;background:var(--card);color:var(--fg);font-family:var(--font-body)">
 <button onClick="{{ toggle }}" style="all:unset;cursor:{{ headCursor }};display:flex;align-items:center;gap:5px;min-height:48px;padding:0 9px;box-sizing:border-box;min-width:0">
-<span style="width:6px;height:6px;flex:none;background:var(--warn)"></span>
+<span style="width:7px;height:7px;flex:none;border-radius:50%;background:var(--warn)"></span>
 <span style="font-size:12px;font-weight:500;color:var(--warn);white-space:nowrap">{{ r.kind }}</span>
-<span style="font:600 15.5px var(--font-heading);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.sessionName }}</span>
-<span style="font:12px var(--mono);color:var(--warn);white-space:nowrap">{{ r.countdown }}</span>
+<span style="font:600 14.5px var(--font-heading);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.sessionName }}</span>
+<span style="font-size:12px;font-variant-numeric:tabular-nums;color:var(--warn);white-space:nowrap">{{ r.countdown }}</span>
 <span style="font-size:12px;color:var(--fg3);white-space:nowrap">{{ r.ago }}</span>
 <sc-if value="{{ r.collapsible }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="flex:none;color:var(--fg3);stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;transition:transform .2s;transform:rotate({{ chevRot }})"><path d="m6 9 6 6 6-6"></path></svg></sc-if>
 </button>
@@ -23,15 +23,15 @@
 <sc-if value="{{ r.showSession }}"><div onClick="{{ r.onOpenSession }}" style="padding:0 9px;font:12px var(--mono);color:var(--fg3);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" style-hover="color:var(--acc-fg)">{{ r.cwd }} · 세션 열기 ›</div></sc-if>
 <sc-if value="{{ r.isApproval }}">
 <sc-if value="{{ r.hasReason }}"><div style="padding:4px 9px 0;font-size:12.5px;line-height:1.45;color:var(--fg2)">{{ r.reason }}</div></sc-if>
-<sc-if value="{{ r.hasCommand }}"><div style="margin:8px 12px 0;padding:6px 7px;background:var(--tint);border:1px solid var(--line-soft);font:12px/1.5 var(--mono);color:var(--fg);word-break:break-all"><span style="color:var(--fg3)">$ </span>{{ r.code }}</div></sc-if>
+<sc-if value="{{ r.hasCommand }}"><div style="margin:8px 12px 0;padding:8px 10px;background:var(--tint);border-radius:var(--r-md);font:12px/1.5 var(--mono);color:var(--fg);word-break:break-all"><span style="color:var(--fg3)">$ </span>{{ r.code }}</div></sc-if>
 <sc-for list="{{ r.files }}" as="f">
-<div style="margin:8px 12px 0;border:1px solid var(--line-soft)">
-<div style="display:flex;gap:6px;align-items:center;padding:4px 6px;font:12px var(--mono);min-width:0"><span style="color:var(--fg3);font-family:var(--font-body);font-size:12px">{{ f.kindLabel }}</span><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ f.path }}</span><span style="color:var(--acc-fg)">+{{ f.add }}</span><span style="color:var(--err-fg)">−{{ f.del }}</span></div>
+<div style="margin:8px 12px 0;border:1px solid var(--line-soft);border-radius:var(--r-md);overflow:hidden">
+<div style="display:flex;gap:6px;align-items:center;padding:4px 6px;font:12px var(--mono);min-width:0"><span style="color:var(--fg3);font-family:var(--font-body);font-size:12px">{{ f.kindLabel }}</span><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ f.path }}</span><span style="color:var(--add-fg)">+{{ f.add }}</span><span style="color:var(--err-fg)">−{{ f.del }}</span></div>
 <sc-for list="{{ f.preview }}" as="l"><div style="font:12px/1.55 var(--mono);white-space:pre;overflow:hidden;text-overflow:ellipsis;padding:0 6px;background:{{ l.bg }};color:{{ l.fg }}">{{ l.text }}</div></sc-for>
 </div>
 </sc-for>
 <div style="padding:7px 9px 9px;display:flex;gap:4px;flex-wrap:wrap">
-<button class="btn btn-primary blueprint" onClick="{{ r.onAccept }}" style="flex:1.4 1 90px;min-height:44px;font-size:14.5px;white-space:nowrap"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>승인</button>
+<button class="btn btn-primary" onClick="{{ r.onAccept }}" style="flex:1.4 1 90px;min-height:44px;font-size:14.5px;white-space:nowrap">승인</button>
 <button class="btn btn-secondary" onClick="{{ r.onAcceptSession }}" style="flex:1 1 90px;min-height:44px;font-size:13px;color:var(--fg);white-space:nowrap;padding:0 6px">세션 동안 허용</button>
 <button class="btn btn-secondary" onClick="{{ r.onDecline }}" style="flex:.7 1 60px;min-height:44px;font-size:13px;color:var(--err-fg);white-space:nowrap;padding:0 6px">거절</button>
 </div>
@@ -39,9 +39,9 @@
 <sc-if value="{{ r.isQuestion }}">
 <sc-for list="{{ questions }}" as="q">
 <div style="padding:7px 9px 0;display:flex;flex-direction:column;gap:4px">
-<div style="display:flex;align-items:baseline;gap:5px;min-width:0;flex-wrap:wrap"><span style="font-size:12px;letter-spacing:.08em;color:var(--fg3);white-space:nowrap">{{ q.header }}</span><span style="font-size:14px;font-weight:500;line-height:1.35">{{ q.question }}</span><span style="font-size:12px;color:var(--fg3)">{{ q.hint }}</span></div>
+<div style="display:flex;align-items:baseline;gap:5px;min-width:0;flex-wrap:wrap"><span style="font-size:12px;font-weight:500;color:var(--fg3);white-space:nowrap">{{ q.header }}</span><span style="font-size:14px;font-weight:500;line-height:1.35">{{ q.question }}</span><span style="font-size:12px;color:var(--fg3)">{{ q.hint }}</span></div>
 <div style="display:flex;flex-wrap:wrap;gap:4px">
-<sc-for list="{{ q.options }}" as="o"><button onClick="{{ o.onTap }}" title="{{ o.description }}" style="all:unset;cursor:pointer;display:flex;align-items:center;min-height:44px;padding:0 9px;box-sizing:border-box;font-size:13.5px;border:1px solid {{ o.bd }};background:{{ o.bg }};color:{{ o.fg }};transition:background .15s,border-color .15s">{{ o.mark }}{{ o.label }}</button></sc-for>
+<sc-for list="{{ q.options }}" as="o"><button onClick="{{ o.onTap }}" title="{{ o.description }}" style="all:unset;cursor:pointer;display:flex;align-items:center;min-height:44px;padding:0 12px;box-sizing:border-box;border-radius:var(--r-md);font-size:13.5px;border:1px solid {{ o.bd }};background:{{ o.bg }};color:{{ o.fg }};transition:background .15s,border-color .15s">{{ o.mark }}{{ o.label }}</button></sc-for>
 </div>
 <sc-if value="{{ q.freeText }}"><input class="input" value="{{ q.value }}" onChange="{{ q.onText }}" placeholder="{{ q.placeholder }}" style="min-height:44px;font-size:13.5px;color:var(--fg)"></sc-if>
 <div style="font-size:12px;color:var(--fg3);min-height:16px">{{ q.selDesc }}</div>
@@ -49,7 +49,7 @@
 </sc-for>
 <div style="padding:4px 9px 9px;display:flex;gap:4px">
 <input class="input" value="{{ comment }}" onChange="{{ onComment }}" placeholder="코멘트 (선택)" style="flex:1;min-height:44px;font-size:13.5px;color:var(--fg);min-width:0">
-<button class="btn btn-primary blueprint" disabled="{{ sendDisabled }}" onClick="{{ send }}" style="min-height:44px;font-size:14.5px;padding:0 12px;white-space:nowrap"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>보내기</button>
+<button class="btn btn-primary" disabled="{{ sendDisabled }}" onClick="{{ send }}" style="min-height:44px;font-size:14.5px;padding:0 12px;white-space:nowrap">보내기</button>
 </div>
 </sc-if>
 </sc-if>

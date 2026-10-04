@@ -11,12 +11,12 @@
 <link rel="stylesheet" href="app/styles.css">
 </helmet>
 <sc-if value="{{ s.roomy }}" hint-placeholder-val="{{ true }}">
-<div onClick="{{ s.onOpen }}" style="border:1px solid var(--line);outline:{{ s.ring }};outline-offset:2px;padding:9px 10px;display:flex;flex-direction:column;gap:7px;color:var(--fg);font-family:var(--font-body);background:var(--bg);cursor:pointer;transition:border-color .2s,opacity .3s;opacity:{{ s.opacity }}" style-hover="border-color:var(--line3)">
+<div onClick="{{ s.onOpen }}" style="border:1px solid var(--line-soft);border-radius:var(--r);outline:{{ s.ring }};outline-offset:2px;padding:11px 12px;display:flex;flex-direction:column;gap:8px;color:var(--fg);font-family:var(--font-body);background:var(--card);cursor:pointer;transition:border-color .2s,opacity .3s;opacity:{{ s.opacity }}" style-hover="border-color:var(--line3)">
 <div style="display:flex;flex-direction:column;gap:3px">
 <div style="display:flex;align-items:flex-start;gap:6px">
-<sc-if value="{{ s.selectable }}"><button onClick="{{ s.onSelect }}" style="all:unset;cursor:pointer;width:18px;height:18px;margin-top:2px;flex:none;border:1.5px solid {{ s.selBd }};background:{{ s.selBg }};display:grid;place-items:center;color:var(--on-acc);font-size:12px;font-weight:700">{{ s.selMark }}</button></sc-if>
-<span style="font:600 17.5px/1.15 var(--font-heading);flex:1;min-width:0">{{ s.name }}</span>
-<span class="tag" style="font-size:12px;padding:2px 5px;white-space:nowrap;color:{{ s.statusColor }};border:1px solid {{ s.statusColor }};transition:color .3s,border-color .3s">{{ s.statusLabel }}</span>
+<sc-if value="{{ s.selectable }}"><button onClick="{{ s.onSelect }}" style="all:unset;cursor:pointer;width:18px;height:18px;margin-top:2px;flex:none;box-sizing:border-box;border-radius:5px;border:1.5px solid {{ s.selBd }};background:{{ s.selBg }};display:grid;place-items:center;color:var(--on-acc);font-size:12px;font-weight:700">{{ s.selMark }}</button></sc-if>
+<span style="font:600 15px/1.3 var(--font-heading);flex:1;min-width:0">{{ s.name }}</span>
+<span style="font-size:11.5px;font-weight:500;padding:2px 8px;border-radius:999px;white-space:nowrap;color:color-mix(in oklab, {{ s.statusColor }} 72%, var(--fg));background:color-mix(in oklab, {{ s.statusColor }} 15%, transparent);transition:color .3s,background .3s">{{ s.statusLabel }}</span>
 </div>
 <div style="font:12px var(--mono);color:var(--fg3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ s.cwd }}</div>
 </div>
@@ -25,26 +25,26 @@
 <div style="display:flex;flex-direction:column;gap:1px;min-width:0"><span style="color:var(--fg2)">{{ s.actLabel }}</span><span style="font:12px var(--mono);color:var(--fg);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ s.actCode }}</span></div>
 </div>
 <sc-if value="{{ s.isApproval }}">
-<div style="border:1px solid var(--warn-line);padding:7px;display:flex;flex-direction:column;gap:6px">
+<div style="border:1px solid var(--warn-line);border-radius:var(--r-md);background:var(--warn-tint);padding:9px;display:flex;flex-direction:column;gap:7px">
 <div style="font-size:12px;color:var(--warn);font-weight:500">{{ s.reqKind }}</div>
 <div style="font:12px/1.45 var(--mono);color:var(--fg);word-break:break-all">{{ s.reqCode }}</div>
 <div style="display:flex;gap:4px;flex-wrap:wrap">
-<button class="btn btn-primary blueprint" onClick="{{ s.onAccept }}" style="font-size:12.5px;padding:4px 9px;white-space:nowrap"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>승인</button>
+<button class="btn btn-primary" onClick="{{ s.onAccept }}" style="font-size:12.5px;padding:4px 9px;white-space:nowrap">승인</button>
 <button class="btn btn-secondary" onClick="{{ s.onAcceptSession }}" style="font-size:12.5px;padding:4px 7px;color:var(--fg);white-space:nowrap">세션 동안 허용</button>
 <button class="btn btn-ghost" onClick="{{ s.onDecline }}" style="font-size:12.5px;padding:4px 6px;color:var(--err-fg);white-space:nowrap">거절</button>
 </div>
 </div>
 </sc-if>
 <sc-if value="{{ s.isQuestion }}">
-<div style="border:1px solid var(--warn-line);padding:7px;display:flex;flex-direction:column;gap:6px">
-<div style="display:flex;align-items:center;font-size:12px;color:var(--warn);font-weight:500">{{ s.reqKind }}<span style="margin-left:auto;font:12px var(--mono)">{{ s.countdown }}</span></div>
+<div style="border:1px solid var(--warn-line);border-radius:var(--r-md);background:var(--warn-tint);padding:9px;display:flex;flex-direction:column;gap:7px">
+<div style="display:flex;align-items:center;font-size:12px;color:var(--warn);font-weight:500">{{ s.reqKind }}<span style="margin-left:auto;font-size:12px;font-variant-numeric:tabular-nums">{{ s.countdown }}</span></div>
 <div style="font-size:12.5px;color:var(--fg);line-height:1.45">{{ s.reqText }}</div>
 <div style="display:flex"><button class="btn btn-secondary" onClick="{{ s.onAnswer }}" style="font-size:12.5px;padding:4px 7px;color:var(--fg)">답하기</button></div>
 </div>
 </sc-if>
-<sc-if value="{{ s.hasError }}"><div style="border-left:2px solid var(--err);padding:2px 0 2px 7px;font-size:12.5px;color:var(--err-fg)">{{ s.error }}</div></sc-if>
-<sc-if value="{{ s.lost }}"><div style="border:1px dashed var(--line2);padding:6px 7px;font-size:12px;color:var(--fg2);line-height:1.45">app-server가 재시작되어 이전 턴은 메시지만 남았습니다. todo와 도구 기록은 없습니다.</div></sc-if>
-<sc-if value="{{ s.terminal }}"><div style="border:1px dashed var(--line2);padding:6px 7px;font-size:12px;color:var(--fg2);line-height:1.45;display:flex;flex-direction:column;gap:4px"><span><span style="border:1px solid var(--fg3);padding:0 4px;font-size:12px;margin-right:6px">터미널 세션</span>실시간 상태를 알 수 없습니다.</span><button class="btn btn-ghost" onClick="{{ s.onTakeover }}" style="align-self:flex-start;font-size:12.5px;padding:3px 4px;color:var(--acc-fg)">대시보드로 이어 받기…</button></div></sc-if>
+<sc-if value="{{ s.hasError }}"><div style="border-radius:var(--r-md);background:var(--err-tint);padding:6px 9px;font-size:12.5px;line-height:1.45;color:var(--err-fg)">{{ s.error }}</div></sc-if>
+<sc-if value="{{ s.lost }}"><div style="border-radius:var(--r-md);background:var(--tint);padding:7px 9px;font-size:12px;color:var(--fg2);line-height:1.45">app-server가 재시작되어 이전 턴은 메시지만 남았습니다. todo와 도구 기록은 없습니다.</div></sc-if>
+<sc-if value="{{ s.terminal }}"><div style="border-radius:var(--r-md);background:var(--tint);padding:7px 9px;font-size:12px;color:var(--fg2);line-height:1.45;display:flex;flex-direction:column;gap:4px"><span><span style="border-radius:999px;background:var(--sel);color:var(--fg);padding:1px 7px;font-size:11.5px;margin-right:6px">터미널 세션</span>실시간 상태를 알 수 없습니다.</span><button class="btn btn-ghost" onClick="{{ s.onTakeover }}" style="align-self:flex-start;font-size:12.5px;padding:3px 4px;color:var(--acc-fg)">대시보드로 이어 받기…</button></div></sc-if>
 <sc-if value="{{ s.hasTodo }}">
 <div style="display:flex;flex-direction:column;gap:4px">
 <div style="display:flex;align-items:baseline;gap:6px"><span style="font-size:12px;color:var(--fg3)">TODO</span><span style="font:12px var(--mono)">{{ s.todoText }}</span></div>
@@ -52,7 +52,7 @@
 <sc-for list="{{ s.phases }}" as="p">
 <div style="flex:{{ p.flex }};display:flex;flex-direction:column;gap:3px;min-width:0">
 <div style="display:flex;gap:3px;font-size:12px;white-space:nowrap;color:{{ p.nameColor }}"><span style="overflow:hidden;text-overflow:ellipsis">{{ p.name }}</span><span style="font-family:var(--mono);font-size:12px;color:var(--fg3)">{{ p.count }}</span></div>
-<div style="display:flex;gap:2px"><sc-for list="{{ p.cells }}" as="c"><div style="flex:1;height:6px;background:{{ c.bg }};border:1px solid {{ c.bd }};transition:background .35s"></div></sc-for></div>
+<div style="display:flex;gap:2px"><sc-for list="{{ p.cells }}" as="c"><div style="flex:1;height:6px;box-sizing:border-box;border-radius:2px;background:{{ c.bg }};border:1px solid {{ c.bd }};transition:background .35s"></div></sc-for></div>
 </div>
 </sc-for>
 </div>
@@ -64,7 +64,7 @@
 <div style="display:flex;align-items:baseline;gap:6px;margin-bottom:3px"><span style="font-size:12px;color:var(--fg3)">서브에이전트</span><span style="font-size:12px;color:var(--fg2)">{{ s.agentSummary }}</span></div>
 <sc-for list="{{ s.agents }}" as="a">
 <div style="display:grid;grid-template-columns:8px 64px minmax(0,1fr);gap:6px;align-items:center;padding:4px 0;border-top:1px solid var(--line-soft);font-size:12px">
-<span style="width:7px;height:7px;background:{{ a.fill }};border:1px solid {{ a.color }}"></span>
+<span style="width:8px;height:8px;box-sizing:border-box;border-radius:50%;background:{{ a.fill }};border:1.5px solid {{ a.color }}"></span>
 <span style="font:12px var(--mono);color:var(--fg2);overflow:hidden;text-overflow:ellipsis">{{ a.type }}</span>
 <div style="display:flex;flex-direction:column;min-width:0"><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ a.name }}</span><span style="font-size:12px;color:var(--fg3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ a.act }}</span></div>
 </div>
@@ -75,13 +75,13 @@
 </div>
 </sc-if>
 <sc-if value="{{ s.dense }}">
-<div style="border:1px solid var(--line);outline:{{ s.ring }};outline-offset:2px;padding:6px 8px;display:flex;flex-direction:column;gap:4px;background:var(--bg);color:var(--fg);font-family:var(--font-body);opacity:{{ s.opacity }};transition:opacity .3s">
+<div style="border:1px solid var(--line-soft);border-radius:var(--r);outline:{{ s.ring }};outline-offset:2px;padding:8px 10px;display:flex;flex-direction:column;gap:5px;background:var(--card);color:var(--fg);font-family:var(--font-body);opacity:{{ s.opacity }};transition:opacity .3s">
 <div style="display:flex;align-items:center;gap:5px;min-width:0;min-height:26px">
-<sc-if value="{{ s.selectable }}"><button onClick="{{ s.onSelect }}" style="all:unset;cursor:pointer;width:26px;height:26px;flex:none;display:grid;place-items:center"><span style="width:18px;height:18px;box-sizing:border-box;border:1.5px solid {{ s.selBd }};background:{{ s.selBg }};display:grid;place-items:center;color:var(--on-acc);font-size:12px;font-weight:700">{{ s.selMark }}</span></button></sc-if>
+<sc-if value="{{ s.selectable }}"><button onClick="{{ s.onSelect }}" style="all:unset;cursor:pointer;width:26px;height:26px;flex:none;display:grid;place-items:center"><span style="width:18px;height:18px;box-sizing:border-box;border-radius:5px;border:1.5px solid {{ s.selBd }};background:{{ s.selBg }};display:grid;place-items:center;color:var(--on-acc);font-size:12px;font-weight:700">{{ s.selMark }}</span></button></sc-if>
 <span style="width:7px;height:7px;border-radius:50%;flex:none;background:{{ s.statusColor }};transition:background .3s"></span>
-<span onClick="{{ s.onOpen }}" style="font:600 16px/1.2 var(--font-heading);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer">{{ s.name }}</span>
-<sc-if value="{{ s.showProject }}"><span style="flex:0 1 auto;max-width:34%;font:600 12px var(--mono);color:var(--md-code);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ s.projectName }}</span></sc-if>
-<sc-if value="{{ s.showMini }}"><span style="font:12px var(--mono);color:{{ s.miniColor }};white-space:nowrap">{{ s.miniText }}</span></sc-if>
+<span onClick="{{ s.onOpen }}" style="font:600 14.5px/1.3 var(--font-heading);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer">{{ s.name }}</span>
+<sc-if value="{{ s.showProject }}"><span style="flex:0 1 auto;max-width:34%;font:12px var(--mono);color:var(--fg2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ s.projectName }}</span></sc-if>
+<sc-if value="{{ s.showMini }}"><span style="font-size:12px;color:{{ s.miniColor }};white-space:nowrap">{{ s.miniText }}</span></sc-if>
 <span title="{{ s.headTitle }}" style="font-size:12px;color:var(--fg3);white-space:nowrap;font-variant-numeric:tabular-nums">{{ s.headTime }}</span>
 <button onClick="{{ s.onToggle }}" style="all:unset;cursor:pointer;width:32px;height:32px;margin:-4px -6px -4px 0;display:grid;place-items:center;color:var(--fg3);flex:none"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;transition:transform .2s;transform:rotate({{ s.chevRot }})"><path d="m6 9 6 6 6-6"></path></svg></button>
 </div>
@@ -93,29 +93,29 @@
 <span style="margin-left:auto;font-size:12px;color:var(--fg3);white-space:nowrap">{{ s.updatedAgo }}</span>
 </div>
 <sc-if value="{{ s.isApproval }}">
-<div style="display:flex;flex-direction:column;gap:4px;padding:6px;border:1px solid var(--warn-line)">
+<div style="display:flex;flex-direction:column;gap:6px;padding:8px;border:1px solid var(--warn-line);border-radius:var(--r-md);background:var(--warn-tint)">
 <div style="display:flex;align-items:baseline;gap:4px;min-width:0"><span style="font-size:12px;font-weight:500;color:var(--warn);white-space:nowrap">{{ s.reqKind }}</span><span style="font:12px var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0">{{ s.reqCode }}</span></div>
 <div style="display:flex;gap:4px;flex-wrap:wrap">
-<button class="btn btn-primary blueprint" onClick="{{ s.onAccept }}" style="flex:1.3 1 64px;min-height:44px;font-size:14px;white-space:nowrap;padding:0 6px"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>승인</button>
+<button class="btn btn-primary" onClick="{{ s.onAccept }}" style="flex:1.3 1 64px;min-height:44px;font-size:14px;white-space:nowrap;padding:0 6px">승인</button>
 <button class="btn btn-secondary" onClick="{{ s.onAcceptSession }}" style="flex:1 1 72px;min-height:44px;font-size:12.5px;color:var(--fg);white-space:nowrap;padding:0 4px">세션 허용</button>
 <button class="btn btn-secondary" onClick="{{ s.onDecline }}" style="flex:.8 1 48px;min-height:44px;font-size:12.5px;color:var(--err-fg);white-space:nowrap;padding:0 4px">거절</button>
 </div>
 </div>
 </sc-if>
 <sc-if value="{{ s.isQuestion }}">
-<div style="display:flex;align-items:center;gap:6px;padding:0 0 0 6px;border:1px solid var(--warn-line)">
+<div style="display:flex;align-items:center;gap:6px;padding:0 0 0 9px;border:1px solid var(--warn-line);border-radius:var(--r-md);background:var(--warn-tint)">
 <span style="font-size:12px;font-weight:500;color:var(--warn);white-space:nowrap">{{ s.reqKind }}</span>
-<span style="font:12px var(--mono);color:var(--warn);white-space:nowrap">{{ s.countdown }}</span>
+<span style="font-size:12px;font-variant-numeric:tabular-nums;color:var(--warn);white-space:nowrap">{{ s.countdown }}</span>
 <button class="btn btn-ghost" onClick="{{ s.onAnswer }}" style="margin-left:auto;min-height:44px;font-size:13px;padding:0 9px;color:var(--fg);white-space:nowrap">답하기 →</button>
 </div>
 </sc-if>
 <sc-if value="{{ s.hasError }}"><div style="font-size:12.5px;line-height:1.4;color:var(--err-fg)">{{ s.error }}</div></sc-if>
 <sc-if value="{{ s.lost }}"><div style="font-size:12px;color:var(--fg3)">서버 재시작 — todo·아이템 기록 없음</div></sc-if>
-<sc-if value="{{ s.terminal }}"><div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--fg2)"><span style="border:1px solid var(--fg3);padding:0 4px;font-size:12px;white-space:nowrap">터미널 세션</span><span style="white-space:nowrap">상태 알 수 없음</span><button class="btn btn-ghost" onClick="{{ s.onTakeover }}" style="margin-left:auto;min-height:44px;font-size:12.5px;padding:0 7px;white-space:nowrap;color:var(--acc-fg)">이어 받기</button></div></sc-if>
+<sc-if value="{{ s.terminal }}"><div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--fg2)"><span style="border-radius:999px;background:var(--sel);color:var(--fg);padding:1px 7px;font-size:11.5px;white-space:nowrap">터미널 세션</span><span style="white-space:nowrap">상태 알 수 없음</span><button class="btn btn-ghost" onClick="{{ s.onTakeover }}" style="margin-left:auto;min-height:44px;font-size:12.5px;padding:0 7px;white-space:nowrap;color:var(--acc-fg)">이어 받기</button></div></sc-if>
 <sc-if value="{{ s.hasTodo }}">
 <div style="display:flex;flex-direction:column;gap:3px">
 <div style="display:flex;align-items:center;gap:6px">
-<div style="flex:1;display:flex;gap:2px;height:4px"><sc-for list="{{ s.phases }}" as="p"><div style="flex:{{ p.flex }};background:var(--line);position:relative"><div style="position:absolute;inset:0 auto 0 0;width:{{ p.pct }};background:{{ p.fill }};transition:width .4s"></div></div></sc-for></div>
+<div style="flex:1;display:flex;gap:2px;height:4px"><sc-for list="{{ s.phases }}" as="p"><div style="flex:{{ p.flex }};border-radius:2px;overflow:hidden;background:var(--line);position:relative"><div style="position:absolute;inset:0 auto 0 0;width:{{ p.pct }};background:{{ p.fill }};transition:width .4s"></div></div></sc-for></div>
 <span style="font:12px var(--mono);white-space:nowrap">{{ s.todoText }}</span>
 </div>
 <div style="display:flex;gap:4px;font-size:12.5px;min-width:0"><span style="color:var(--fg2);white-space:nowrap">{{ s.phaseName }}</span><span style="color:var(--acc-fg)">→</span><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ s.currentTask }}</span></div>
@@ -123,14 +123,14 @@
 </sc-if>
 <sc-if value="{{ s.hasAgents }}">
 <div style="display:flex;align-items:center;gap:3px;flex-wrap:wrap">
-<sc-for list="{{ s.agents }}" as="a"><span style="display:flex;align-items:center;gap:3px;font:12px var(--mono);color:var(--fg2);border:1px solid var(--line);padding:1px 4px"><span style="width:6px;height:6px;flex:none;background:{{ a.fill }};border:1px solid {{ a.color }}"></span>{{ a.type }}</span></sc-for>
+<sc-for list="{{ s.agents }}" as="a"><span style="display:flex;align-items:center;gap:4px;font:12px var(--mono);color:var(--fg2);border-radius:999px;background:var(--tint);padding:1px 8px 1px 6px"><span style="width:7px;height:7px;box-sizing:border-box;flex:none;border-radius:50%;background:{{ a.fill }};border:1.5px solid {{ a.color }}"></span>{{ a.type }}</span></sc-for>
 <span style="font-size:12px;color:var(--fg3);margin-left:2px">{{ s.agentSummary }}</span>
 </div>
 </sc-if>
 </sc-if>
 </div>
 </sc-if>
-<sc-if value="{{ s.archivedRow }}"><div onClick="{{ s.onOpen }}" style="display:flex;align-items:center;gap:6px;padding:0 8px;min-height:44px;border:1px dashed var(--line);font-size:12.5px;color:var(--fg2);font-family:var(--font-body);cursor:pointer"><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ s.name }}</span><span style="margin-left:auto;font-size:12px;color:var(--fg3);white-space:nowrap">{{ s.updatedAgo }}</span></div></sc-if>
+<sc-if value="{{ s.archivedRow }}"><div onClick="{{ s.onOpen }}" style="display:flex;align-items:center;gap:6px;padding:0 10px;min-height:44px;border-radius:var(--r-md);background:var(--tint);font-size:12.5px;color:var(--fg2);font-family:var(--font-body);cursor:pointer"><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ s.name }}</span><span style="margin-left:auto;font-size:12px;color:var(--fg3);white-space:nowrap">{{ s.updatedAgo }}</span></div></sc-if>
 </x-dc>
 <script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:320,&quot;height&quot;:420},&quot;s&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;SessionView&quot;}}"></script>
 </body>
