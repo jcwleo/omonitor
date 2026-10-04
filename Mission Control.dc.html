@@ -259,6 +259,9 @@ html,body{margin:0;height:100%;background:#161618;overflow:hidden;overscroll-beh
 <button onClick="{{ toggleTheme }}" style="all:unset;cursor:pointer;display:flex;align-items:center;min-height:44px;padding:0 12px;font-size:13.5px">테마<span style="margin-left:auto;color:var(--fg2)">{{ themeLabel }}</span></button>
 <button onClick="{{ askNotify }}" style="all:unset;cursor:pointer;display:flex;align-items:center;min-height:44px;padding:0 12px;font-size:13.5px">브라우저 알림<span style="margin-left:auto;width:30px;height:18px;flex:none;border-radius:999px;background:{{ nbTrack }};position:relative;transition:background .15s"><span style="position:absolute;top:2px;left:{{ nbLeft }};width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3);transition:left .15s"></span></span></button>
 <button onClick="{{ toggleSound }}" style="all:unset;cursor:pointer;display:flex;align-items:center;min-height:44px;padding:0 12px;font-size:13.5px">알림음<span style="margin-left:auto;width:30px;height:18px;flex:none;border-radius:999px;background:{{ nsTrack }};position:relative;transition:background .15s"><span style="position:absolute;top:2px;left:{{ nsLeft }};width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3);transition:left .15s"></span></span></button>
+<button onClick="{{ togglePush }}" disabled="{{ pushDisabled }}" title="작업이 끝나거나 멈추거나 질문·승인을 기다리면 이 기기로 알립니다" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:8px;min-height:44px;padding:0 12px;font-size:13.5px;opacity:{{ pushOpacity }}">푸시 알림<span style="font-size:12px;color:var(--fg3)">이 기기</span><span style="margin-left:auto;width:30px;height:18px;flex:none;border-radius:999px;background:{{ pushTrack }};position:relative;transition:background .15s"><span style="position:absolute;top:2px;left:{{ pushLeft }};width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3);transition:left .15s"></span></span></button>
+<sc-if value="{{ pushHasHint }}"><div style="padding:0 12px 8px;font-size:12px;line-height:1.45;color:var(--fg3)">{{ pushHint }}</div></sc-if>
+<sc-if value="{{ pushOn }}"><button onClick="{{ testPush }}" style="all:unset;cursor:pointer;align-self:flex-start;min-height:40px;padding:0 12px;font-size:13px;color:var(--acc-fg)">테스트 알림 보내기</button></sc-if>
 <sc-if value="{{ isMock }}"><div style="font-size:12px;font-weight:500;color:var(--fg3);padding:9px 12px 3px;border-top:1px solid var(--line-soft);margin-top:4px">데모</div>
 <button onClick="{{ cycleSpeed }}" style="all:unset;cursor:pointer;display:flex;align-items:center;min-height:44px;padding:0 12px;font-size:13.5px">시뮬레이터 속도<span style="margin-left:auto;font-family:var(--mono);color:var(--fg2)">{{ speedLabel }}</span></button>
 <button onClick="{{ simDisconnect }}" style="all:unset;cursor:pointer;display:flex;align-items:center;min-height:44px;padding:0 12px;font-size:13.5px">연결 끊김 시뮬레이션</button></sc-if>
@@ -336,6 +339,9 @@ html,body{margin:0;height:100%;background:#161618;overflow:hidden;overscroll-beh
 <button onClick="{{ toggleTheme }}" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:8px;min-height:40px;padding:0 10px;border-radius:var(--r-md);font-size:13.5px;color:var(--fg)" style-hover="background:var(--hover)">테마<span style="margin-left:auto;font-size:12.5px;color:var(--fg2)">{{ themeLabel }}</span></button>
 <button onClick="{{ askNotify }}" title="{{ nbTitle }}" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:8px;min-height:40px;padding:0 10px;border-radius:var(--r-md);font-size:13.5px;color:var(--fg)" style-hover="background:var(--hover)">브라우저 알림<span style="margin-left:auto;width:30px;height:18px;flex:none;border-radius:999px;background:{{ nbTrack }};position:relative;transition:background .15s"><span style="position:absolute;top:2px;left:{{ nbLeft }};width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3);transition:left .15s"></span></span></button>
 <button onClick="{{ toggleSound }}" title="새 질문·승인 요청이 오면 소리로 알립니다" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:8px;min-height:40px;padding:0 10px;border-radius:var(--r-md);font-size:13.5px;color:var(--fg)" style-hover="background:var(--hover)">알림음<span style="margin-left:auto;width:30px;height:18px;flex:none;border-radius:999px;background:{{ nsTrack }};position:relative;transition:background .15s"><span style="position:absolute;top:2px;left:{{ nsLeft }};width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3);transition:left .15s"></span></span></button>
+<button onClick="{{ togglePush }}" disabled="{{ pushDisabled }}" title="작업이 끝나거나 멈추거나 질문·승인을 기다리면 이 기기로 알립니다" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:8px;min-height:40px;padding:0 10px;border-radius:var(--r-md);font-size:13.5px;color:var(--fg);opacity:{{ pushOpacity }}" style-hover="background:var(--hover)">푸시 알림<span style="font-size:12px;color:var(--fg3)">이 기기</span><span style="margin-left:auto;width:30px;height:18px;flex:none;border-radius:999px;background:{{ pushTrack }};position:relative;transition:background .15s"><span style="position:absolute;top:2px;left:{{ pushLeft }};width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3);transition:left .15s"></span></span></button>
+<sc-if value="{{ pushHasHint }}"><div style="padding:0 10px 6px;font-size:12px;line-height:1.45;color:var(--fg3)">{{ pushHint }}</div></sc-if>
+<sc-if value="{{ pushOn }}"><button onClick="{{ testPush }}" style="all:unset;cursor:pointer;align-self:flex-start;min-height:32px;margin:0 10px 4px;font-size:12.5px;color:var(--acc-fg)" style-hover="color:var(--fg)">테스트 알림 보내기</button></sc-if>
 </div>
 </div>
 </sc-if>
@@ -381,7 +387,7 @@ class Component extends DCLogic {
   state = { v: 0, now: Date.now(), w: window.innerWidth, view: 'board', selId: null, backTo: 'board', theme: null, drawer: false, drawerMounted: false,
     pal: null, sheet: null, dialog: null, menu: false, selMode: false, sel: {}, multiText: '', grouped: false, groupOpen: {}, panels: { left: false, right: false }, colC: {}, secC: { archived: true },
     exp: {}, agentOpen: {}, doneOpen: null, escArmed: null, allC: false, rtab: 'todo', ptab: 'tl', q: '', lf: 'all', focus: -1, pf: null, speedIdx: 0,
-    goalDraft: '', goalBudgetDraft: '', fatal: null, nb: false, ns: false, omoVer: null, omoUpdating: false, panelWidths: {}, prefs: false };
+    goalDraft: '', goalBudgetDraft: '', fatal: null, nb: false, ns: false, omoVer: null, omoUpdating: false, panelWidths: {}, prefs: false, push: { ready: false, on: false, busy: false, why: '' } };
   tlRef = React.createRef();
   detailRef = React.createRef();
   sheetFileRef = React.createRef();
@@ -486,7 +492,7 @@ class Component extends DCLogic {
       if (cfg.mode !== 'real' && cfg.mode !== 'mock') throw new Error('대시보드 서버의 실행 모드를 확인할 수 없습니다.');
       const real = cfg.mode === 'real';
       this.mode = cfg.mode;
-      const [mod, S, terminal] = await Promise.all([import(`${base}app/${real ? 'real' : 'mock'}-client.js`), import(`${base}app/store.js`), import(`${base}app/terminal.js`)]);
+      const [mod, S, terminal, push] = await Promise.all([import(`${base}app/${real ? 'real' : 'mock'}-client.js`), import(`${base}app/store.js`), import(`${base}app/terminal.js`), import(`${base}app/push.js`)]);
       terminal.defineTerminal();
       this.S = S;
       this.client = real ? new mod.RealClient({ sessionKey: cfg.key }) : new mod.MockClient({ speed: 1 });
@@ -496,6 +502,13 @@ class Component extends DCLogic {
       this.store.subscribe((v) => this.setState({ v }));
       this.setState({ v: 1 });
       await this.store.init();
+      this.push = push;
+      this.syncPush();
+      // A tap on a push notification opens its session: an open dashboard hears it from the service worker, a closed app
+      // starts at #session=<id> (sw.js).
+      navigator.serviceWorker?.addEventListener('message', (e) => { if (e.data?.type === 'omonitor:open' && e.data.threadId) this.openSession(e.data.threadId); });
+      const opened = location.hash.match(/^#session=([^&]+)/);
+      if (opened) { history.replaceState(null, '', location.pathname + location.search); this.openSession(decodeURIComponent(opened[1])); }
       this.info = real ? `${this.client.serverInfo ? `${this.client.serverInfo.name} ${this.client.serverInfo.version}` : 'omo app-server'} · ${this.upstream}` : 'mock 시뮬레이터 · 실제 서버 아님';
       this.checkOmoVersion();
       this.versionTick = setInterval(() => this.checkOmoVersion(), 30 * 60 * 1000);
@@ -567,6 +580,12 @@ class Component extends DCLogic {
     if (d) this.drafts.set(id, { ...d, images: d.images.map((m) => (m.id === imgId ? { ...m, ...patch } : m)) });
   }
   notifyAllowed() { return typeof Notification !== 'undefined' && Notification.permission === 'granted'; }
+  async syncPush() {
+    const sup = this.push.pushSupport();
+    const sub = sup.ok ? await this.push.currentSub().catch(() => null) : null;
+    if (this.store) this.store.s.notify.push = !!sub;
+    this.setState({ push: { ready: true, on: !!sub, busy: false, why: sup.why } });
+  }
   async checkOmoVersion() { try { const ver = await this.client?.backend?.omoVersion?.(); if (ver) this.setState({ omoVer: ver }); } catch {} }
   async runOmoUpdate() {
     const st = this.store;
@@ -999,6 +1018,17 @@ class Component extends DCLogic {
       // Theme and notification switches sit in a popover under the header's settings button (the phone drawer has them too).
       prefsOpen: s.prefs && !isPhone, togglePrefs: () => this.setState((x) => ({ prefs: !x.prefs })), closePrefs: () => this.setState({ prefs: false }),
       prefsBg: s.prefs ? 'var(--sel)' : 'transparent', prefsTop: `calc(${connState === 'reconnecting' ? 97 : 52}px + env(safe-area-inset-top))`,
+      // Push on this device: finished, failed and waiting sessions reach it even with the app closed (app/push.js).
+      pushOn: s.push.on, pushTrack: s.push.on ? 'var(--acc)' : 'var(--line3)', pushLeft: s.push.on ? '14px' : '2px',
+      pushDisabled: !s.push.ready || s.push.busy || (!s.push.on && !!s.push.why), pushOpacity: !s.push.ready || (!s.push.on && s.push.why) ? '.55' : '1',
+      pushHint: s.push.on ? '작업이 끝나거나 멈추거나 답을 기다리면 이 기기로 알립니다' : s.push.why, pushHasHint: !!(s.push.on || s.push.why),
+      // enablePush asks for permission before its first await: iOS allows the prompt only inside the tap.
+      togglePush: () => {
+        if (!this.push || s.push.busy) return;
+        this.setState({ push: { ...s.push, busy: true } });
+        (s.push.on ? this.push.disablePush() : this.push.enablePush()).catch((e) => st.toast(`푸시 알림: ${e?.message || e}`, 'error')).finally(() => this.syncPush());
+      },
+      testPush: () => this.push?.testPush().then(() => st.toast('테스트 알림을 보냈습니다', 'info'), (e) => st.toast(`테스트 알림을 보내지 못했습니다: ${e?.message || e}`, 'error')),
       openDrawer: () => { this.setState({ drawerMounted: true }); requestAnimationFrame(() => this.setState({ drawer: true })); },
       closeDrawer: () => this.setState({ drawer: false }),
       drawerMounted: s.drawerMounted && isPhone, drawerX: s.drawer ? '0%' : '-102%', drawerO: s.drawer ? '1' : '0', drawerPE: s.drawer ? 'auto' : 'none',

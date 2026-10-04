@@ -50,6 +50,13 @@ export class RealClient {
         if (!r.ok) throw new Error(await r.text());
         return r.json();
       },
+      // Questions and approvals reach only subscribed connections, so the dashboard relays each one to the backend's Web
+      // Push; the backend drops the repeats that other open dashboards send.
+      pushRequest: async (body) => {
+        const r = await fetch(api('api/push/request'), { method: 'POST', headers: { ...hdr(), 'content-type': 'application/json' }, body: JSON.stringify(body) });
+        if (!r.ok) throw new Error(await r.text());
+        return r.json();
+      },
       restoreTodos: async (threadId) => {
         const r = await fetch(api(`api/threads/${encodeURIComponent(threadId)}/restore-todos`), { method: 'POST', headers: hdr() });
         if (!r.ok) throw new Error(await r.text());

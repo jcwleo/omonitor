@@ -26,6 +26,8 @@ export interface SessionClient {
     /** Subagent runs (omo.task.updated shape) and context usage, read from the session file. */
     meta(threadId: string): Promise<{ agents: unknown[]; usage: { used: number; window: number } | null }>;
     restoreTodos(threadId: string): Promise<Item[]>;
+    /** Relays a question or approval to the backend's Web Push, which drops repeats from other open dashboards. */
+    pushRequest(body: { threadId: string; requestId: string | number; kind: 'question' | 'approval'; title: string; body: string }): Promise<{ sent: number }>;
     /** Models of extension-registered providers (Claude subscription) that model/list does not return. */
     extraModels(): Promise<Model[]>;
     omoVersion(): Promise<OmoVersion>;
@@ -74,6 +76,11 @@ export class RealClient implements SessionClient {
     },
     activity: async (): Promise<Record<string, number>> => {
       const r = await fetch('/api/threads/activity', { headers: this.hdr() });
+      if (!r.ok) throw new Error(await r.text());
+      return r.json();
+    },
+    pushRequest: async (body: { threadId: string; requestId: string | number; kind: 'question' | 'approval'; title: string; body: string }): Promise<{ sent: number }> => {
+      const r = await fetch('/api/push/request', { method: 'POST', headers: { ...this.hdr(), 'content-type': 'application/json' }, body: JSON.stringify(body) });
       if (!r.ok) throw new Error(await r.text());
       return r.json();
     },

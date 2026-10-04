@@ -5,6 +5,7 @@
 import { mkdir, readFile, readdir, realpath, stat } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
+import { PushError, PushService, watchSessions } from './push.ts';
 import { TerminalError, TerminalManager } from './terminal.ts';
 import type { SocketData } from './terminal.ts';
 
@@ -376,7 +377,7 @@ const STATIC = new Set([
   '/McSessionCard.dc.html', '/McRequestCard.dc.html', '/McItem.dc.html', '/McComposer.dc.html',
   '/manifest.webmanifest', '/app/icon-180.png', '/app/icon-512.png', '/app/icon-maskable-512.png',
   '/app/terminal.js', '/app/terminal-input.js', '/app/terminal-clipboard.js',
-  '/app/terminal-reports.js', '/app/terminal-keys.js', '/app/terminal.css',
+  '/app/terminal-reports.js', '/app/terminal-keys.js', '/app/terminal.css', '/app/push.js', '/sw.js',
 ]);
 const VENDOR = new Map([
   ['/vendor/xterm.js', join(ROOT, 'node_modules/@xterm/xterm/lib/xterm.mjs')],
@@ -393,6 +394,7 @@ async function serveStatic(pathname: string) {
 }
 
 const terminals = new TerminalManager();
+const push = new PushService(join(homedir(), '.omonitor/push.json'), 'https://github.com/jcwleo/omonitor');
 const server = Bun.serve<SocketData>({
   hostname: HOST,
   port: PORT,
@@ -447,9 +449,17 @@ const server = Bun.serve<SocketData>({
         if (mt && req.method === 'GET') return Response.json(await threadMeta(decodeURIComponent(mt[1])));
         const m = url.pathname.match(/^\/api\/threads\/([^/]+)\/restore-todos$/);
         if (m && req.method === 'POST') return Response.json(await restoreTodos(decodeURIComponent(m[1])));
+        if (url.pathname === '/api/push' && req.method === 'GET') return Response.json(await push.info());
+        if (url.pathname.startsWith('/api/push/') && req.method === 'POST') {
+          const body = await req.json().catch(() => null);
+          if (url.pathname === '/api/push/subscribe') return Response.json(await push.subscribe(body));
+          if (url.pathname === '/api/push/unsubscribe') return Response.json(await push.unsubscribe(body));
+          if (url.pathname === '/api/push/test') return Response.json(await push.test(body));
+          if (url.pathname === '/api/push/request') return Response.json(await push.relay(body));
+        }
         if (url.pathname === '/api/omo/version') return Response.json(await omoVersion());
         if (url.pathname === '/api/omo/update' && req.method === 'POST') return Response.json(await omoUpdate());
-      } catch (e: any) { return new Response(String(e?.message || e), { status: 500 }); }
+      } catch (e: any) { return new Response(String(e?.message || e), { status: e instanceof PushError ? e.status : 500 }); }
       return new Response('not found', { status: 404 });
     }
     return serveStatic(url.pathname);
@@ -494,5 +504,7 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   });
 }
 process.once('exit', () => { void terminals.shutdown(); });
+
+if (!MOCK) watchSessions({ upstream: UPSTREAM, token: readToken, enabled: () => push.hasDevices(), notify: (m) => push.send(m) });
 
 console.log(`omonitor → http://${HOST}:${PORT}  (${MOCK ? 'mock 시뮬레이터' : `app-server ${UPSTREAM}`})`);

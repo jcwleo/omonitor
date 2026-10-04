@@ -377,7 +377,7 @@ export class Store {
     this.c = client;
     this.v = 0;
     this.fns = new Set();
-    this.s = { conn: { state: 'closed' }, loading: true, threads: new Map(), requests: new Map(), models: [], skills: [], toasts: [], resolved: [], notify: { browser: true, sound: false } };
+    this.s = { conn: { state: 'closed' }, loading: true, threads: new Map(), requests: new Map(), models: [], skills: [], toasts: [], resolved: [], notify: { browser: true, sound: false, push: false } };
     this.msgAt = new Map(); // thread id → last conversation time (ms) from the session file, via the backend
     client.on('notification', (n) => this.onNote(n));
     client.on('serverRequest', (r) => this.onReq(r));
@@ -532,11 +532,13 @@ export class Store {
     this.s.requests.set(r.id, { ...r, params: r.params?.changes ? { ...r.params, changes: normChanges(r.params.changes) } : r.params, receivedAt: Date.now() });
     const T = this.T(r.params?.threadId);
     this.alert(T, r);
+    this.relay(T, r);
     this.emit();
   }
   alert(T, r) {
     const title = `${T?.name || '세션'} · ${REQ_KIND[r.method] || '요청'}`;
-    if (this.s.notify.browser && typeof Notification !== 'undefined' && Notification.permission === 'granted' && document.hidden) {
+    // With Web Push on, this device already gets the request through the backend (relay below).
+    if (this.s.notify.browser && !this.s.notify.push && typeof Notification !== 'undefined' && Notification.permission === 'granted' && document.hidden) {
       try { new Notification(title, { body: r.params?.command || r.params?.questions?.[0]?.question || '' }); } catch {}
     }
     if (this.s.notify.sound) {
@@ -547,6 +549,15 @@ export class Store {
         o.connect(g).connect(ctx.destination); o.start(); o.stop(ctx.currentTime + 0.26);
       } catch {}
     }
+  }
+  // Questions and approvals reach only subscribed connections, so they are passed to the backend for Web Push.
+  relay(T, r) {
+    const send = this.c.backend?.pushRequest;
+    if (!send || !r.params?.threadId) return;
+    const q = r.method === 'item/tool/requestUserInput';
+    const body = (q ? r.params.questions?.[0]?.question : r.params.command || r.params.reason) || (q ? '답을 기다립니다' : '승인을 기다립니다');
+    send({ threadId: r.params.threadId, requestId: r.id, kind: q ? 'question' : 'approval', title: `${T?.name || '세션'} · ${q ? '질문' : '승인 요청'}`.slice(0, 200), body: String(body).slice(0, 500) })
+      .catch((e) => console.warn('[omonitor] 푸시 알림을 요청하지 못했습니다:', e?.message || e));
   }
   turnFor(T, turnId) {
     let u = T.turns.find((x) => x.id === turnId);
