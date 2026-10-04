@@ -3,10 +3,25 @@
   "version": "0.1.0",
   "private": true,
   "description": "omo app-server 세션 관제 대시보드 (로컬 전용)",
-  "bin": { "omonitor": "bin/omonitor.ts" },
+  "bin": {
+    "omonitor": "bin/omonitor.ts"
+  },
   "scripts": {
     "start": "bun server.ts",
     "mock": "bun server.ts --mock"
   },
-  "engines": { "bun": ">=1.1" }
+  "engines": {
+    "bun": ">=1.4.2"
+  },
+  "dependencies": {
+    "@xterm/addon-fit": "^0.11.0",
+    "@xterm/addon-serialize": "^0.14.0",
+    "@xterm/headless": "^6.0.0",
+    "@xterm/xterm": "^6.0.0",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.4.2",
+    "typescript": "^5.9.3"
+  }
 }

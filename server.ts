@@ -5,6 +5,8 @@
 import { mkdir, readFile, readdir, realpath, stat } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
+import { TerminalError, TerminalManager } from './terminal.ts';
+import type { SocketData } from './terminal.ts';
 
 const MOCK = process.argv.includes('--mock');
 const PORT = Number(process.env.PORT || 4800);
@@ -373,16 +375,25 @@ const STATIC = new Set([
   ENTRY, '/support.js', '/app/real-client.js', '/app/mock-client.js', '/app/store.js', '/app/styles.css',
   '/McSessionCard.dc.html', '/McRequestCard.dc.html', '/McItem.dc.html', '/McComposer.dc.html',
   '/manifest.webmanifest', '/app/icon-180.png', '/app/icon-512.png',
+  '/app/terminal.js', '/app/terminal-input.js', '/app/terminal-clipboard.js',
+  '/app/terminal-reports.js', '/app/terminal-keys.js', '/app/terminal.css',
+]);
+const VENDOR = new Map([
+  ['/vendor/xterm.js', join(ROOT, 'node_modules/@xterm/xterm/lib/xterm.mjs')],
+  ['/vendor/xterm.css', join(ROOT, 'node_modules/@xterm/xterm/css/xterm.css')],
+  ['/vendor/addon-fit.js', join(ROOT, 'node_modules/@xterm/addon-fit/lib/addon-fit.mjs')],
 ]);
 async function serveStatic(pathname: string) {
+  const vendor = VENDOR.get(pathname);
+  if (vendor) return new Response(Bun.file(vendor), { headers: { 'cache-control': 'no-store', 'content-type': pathname.endsWith('.css') ? 'text/css' : 'text/javascript' } });
   if (!STATIC.has(decodeURIComponent(pathname))) return new Response('not found', { status: 404 });
   const p = join(ROOT, decodeURIComponent(pathname));
   try { const s = await stat(p); if (!s.isFile()) throw 0; } catch { return new Response('not found', { status: 404 }); }
   return new Response(Bun.file(p), { headers: { 'cache-control': 'no-store' } });
 }
 
-type Data = { up?: WebSocket; queue: string[] };
-Bun.serve<Data>({
+const terminals = new TerminalManager();
+const server = Bun.serve<SocketData>({
   hostname: HOST,
   port: PORT,
   async fetch(req, server) {
@@ -396,7 +407,19 @@ Bun.serve<Data>({
     if (url.pathname === '/ws') {
       if (MOCK) return new Response('mock mode', { status: 404 });
       if (!keyOk(req, url)) return new Response('bad key', { status: 401 });
-      return server.upgrade(req, { data: { queue: [] } }) ? undefined : new Response('upgrade failed', { status: 400 });
+      return server.upgrade(req, { data: { kind: 'relay', queue: [] } }) ? undefined : new Response('upgrade failed', { status: 400 });
+    }
+    if (url.pathname === '/terminal-ws') {
+      if (!keyOk(req, url)) return new Response('bad key', { status: 401 });
+      if (!req.headers.get('origin')) return new Response('origin required', { status: 403 });
+      try {
+        const id = terminals.parseId(url.searchParams.get('id'));
+        if (!terminals.has(id)) return new Response('터미널을 찾지 못했습니다', { status: 404 });
+        return server.upgrade(req, { data: { kind: 'terminal', id, closed: false } }) ? undefined : new Response('upgrade failed', { status: 400 });
+      } catch (error) {
+        if (error instanceof TerminalError) return new Response(error.message, { status: error.status });
+        throw error;
+      }
     }
     const up = url.pathname.match(UPLOAD_PATH);
     if (up) {
@@ -405,6 +428,14 @@ Bun.serve<Data>({
     }
     if (url.pathname.startsWith('/api/')) {
       if (!keyOk(req, url)) return new Response('bad key', { status: 401 });
+      if (url.pathname === '/api/terminal') {
+        try { return await terminals.http(req, url); }
+        catch (error) {
+          if (error instanceof TerminalError) return new Response(error.message, { status: error.status });
+          if (error instanceof Error) { console.error('[terminal]', error); return new Response('터미널 처리에 실패했습니다', { status: 500 }); }
+          throw error;
+        }
+      }
       if (url.pathname === '/api/uploads' && req.method === 'POST') return await saveUpload(req).catch((e) => new Response(String(e?.message || e), { status: 500 }));
       try {
         if (url.pathname === '/api/skills') return Response.json(await listSkills(url.searchParams.get('cwd') || undefined));
@@ -425,23 +456,43 @@ Bun.serve<Data>({
   },
   websocket: {
     async open(ws) {
+      if (ws.data.kind === 'terminal') { terminals.open(ws); return; }
+      const relay = ws.data;
       let token = '';
       try { token = await readToken(); } catch { ws.close(1011, `토큰 파일을 읽지 못했습니다: ${TOKEN_FILE}`); return; }
       // Bun's client WebSocket can send headers and sends no Origin — both required by app-server.
       const up = new WebSocket(UPSTREAM, { headers: { Authorization: `Bearer ${token}` } } as any);
       ws.data.up = up;
-      up.onopen = () => { for (const m of ws.data.queue.splice(0)) up.send(m); };
+      up.onopen = () => { for (const m of relay.queue.splice(0)) up.send(m); };
       up.onmessage = (e) => ws.send(String(e.data));
       up.onclose = (e) => ws.close(1011, `app-server 연결 종료 (${e.code})`);
       up.onerror = () => ws.close(1011, 'app-server에 연결하지 못했습니다');
     },
     message(ws, msg) {
+      if (ws.data.kind === 'terminal') { terminals.message(ws, msg); return; }
       const up = ws.data.up;
       if (up && up.readyState === WebSocket.OPEN) up.send(String(msg));
       else ws.data.queue.push(String(msg));
     },
-    close(ws) { try { ws.data.up?.close(); } catch {} },
+    close(ws) {
+      if (ws.data.kind === 'terminal') { terminals.close(ws); return; }
+      try { ws.data.up?.close(); } catch {}
+    },
   },
 });
+
+for (const signal of ['SIGINT', 'SIGTERM'] as const) {
+  process.once(signal, () => {
+    void terminals.shutdown().then(() => {
+      server.stop(true);
+      process.exit(0);
+    }).catch((error: unknown) => {
+      if (!(error instanceof Error)) throw error;
+      console.error('[terminal shutdown]', error);
+      process.exit(1);
+    });
+  });
+}
+process.once('exit', () => { void terminals.shutdown(); });
 
 console.log(`omonitor → http://${HOST}:${PORT}  (${MOCK ? 'mock 시뮬레이터' : `app-server ${UPSTREAM}`})`);

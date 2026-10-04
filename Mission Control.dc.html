@@ -190,6 +190,7 @@ html,body{margin:0;height:100%;background:#1d1f20;overflow:hidden;overscroll-beh
 </div>
 </sc-if>
 <sc-if value="{{ phonePanel }}"><div style="flex:1;overflow:auto;min-height:0;padding:7px 10px">
+<sc-if value="{{ rTerminal }}"><mc-terminal session-id="{{ terminalSessionId }}" cwd="{{ terminalCwd }}" style="display:block;height:100%;min-height:0"></mc-terminal></sc-if>
 <sc-if value="{{ rTodo }}"><div style="display:contents">
 <sc-if value="{{ hasAsk }}"><button onClick="{{ toggleAsk }}" title="{{ askHint }}" style="all:unset;cursor:pointer;display:flex;flex-direction:column;gap:3px;width:100%;box-sizing:border-box;margin-bottom:10px;padding:7px 9px;border-left:2px solid var(--acc);background:var(--acc-tint)"><span style="font-size:12px;font-weight:600;color:var(--acc-fg)">최근 요청</span><span style="font-size:13.5px;line-height:1.5;color:var(--fg);white-space:pre-wrap;word-break:break-word;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:{{ askClamp }};overflow:hidden">{{ askText }}</span></button></sc-if>
 <sc-for list="{{ todoPhases }}" as="g"><div style="display:flex;flex-direction:column;margin-bottom:9px"><div style="display:flex;align-items:baseline;gap:6px;padding-bottom:3px"><span style="font:600 14.5px var(--font-heading);letter-spacing:.04em">{{ g.name }}</span><span style="font:12px var(--mono);color:var(--fg3)">{{ g.count }}</span></div><sc-for list="{{ g.tasks }}" as="t"><div style="display:flex;align-items:center;gap:7px;min-height:38px;border-top:1px solid var(--line-soft)"><span style="width:16px;height:16px;flex:none;display:grid;place-items:center;font-size:12px;font-weight:700;background:{{ t.bg }};border:1px solid {{ t.bd }};color:{{ t.gc }};transition:background .35s,transform .35s;transform:scale({{ t.scale }})">{{ t.glyph }}</span><span style="font-size:13.5px;color:{{ t.tc }};font-weight:{{ t.fw }};text-decoration:{{ t.deco }}">{{ t.text }}</span></div></sc-for></div></sc-for>
@@ -200,13 +201,14 @@ html,body{margin:0;height:100%;background:#1d1f20;overflow:hidden;overscroll-beh
 <sc-if value="{{ rGoal }}"><div style="display:contents"><sc-if value="{{ hasGoal }}"><div style="display:flex;flex-direction:column;gap:7px"><div style="display:flex;align-items:center;gap:6px"><span class="tag" style="font-size:12px;padding:1px 5px;color:{{ goalColor }};border:1px solid {{ goalColor }}">{{ goalStatus }}</span></div><div style="font-size:14.5px;line-height:1.5">{{ goalText }}</div><sc-if value="{{ goalHasBudget }}"><div style="display:flex;flex-direction:column;gap:3px"><div style="height:3px;background:var(--line);position:relative"><div style="position:absolute;inset:0 auto 0 0;width:{{ goalPct }};background:var(--acc);transition:width .4s"></div></div><span style="font:12px var(--mono);color:var(--fg3)">{{ goalBudget }}</span></div></sc-if><div style="display:flex;gap:4px;flex-wrap:wrap"><sc-for list="{{ goalActions }}" as="b"><button class="btn btn-secondary" onClick="{{ b.onTap }}" style="min-height:40px;font-size:12.5px;color:{{ b.fg }}">{{ b.label }}</button></sc-for></div></div></sc-if><sc-if value="{{ noGoal }}"><div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:13px;color:var(--fg2)">목표를 정하면 에이전트가 완료될 때까지 이어서 작업합니다.</span><textarea class="input" value="{{ goalDraft }}" onChange="{{ onGoalDraft }}" placeholder="예: 결제 테스트 100% 통과" style="min-height:70px;font-size:13.5px;color:var(--fg)"></textarea><div style="display:flex;gap:4px;align-items:center"><input class="input" value="{{ goalBudgetDraft }}" onChange="{{ onGoalBudgetDraft }}" placeholder="토큰 예산 (선택)" style="flex:1;min-height:40px;font:12.5px var(--mono);color:var(--fg)"><button class="btn btn-primary" disabled="{{ goalDraftEmpty }}" onClick="{{ saveGoal }}" style="min-height:40px;font-size:13.5px">목표 설정</button></div></div></sc-if></div></sc-if>
 <sc-if value="{{ rDiff }}"><div style="display:flex;flex-direction:column;gap:6px"><div style="font-size:12px;color:var(--fg3)">이번 턴 동안 누적된 변경</div><sc-for list="{{ diffItems }}" as="it"><dc-import name="McItem" it="{{ it }}" hint-size="100%,120px"></dc-import></sc-for><sc-if value="{{ diffNone }}"><div style="font-size:13px;color:var(--fg3)">이번 턴에 변경 사항이 없습니다.</div></sc-if></div></sc-if>
 </div></sc-if>
-<dc-import name="McComposer" c="{{ composer }}" hint-size="100%,110px"></dc-import>
+<sc-if value="{{ showComposer }}"><dc-import name="McComposer" c="{{ composer }}" hint-size="100%,110px"></dc-import></sc-if>
 </div>
 <sc-if value="{{ showRightRail }}"><button onClick="{{ toggleRight }}" title="Todo·에이전트·목표·변경 펼치기" style="all:unset;cursor:pointer;width:36px;flex:none;border-left:1px solid var(--line);display:flex;flex-direction:column;align-items:center;gap:8px;padding:12px 0;box-sizing:border-box;background:var(--tint);color:var(--fg2)" style-hover="background:var(--hover)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round"><path d="m15 6-6 6 6 6"></path></svg><span style="writing-mode:vertical-rl;font:600 14px var(--font-heading);letter-spacing:.08em">Todo · 에이전트 · 목표 · 변경</span></button></sc-if>
 <sc-if value="{{ showRight }}">
 <div style="width:{{ rightW }};flex:none;border-left:1px solid var(--line);display:flex;flex-direction:column;min-height:0">
 <div style="flex:none;display:flex;border-bottom:1px solid var(--line);padding:0 3px"><sc-for list="{{ rtabs }}" as="t"><button onClick="{{ t.onTap }}" style="all:unset;cursor:pointer;flex:1;display:flex;align-items:center;justify-content:center;gap:3px;min-height:42px;font-size:12.5px;color:{{ t.fg }};box-shadow:{{ t.line }}">{{ t.label }}<span style="font:12px var(--mono);color:var(--fg3)">{{ t.count }}</span></button></sc-for><button onClick="{{ toggleRight }}" title="패널 접기" style="all:unset;cursor:pointer;width:32px;flex:none;display:grid;place-items:center;color:var(--fg3)" style-hover="color:var(--fg)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round"><path d="m9 6 6 6-6 6"></path></svg></button></div>
-<div style="flex:1;overflow:auto;padding:9px 10px">
+<div style="flex:1;min-height:0;overflow:auto;padding:9px 10px">
+<sc-if value="{{ rTerminal }}"><mc-terminal session-id="{{ terminalSessionId }}" cwd="{{ terminalCwd }}" style="display:block;height:100%;min-height:0"></mc-terminal></sc-if>
 <sc-if value="{{ rTodo }}"><div style="display:contents">
 <sc-if value="{{ hasAsk }}"><button onClick="{{ toggleAsk }}" title="{{ askHint }}" style="all:unset;cursor:pointer;display:flex;flex-direction:column;gap:3px;width:100%;box-sizing:border-box;margin-bottom:10px;padding:7px 9px;border-left:2px solid var(--acc);background:var(--acc-tint)"><span style="font-size:12px;font-weight:600;color:var(--acc-fg)">최근 요청</span><span style="font-size:13.5px;line-height:1.5;color:var(--fg);white-space:pre-wrap;word-break:break-word;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:{{ askClamp }};overflow:hidden">{{ askText }}</span></button></sc-if>
 <sc-for list="{{ todoPhases }}" as="g"><div style="display:flex;flex-direction:column;margin-bottom:9px"><div style="display:flex;align-items:baseline;gap:6px;padding-bottom:3px"><span style="font:600 14.5px var(--font-heading);letter-spacing:.04em">{{ g.name }}</span><span style="font:12px var(--mono);color:var(--fg3)">{{ g.count }}</span></div><sc-for list="{{ g.tasks }}" as="t"><div style="display:flex;align-items:center;gap:7px;min-height:34px;border-top:1px solid var(--line-soft)"><span style="width:15px;height:15px;flex:none;display:grid;place-items:center;font-size:12px;font-weight:700;background:{{ t.bg }};border:1px solid {{ t.bd }};color:{{ t.gc }};transition:background .35s,transform .35s;transform:scale({{ t.scale }})">{{ t.glyph }}</span><span style="font-size:13px;color:{{ t.tc }};font-weight:{{ t.fw }};text-decoration:{{ t.deco }}">{{ t.text }}</span></div></sc-for></div></sc-for>
@@ -411,6 +413,7 @@ class Component extends DCLogic {
     // app lacks: it follows the finger once it moves sideways, and past a third of the width (or on a quick flick) it
     // does what the back button does. A drag that turns vertical first is left to scroll the panel.
     this.onTouchStart = (e) => {
+      if (e.composedPath().some((el) => el.tagName === 'MC-TERMINAL')) { this.edge = null; this.dragOk = true; return; }
       const t = e.touches[0];
       this.edge = e.touches.length === 1 && this.swipeBack && t.clientX <= EDGE_PX ? { x: t.clientX, y: t.clientY, dx: 0, v: 0, at: e.timeStamp, on: false, back: this.swipeBack } : null;
       this.dragOk = e.touches.length !== 1;
@@ -464,7 +467,8 @@ class Component extends DCLogic {
       if (cfg.mode !== 'real' && cfg.mode !== 'mock') throw new Error('대시보드 서버의 실행 모드를 확인할 수 없습니다.');
       const real = cfg.mode === 'real';
       this.mode = cfg.mode;
-      const [mod, S] = await Promise.all([import(`${base}app/${real ? 'real' : 'mock'}-client.js`), import(`${base}app/store.js`)]);
+      const [mod, S, terminal] = await Promise.all([import(`${base}app/${real ? 'real' : 'mock'}-client.js`), import(`${base}app/store.js`), import(`${base}app/terminal.js`)]);
+      terminal.defineTerminal();
       this.S = S;
       this.client = real ? new mod.RealClient({ sessionKey: cfg.key }) : new mod.MockClient({ speed: 1 });
       this.upstream = cfg?.upstream || '';
@@ -612,6 +616,7 @@ class Component extends DCLogic {
     return (this._cols || []).filter((c) => c.open !== false).flatMap((c) => c.sessions.map((s) => s.id));
   }
   key(e) {
+    if (e.composedPath().some((el) => el.tagName === 'MC-TERMINAL')) return;
     const tag = document.activeElement?.tagName;
     const typing = tag === 'INPUT' || tag === 'TEXTAREA';
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); if (!this.state.dialog) this.setState((s) => ({ pal: s.pal ? null : { q: '', idx: 0 } })); return; }
@@ -974,7 +979,7 @@ class Component extends DCLogic {
       // The latest user message is what the agent is working on now; the Todo panel shows it above the list.
       const ask = items.findLast((x) => x.isUser);
       const diff = S.diffFiles(T.diff || '');
-      const tabsDef = [['todo', 'Todo', sel.hasTodo ? sel.todoText : ''], ['agents', '에이전트', sel.agents.length ? String(sel.agents.length) : ''], ['goal', '목표', T.goal ? '●' : ''], ['diff', '변경', diff.length ? String(diff.length) : '']];
+      const tabsDef = [['todo', 'Todo', sel.hasTodo ? sel.todoText : ''], ['agents', '에이전트', sel.agents.length ? String(sel.agents.length) : ''], ['goal', '목표', T.goal ? '●' : ''], ['diff', '변경', diff.length ? String(diff.length) : ''], ['terminal', '터미널', '']];
       const rtab = s.rtab, ptab = s.ptab;
       const panel = isPhone ? ptab : rtab;
       const g = T.goal;
@@ -991,9 +996,10 @@ class Component extends DCLogic {
         detailHeadPad: isPhone ? `max(4px, env(safe-area-inset-top)) 4px 0 2px` : '4px 6px 4px 12px', detailTitleSize: isPhone ? '17px' : '18.5px',
         openMenu: () => this.setState({ menu: true }), renameSel: () => this.confirm('rename', T.id, { input: T.name || '' }),
         rtabs: tabsDef.map(mkTab(rtab, 'rtab')), ptabs: [['tl', '타임라인', ''], ...tabsDef].map(mkTab(ptab, 'ptab')),
-        showRight: !isPhone && !s.panels.right, showRightRail: !isPhone && s.panels.right, rightW: isDesk ? '320px' : '300px',
+        showRight: !isPhone && !s.panels.right, showRightRail: !isPhone && s.panels.right, rightW: panel === 'terminal' ? (isDesk ? 'min(45vw, 720px)' : '45%') : isDesk ? '320px' : '300px',
         showTimeline: !isPhone || ptab === 'tl', phonePanel: isPhone && ptab !== 'tl',
-        rTodo: panel === 'todo', rAgents: panel === 'agents', rGoal: panel === 'goal', rDiff: panel === 'diff',
+        rTodo: panel === 'todo', rAgents: panel === 'agents', rGoal: panel === 'goal', rDiff: panel === 'diff', rTerminal: panel === 'terminal',
+        terminalSessionId: T.id, terminalCwd: T.cwd || '', showComposer: !isPhone || panel !== 'terminal',
         onTlScroll: (e) => {
           if (this.pinning) return;
           const el = e.currentTarget;
@@ -1145,7 +1151,7 @@ class Component extends DCLogic {
     const omoUpdating = s.omoUpdating;
     const hasOmoUpdate = !!ver?.updateAvailable && !omoUpdating;
     Object.assign(vals, {
-      showUpdateBtn: !!ver,
+      showUpdateBtn: !!ver && !(s.view === 'session' && (isPhone ? s.ptab : s.rtab) === 'terminal'),
       updateHasDot: hasOmoUpdate,
       updateDot: 'var(--acc)',
       updateAnim: omoUpdating ? 'mcPulse 1.2s infinite' : 'none',
