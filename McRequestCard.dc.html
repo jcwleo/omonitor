@@ -10,7 +10,7 @@
 <helmet>
 <link rel="stylesheet" href="app/styles.css">
 </helmet>
-<div style="border:1px solid var(--warn-line);border-radius:var(--r);overflow:hidden;display:flex;flex-direction:column;background:var(--card);color:var(--fg);font-family:var(--font-body)">
+<div style="animation:mcAttn 1.6s ease-out;border:1px solid var(--warn-line);border-radius:var(--r);overflow:hidden;display:flex;flex-direction:column;background:var(--card);color:var(--fg);font-family:var(--font-body)">
 <button onClick="{{ toggle }}" style="all:unset;cursor:{{ headCursor }};display:flex;align-items:center;gap:5px;min-height:48px;padding:0 9px;box-sizing:border-box;min-width:0">
 <span style="width:7px;height:7px;flex:none;border-radius:50%;background:var(--warn)"></span>
 <span style="font-size:12px;font-weight:500;color:var(--warn);white-space:nowrap">{{ r.kind }}</span>
@@ -41,7 +41,7 @@
 <div style="padding:7px 9px 0;display:flex;flex-direction:column;gap:4px">
 <div style="display:flex;align-items:baseline;gap:5px;min-width:0;flex-wrap:wrap"><span style="font-size:12px;font-weight:500;color:var(--fg3);white-space:nowrap">{{ q.header }}</span><span style="font-size:14px;font-weight:500;line-height:1.35">{{ q.question }}</span><span style="font-size:12px;color:var(--fg3)">{{ q.hint }}</span></div>
 <div style="display:flex;flex-wrap:wrap;gap:4px">
-<sc-for list="{{ q.options }}" as="o"><button onClick="{{ o.onTap }}" title="{{ o.description }}" style="all:unset;cursor:pointer;display:flex;align-items:center;min-height:44px;padding:0 12px;box-sizing:border-box;border-radius:var(--r-md);font-size:13.5px;border:1px solid {{ o.bd }};background:{{ o.bg }};color:{{ o.fg }};transition:background .15s,border-color .15s">{{ o.mark }}{{ o.label }}</button></sc-for>
+<sc-for list="{{ q.options }}" as="o"><button data-press="btn" onClick="{{ o.onTap }}" title="{{ o.description }}" style="all:unset;cursor:pointer;display:flex;align-items:center;min-height:44px;padding:0 12px;box-sizing:border-box;border-radius:var(--r-md);font-size:13.5px;border:1px solid {{ o.bd }};background:{{ o.bg }};color:{{ o.fg }};transition:background .15s,border-color .15s">{{ o.mark }}{{ o.label }}</button></sc-for>
 </div>
 <sc-if value="{{ q.freeText }}"><input class="input" value="{{ q.value }}" onChange="{{ q.onText }}" placeholder="{{ q.placeholder }}" style="min-height:44px;font-size:13.5px;color:var(--fg)"></sc-if>
 <div style="font-size:12px;color:var(--fg3);min-height:16px">{{ q.selDesc }}</div>

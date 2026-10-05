@@ -393,7 +393,11 @@ export class Store {
     const t = { id: Math.random().toString(36).slice(2), text, kind };
     this.s.toasts = [...this.s.toasts, t];
     this.emit();
-    setTimeout(() => { this.s.toasts = this.s.toasts.filter((x) => x.id !== t.id); this.emit(); }, 5000);
+    // It fades out over its last 200ms. A toast that has gone stays as an empty slot until every toast has: the list is
+    // drawn by position, so dropping it from the front would hand its element to the next toast mid-animation.
+    const mark = (patch) => { this.s.toasts = this.s.toasts.map((x) => (x.id === t.id ? { ...x, ...patch } : x)); };
+    setTimeout(() => { mark({ leaving: true }); this.emit(); }, 4800);
+    setTimeout(() => { mark({ gone: true }); if (this.s.toasts.every((x) => x.gone)) this.s.toasts = []; this.emit(); }, 5000);
   }
   async guard(p, label) {
     try { return await p; } catch (e) { this.toast(`${label}: ${e?.message || e}`); throw e; }

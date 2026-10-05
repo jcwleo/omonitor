@@ -46,6 +46,59 @@ html,body{margin:0;height:var(--root-h, 100%);background:#161618;overflow:hidden
 .mc{--md-text:#dcdcdf;--md-heading:var(--fg);--md-code:#dcdcdf;--md-code-bg:rgba(255,255,255,.07);--md-codeblock:#cfcfd3;--md-codeblock-bg:rgba(255,255,255,.03);--md-codeblock-border:var(--line);--md-link:var(--acc-fg);--md-quote:var(--fg2);--md-quote-border:var(--line3);--md-hr:var(--line2);--md-bullet:var(--fg3)}
 .mc[data-theme="light"]{--md-text:#27272a;--md-heading:var(--fg);--md-code:#27272a;--md-code-bg:rgba(24,24,27,.06);--md-codeblock:#3f3f46;--md-codeblock-bg:rgba(24,24,27,.03);--md-codeblock-border:var(--line);--md-link:var(--acc-fg);--md-quote:var(--fg2);--md-quote-border:var(--line3);--md-hr:var(--line2);--md-bullet:var(--fg3)}
 @keyframes mcPulse{0%,100%{opacity:.45}50%{opacity:.9}}
+/* Motion (DESIGN.md 모션). Elements animate in with a keyframe that runs once when they mount; exits, board card moves
+   and screen changes are driven from the script (ghostOut, viewTransition). Keyframes use the individual translate and
+   scale properties so they never replace an element's own transform. */
+.mc{--dur-fast:120ms;--dur:180ms;--dur-slow:260ms;--ease-out:cubic-bezier(.2,.8,.2,1)}
+@keyframes mcFade{from{opacity:0}}
+@keyframes mcFadeOut{to{opacity:0}}
+@keyframes mcPop{from{opacity:0;scale:.97}}
+@keyframes mcRise{from{opacity:0;translate:0 8px}}
+@keyframes mcRiseOut{to{opacity:0;translate:0 6px}}
+@keyframes mcDrop{from{opacity:0;translate:0 -4px}}
+@keyframes mcSheet{from{translate:0 100%}}
+@keyframes mcAttn{from{background-color:color-mix(in oklab, var(--warn) 22%, var(--card))}}
+@keyframes mcBumpA{50%{scale:1.25}}
+@keyframes mcBumpB{50%{scale:1.25}}
+@keyframes mcPushIn{from{translate:100% 0}}
+@keyframes mcPushOut{to{translate:-25% 0;opacity:.6}}
+@keyframes mcPopIn{from{translate:-25% 0;opacity:.6}}
+@keyframes mcPopOut{to{translate:100% 0}}
+/* A press shows in the same frame: buttons shrink a little, cards less, list rows darken. The terminal's own buttons
+   live in its shadow root and keep their look. */
+.mc .btn:not(:disabled):active,.mc [data-press="btn"]:not(:disabled):active{scale:.96!important}
+.mc [data-press="card"]:active:not(:has(button:active)){scale:.985!important}
+.mc [data-press="row"]:not(:disabled):active{background:var(--sel)!important}
+/* View transitions: a screen change or theme switch cross-fades the page while the header tab's pill travels, and a
+   board card that changes column travels to it. On phone and tablet a conversation pushes in from the right and pops
+   back out (html[data-vt], see navVT). Taps meanwhile reach the live page underneath. */
+::view-transition{pointer-events:none}
+::view-transition-old(root),::view-transition-new(root){animation-duration:180ms}
+::view-transition-group(mc-seg){animation-duration:260ms;animation-timing-function:cubic-bezier(.2,.8,.2,1)}
+::view-transition-old(mc-seg),::view-transition-new(mc-seg){height:100%;animation:none}
+::view-transition-group(*.mc-card){animation-duration:260ms;animation-timing-function:cubic-bezier(.2,.8,.2,1)}
+html[data-vt]::view-transition-old(root),html[data-vt]::view-transition-new(root){mix-blend-mode:normal}
+html[data-vt="push"]::view-transition-old(root){animation:mcPushOut 260ms cubic-bezier(.2,.8,.2,1) both}
+html[data-vt="push"]::view-transition-new(root){animation:mcPushIn 260ms cubic-bezier(.2,.8,.2,1) both}
+html[data-vt="pop"]::view-transition-old(root){animation:mcPopOut 220ms cubic-bezier(.4,0,1,1) both;z-index:1}
+html[data-vt="pop"]::view-transition-new(root){animation:mcPopIn 220ms cubic-bezier(.2,.8,.2,1) both}
+/* Reduced motion: what moves or scales cross-fades instead; fades, progress bars and colour changes stay. */
+@media (prefers-reduced-motion: reduce){
+@keyframes mcPop{from{opacity:0}}
+@keyframes mcRise{from{opacity:0}}
+@keyframes mcRiseOut{to{opacity:0}}
+@keyframes mcDrop{from{opacity:0}}
+@keyframes mcSheet{from{opacity:0}}
+@keyframes mcBumpA{50%{opacity:.5}}
+@keyframes mcBumpB{50%{opacity:.5}}
+@keyframes mcPushIn{from{opacity:0}}
+@keyframes mcPushOut{to{opacity:0}}
+@keyframes mcPopIn{from{opacity:0}}
+@keyframes mcPopOut{to{opacity:0}}
+.mc .btn:not(:disabled):active,.mc [data-press="btn"]:not(:disabled):active,.mc [data-press="card"]:active:not(:has(button:active)){scale:none!important;opacity:.75!important}
+::view-transition-group(*){animation:none!important}
+html[data-vt]::view-transition-old(root),html[data-vt]::view-transition-new(root){mix-blend-mode:plus-lighter}
+}
 /* 100vh is taller than the visible area on iOS (Safari toolbars, home-screen web app status bar) and pushes the
    composer off-screen; dvh tracks the viewport actually shown. --app-h and --app-shift fit it to the visual viewport
    while an on-screen keyboard or iPadOS's floating shortcut bar covers part of the screen (see fitViewport). */
@@ -54,23 +107,23 @@ html,body{margin:0;height:var(--root-h, 100%);background:#161618;overflow:hidden
 </helmet>
 <div class="mc" data-theme="{{ theme }}" style="display:flex;flex-direction:column;background:var(--bg);color:var(--fg);font-family:var(--font-body);overflow:hidden;position:relative;padding-top:{{ safeTop }}">
 
-<sc-if value="{{ connBanner }}"><div style="flex:none;display:flex;align-items:center;gap:7px;padding:6px 10px;background:var(--warn-tint);border-bottom:1px solid var(--warn-line);font-size:12.5px;color:var(--fg)"><span style="width:7px;height:7px;border-radius:50%;background:var(--warn);animation:mcPulse 1.2s infinite"></span><span style="flex:1;min-width:0">{{ connText }}</span><button class="btn btn-secondary" onClick="{{ reconnectNow }}" style="font-size:12.5px;padding:3px 7px;min-height:32px;color:var(--fg)">지금 다시 연결</button></div></sc-if>
+<sc-if value="{{ connBanner }}"><div style="animation:mcDrop var(--dur) var(--ease-out);flex:none;display:flex;align-items:center;gap:7px;padding:6px 10px;background:var(--warn-tint);border-bottom:1px solid var(--warn-line);font-size:12.5px;color:var(--fg)"><span style="width:7px;height:7px;border-radius:50%;background:var(--warn);animation:mcPulse 1.2s infinite"></span><span style="flex:1;min-width:0">{{ connText }}</span><button class="btn btn-secondary" onClick="{{ reconnectNow }}" style="font-size:12.5px;padding:3px 7px;min-height:32px;color:var(--fg)">지금 다시 연결</button></div></sc-if>
 
 <sc-if value="{{ notPhone }}" hint-placeholder-val="{{ true }}">
-<div style="flex:none;display:flex;align-items:center;gap:12px;padding:0 10px 0 14px;min-height:48px;border-bottom:1px solid var(--line-soft)">
+<div style="view-transition-name:mc-head;flex:none;display:flex;align-items:center;gap:12px;padding:0 10px 0 14px;min-height:48px;border-bottom:1px solid var(--line-soft)">
 <div style="font:600 15px var(--font-heading);white-space:nowrap">omonitor</div>
 <div style="display:flex;gap:2px;padding:2px;border-radius:var(--r-md);background:var(--tint)">
-<sc-for list="{{ tabs }}" as="t" hint-placeholder-count="3"><button onClick="{{ t.onTap }}" title="{{ t.title }}" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:5px;min-height:32px;padding:0 10px;border-radius:var(--r-sm);font-size:13px;font-weight:500;color:{{ t.fg }};background:{{ t.bg }};box-shadow:{{ t.shadow }}" style-hover="color:var(--fg)">{{ t.label }}<sc-if value="{{ t.hasKey }}"><span style="font:11.5px var(--mono);color:var(--fg3)">{{ t.key }}</span></sc-if><sc-if value="{{ t.hasBadge }}"><span style="font:600 11px/16px var(--font-ui);background:var(--warn);color:var(--on-warn);padding:0 5px;min-width:16px;box-sizing:border-box;border-radius:999px;text-align:center">{{ t.badge }}</span></sc-if></button></sc-for>
+<sc-for list="{{ tabs }}" as="t" hint-placeholder-count="3"><button data-press="btn" onClick="{{ t.onTap }}" title="{{ t.title }}" style="all:unset;cursor:pointer;position:relative;isolation:isolate;display:flex;align-items:center;gap:5px;min-height:32px;padding:0 10px;border-radius:var(--r-sm);font-size:13px;font-weight:500;color:{{ t.fg }}" style-hover="color:var(--fg)"><span aria-hidden="true" style="position:absolute;inset:0;z-index:-1;border-radius:inherit;background:{{ t.bg }};box-shadow:{{ t.shadow }};view-transition-name:{{ t.vtn }}"></span>{{ t.label }}<sc-if value="{{ t.hasKey }}"><span style="font:11.5px var(--mono);color:var(--fg3)">{{ t.key }}</span></sc-if><sc-if value="{{ t.hasBadge }}"><span style="animation:{{ badgeAnim }};font:600 11px/16px var(--font-ui);background:var(--warn);color:var(--on-warn);padding:0 5px;min-width:16px;box-sizing:border-box;border-radius:999px;text-align:center">{{ t.badge }}</span></sc-if></button></sc-for>
 </div>
 <div style="margin-left:auto;display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--fg2)">
 <span style="display:flex;align-items:center;gap:6px;white-space:nowrap;padding:0 6px"><span style="width:7px;height:7px;border-radius:50%;background:{{ connDot }}"></span>{{ connLabel }}</span>
 <sc-if value="{{ vBoard }}">
-<button onClick="{{ toggleGroup }}" aria-pressed="{{ groupPressed }}" title="보드를 프로젝트별로 묶기" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:6px;min-height:34px;padding:0 10px;box-sizing:border-box;border-radius:var(--r-md);border:1px solid {{ groupBd }};background:{{ groupBg }};color:{{ groupFg }}" style-hover="background:var(--hover)"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="flex:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round"><path d="m12 3 9 5-9 5-9-5 9-5Z"></path><path d="m3 13 9 5 9-5"></path></svg>프로젝트별</button>
-<button onClick="{{ toggleSelMode }}" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:6px;min-height:34px;padding:0 10px;box-sizing:border-box;border-radius:var(--r-md);border:1px solid {{ selModeBd }};background:{{ selModeBg }};color:{{ selModeFg }}" style-hover="background:var(--hover)"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="flex:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round"><rect x="3.5" y="3.5" width="17" height="17" rx="4"></rect><path d="m8.5 12 2.5 2.5 4.5-5"></path></svg>{{ selModeLabel }}</button>
+<button data-press="btn" onClick="{{ toggleGroup }}" aria-pressed="{{ groupPressed }}" title="보드를 프로젝트별로 묶기" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:6px;min-height:34px;padding:0 10px;box-sizing:border-box;border-radius:var(--r-md);border:1px solid {{ groupBd }};background:{{ groupBg }};color:{{ groupFg }}" style-hover="background:var(--hover)"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="flex:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round"><path d="m12 3 9 5-9 5-9-5 9-5Z"></path><path d="m3 13 9 5 9-5"></path></svg>프로젝트별</button>
+<button data-press="btn" onClick="{{ toggleSelMode }}" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:6px;min-height:34px;padding:0 10px;box-sizing:border-box;border-radius:var(--r-md);border:1px solid {{ selModeBd }};background:{{ selModeBg }};color:{{ selModeFg }}" style-hover="background:var(--hover)"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="flex:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round"><rect x="3.5" y="3.5" width="17" height="17" rx="4"></rect><path d="m8.5 12 2.5 2.5 4.5-5"></path></svg>{{ selModeLabel }}</button>
 </sc-if>
-<button onClick="{{ openPalette }}" title="세션 이동 · 명령 실행 (⌘K)" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:6px;min-height:34px;padding:0 10px;box-sizing:border-box;border-radius:var(--r-md);gap:8px;padding:0 6px 0 10px;border:1px solid var(--line);background:var(--tint);color:var(--fg3)" style-hover="color:var(--fg2);border-color:var(--line2)"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="flex:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round"><circle cx="11" cy="11" r="6.5"></circle><path d="m20 20-4.2-4.2"></path></svg><span>검색</span><span style="font:11.5px var(--mono);padding:1px 5px;border-radius:5px;background:var(--sel);color:var(--fg2)">⌘K</span></button>
-<button type="button" onClick="{{ reloadPage }}" title="페이지 새로고침" aria-label="페이지 새로고침" style="all:unset;cursor:pointer;flex:none;width:34px;height:34px;display:grid;place-items:center;box-sizing:border-box;border-radius:var(--r-md);color:var(--fg2)" style-hover="background:var(--hover);color:var(--fg)"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="flex:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round"><path d="M20 7v5h-5"></path><path d="M20 12a8 8 0 1 0-2.3 5.7M20 7l-2.3-2.7"></path></svg></button>
-<button type="button" onClick="{{ togglePrefs }}" title="설정 · 테마와 알림" aria-label="설정" style="all:unset;cursor:pointer;flex:none;width:34px;height:34px;display:grid;place-items:center;box-sizing:border-box;border-radius:var(--r-md);color:var(--fg2);background:{{ prefsBg }}" style-hover="background:var(--hover);color:var(--fg)"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="flex:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round"><path d="M4 7h10"></path><path d="M18 7h2"></path><path d="M4 17h4"></path><path d="M12 17h8"></path><circle cx="16" cy="7" r="2"></circle><circle cx="10" cy="17" r="2"></circle></svg></button>
+<button data-press="btn" onClick="{{ openPalette }}" title="세션 이동 · 명령 실행 (⌘K)" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:6px;min-height:34px;padding:0 10px;box-sizing:border-box;border-radius:var(--r-md);gap:8px;padding:0 6px 0 10px;border:1px solid var(--line);background:var(--tint);color:var(--fg3)" style-hover="color:var(--fg2);border-color:var(--line2)"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="flex:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round"><circle cx="11" cy="11" r="6.5"></circle><path d="m20 20-4.2-4.2"></path></svg><span>검색</span><span style="font:11.5px var(--mono);padding:1px 5px;border-radius:5px;background:var(--sel);color:var(--fg2)">⌘K</span></button>
+<button data-press="btn" type="button" onClick="{{ reloadPage }}" title="페이지 새로고침" aria-label="페이지 새로고침" style="all:unset;cursor:pointer;flex:none;width:34px;height:34px;display:grid;place-items:center;box-sizing:border-box;border-radius:var(--r-md);color:var(--fg2)" style-hover="background:var(--hover);color:var(--fg)"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="flex:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round"><path d="M20 7v5h-5"></path><path d="M20 12a8 8 0 1 0-2.3 5.7M20 7l-2.3-2.7"></path></svg></button>
+<button data-press="btn" type="button" onClick="{{ togglePrefs }}" title="설정 · 테마와 알림" aria-label="설정" style="all:unset;cursor:pointer;flex:none;width:34px;height:34px;display:grid;place-items:center;box-sizing:border-box;border-radius:var(--r-md);color:var(--fg2);background:{{ prefsBg }}" style-hover="background:var(--hover);color:var(--fg)"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="flex:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round"><path d="M4 7h10"></path><path d="M18 7h2"></path><path d="M4 17h4"></path><path d="M12 17h8"></path><circle cx="16" cy="7" r="2"></circle><circle cx="10" cy="17" r="2"></circle></svg></button>
 <button class="btn btn-primary" onClick="{{ openNew }}" style="font-size:13px;min-height:34px;padding:0 12px 0 9px;gap:5px"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="flex:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>새 세션</button>
 </div>
 </div>
@@ -78,11 +131,11 @@ html,body{margin:0;height:var(--root-h, 100%);background:#161618;overflow:hidden
 
 <sc-if value="{{ phoneTop }}">
 <div style="flex:none;display:flex;align-items:center;gap:2px;padding:max(4px, env(safe-area-inset-top)) 4px 2px">
-<button onClick="{{ openDrawer }}" style="all:unset;cursor:pointer;width:44px;height:44px;display:grid;place-items:center;color:var(--fg)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="stroke-width:1.5;stroke-linecap:round"><path d="M4 6h16"></path><path d="M4 12h16"></path><path d="M4 18h16"></path></svg></button>
+<button data-press="btn" onClick="{{ openDrawer }}" style="all:unset;cursor:pointer;width:44px;height:44px;display:grid;place-items:center;color:var(--fg)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="stroke-width:1.5;stroke-linecap:round"><path d="M4 6h16"></path><path d="M4 12h16"></path><path d="M4 18h16"></path></svg></button>
 <span style="font:600 20.5px/1 var(--font-heading)">{{ phoneTitle }}</span>
 <span style="font:12.5px var(--mono);color:{{ phoneCountColor }};margin-left:6px">{{ phoneCount }}</span>
-<button type="button" onClick="{{ reloadPage }}" title="페이지 새로고침" aria-label="페이지 새로고침" style="all:unset;cursor:pointer;flex:none;width:44px;height:44px;display:grid;place-items:center;color:var(--fg2)" style-hover="background:var(--hover)"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round"><path d="M20 7v5h-5"></path><path d="M20 12a8 8 0 1 0-2.3 5.7M20 7l-2.3-2.7"></path></svg></button>
-<sc-if value="{{ vBoard }}"><button onClick="{{ toggleGroup }}" style="all:unset;cursor:pointer;margin-left:auto;min-height:44px;padding:0 6px;font-size:12.5px;color:{{ groupFg }};display:flex;align-items:center">프로젝트별</button><button onClick="{{ toggleAllC }}" style="all:unset;cursor:pointer;min-height:44px;padding:0 6px;font-size:12.5px;color:var(--fg2);display:flex;align-items:center">{{ allCLabel }}</button><button onClick="{{ toggleSelMode }}" style="all:unset;cursor:pointer;min-height:44px;padding:0 7px 0 4px;font-size:12.5px;color:{{ selModeFg }};display:flex;align-items:center">{{ selModeShort }}</button></sc-if>
+<button data-press="btn" type="button" onClick="{{ reloadPage }}" title="페이지 새로고침" aria-label="페이지 새로고침" style="all:unset;cursor:pointer;flex:none;width:44px;height:44px;display:grid;place-items:center;color:var(--fg2)" style-hover="background:var(--hover)"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round"><path d="M20 7v5h-5"></path><path d="M20 12a8 8 0 1 0-2.3 5.7M20 7l-2.3-2.7"></path></svg></button>
+<sc-if value="{{ vBoard }}"><button data-press="btn" onClick="{{ toggleGroup }}" style="all:unset;cursor:pointer;margin-left:auto;min-height:44px;padding:0 6px;font-size:12.5px;color:{{ groupFg }};display:flex;align-items:center">프로젝트별</button><button data-press="btn" onClick="{{ toggleAllC }}" style="all:unset;cursor:pointer;min-height:44px;padding:0 6px;font-size:12.5px;color:var(--fg2);display:flex;align-items:center">{{ allCLabel }}</button><button data-press="btn" onClick="{{ toggleSelMode }}" style="all:unset;cursor:pointer;min-height:44px;padding:0 7px 0 4px;font-size:12.5px;color:{{ selModeFg }};display:flex;align-items:center">{{ selModeShort }}</button></sc-if>
 </div>
 <sc-if value="{{ hasProjectFilter }}"><div style="padding:0 10px 3px;flex:none"><button onClick="{{ clearProjectFilter }}" style="all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:0 12px;box-sizing:border-box;border-radius:999px;background:var(--acc-tint);color:var(--acc-fg);font:12.5px var(--mono)">{{ projectFilter }}<span style="font-family:var(--font-body);color:var(--fg2)">✕</span></button></div></sc-if>
 </sc-if>
@@ -104,9 +157,9 @@ html,body{margin:0;height:var(--root-h, 100%);background:#161618;overflow:hidden
 <span style="width:8px;height:8px;border-radius:50%;background:{{ col.color }}"></span>
 <span style="font:600 14px var(--font-heading);white-space:nowrap">{{ col.label }}</span>
 <span style="font:12px var(--mono);color:var(--fg3)">{{ col.count }}</span>
-<button onClick="{{ col.onToggle }}" title="열 접기" style="all:unset;cursor:pointer;margin-left:auto;width:36px;height:36px;display:grid;place-items:center;color:var(--fg3)" style-hover="color:var(--fg)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round"><path d="m15 18-6-6 6-6"></path></svg></button>
+<button data-press="btn" onClick="{{ col.onToggle }}" title="열 접기" style="all:unset;cursor:pointer;margin-left:auto;width:36px;height:36px;display:grid;place-items:center;color:var(--fg3)" style-hover="color:var(--fg)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round"><path d="m15 18-6-6 6-6"></path></svg></button>
 </div>
-<div style="flex:1;overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;gap:{{ cardGap }};padding:3px 9px 14px">
+<div data-cards="1" style="flex:1;overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;gap:{{ cardGap }};padding:3px 9px 14px">
 <sc-for list="{{ col.sessions }}" as="s">
 <sc-if value="{{ s.showGroupHead }}"><div style="font:12px var(--mono);color:var(--fg2);padding:6px 2px 0">{{ s.projectName }}</div></sc-if>
 <dc-import name="McSessionCard" s="{{ s }}" hint-size="100%,200px"></dc-import>
@@ -117,7 +170,7 @@ html,body{margin:0;height:var(--root-h, 100%);background:#161618;overflow:hidden
 </div>
 </sc-if>
 <sc-if value="{{ col.collapsed }}">
-<button onClick="{{ col.onToggle }}" title="열 펼치기" style="all:unset;cursor:pointer;width:44px;flex:none;border-right:1px solid var(--line-soft);display:flex;flex-direction:column;align-items:center;gap:7px;padding:12px 0;box-sizing:border-box;background:var(--tint)" style-hover="background:var(--hover)">
+<button data-press="row" onClick="{{ col.onToggle }}" title="열 펼치기" style="all:unset;cursor:pointer;width:44px;flex:none;border-right:1px solid var(--line-soft);display:flex;flex-direction:column;align-items:center;gap:7px;padding:12px 0;box-sizing:border-box;background:var(--tint)" style-hover="background:var(--hover)">
 <span style="width:7px;height:7px;border-radius:50%;background:{{ col.color }}"></span>
 <span style="font:12px var(--mono);color:var(--fg2)">{{ col.count }}</span>
 <span style="writing-mode:vertical-rl;font:600 13.5px var(--font-heading);letter-spacing:.02em;color:var(--fg2)">{{ col.label }}</span>
@@ -128,16 +181,16 @@ html,body{margin:0;height:var(--root-h, 100%);background:#161618;overflow:hidden
 </sc-if>
 
 <sc-if value="{{ boardPhone }}">
-<div style="flex:1;overflow:auto;padding:0 10px 12px;display:flex;flex-direction:column">
+<div data-cards="1" style="flex:1;overflow:auto;padding:0 10px 12px;display:flex;flex-direction:column">
 <sc-for list="{{ columns }}" as="sec" hint-placeholder-count="5">
-<button onClick="{{ sec.onToggle }}" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:5px;min-height:44px;box-sizing:border-box;min-width:0;border-top:1px solid var(--line-soft)">
+<button data-press="row" onClick="{{ sec.onToggle }}" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:5px;min-height:44px;box-sizing:border-box;min-width:0;border-top:1px solid var(--line-soft)">
 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="flex:none;color:var(--fg3);stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;transition:transform .2s;transform:rotate({{ sec.secRot }})"><path d="m6 9 6 6 6-6"></path></svg>
 <span style="width:7px;height:7px;border-radius:50%;flex:none;background:{{ sec.color }}"></span>
 <span style="font:600 14px var(--font-heading);white-space:nowrap">{{ sec.label }}</span>
 <span style="font:12px var(--mono);color:var(--fg3)">{{ sec.count }}</span>
 <span style="font-size:12px;color:var(--fg3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;margin-left:4px">{{ sec.summary }}</span>
 </button>
-<sc-if value="{{ sec.open }}"><div style="display:flex;flex-direction:column;gap:4px;padding-bottom:7px">
+<sc-if value="{{ sec.open }}"><div style="animation:mcDrop var(--dur) var(--ease-out);display:flex;flex-direction:column;gap:4px;padding-bottom:7px">
 <sc-for list="{{ sec.sessions }}" as="s"><sc-if value="{{ s.showGroupHead }}"><div style="font:12.5px var(--mono);color:var(--fg2);padding:8px 2px 0">{{ s.projectName }}</div></sc-if><dc-import name="McSessionCard" s="{{ s }}" hint-size="100%,48px"></dc-import><sc-if value="{{ s.hasGroupToggle }}"><button onClick="{{ s.onGroupToggle }}" style="all:unset;cursor:pointer;align-self:flex-start;min-height:36px;padding:0 3px;font:12.5px var(--mono);color:var(--acc-fg)">{{ s.groupToggleLabel }}</button></sc-if></sc-for>
 <sc-if value="{{ sec.isEmpty }}"><div style="border-radius:var(--r);background:var(--tint);padding:8px 12px;font-size:12.5px;color:var(--fg3)">없음</div></sc-if>
 </div></sc-if>
@@ -185,10 +238,10 @@ html,body{margin:0;height:var(--root-h, 100%);background:#161618;overflow:hidden
 <sc-if value="{{ resizeList }}"><div class="pane-resizer" role="separator" tabindex="0" aria-label="세션 목록 너비 조절" aria-orientation="vertical" aria-valuemin="220" aria-valuemax="{{ leftMax }}" aria-valuenow="{{ leftSize }}" title="드래그로 너비 조절 · 더블클릭 초기화 · ← →" onPointerDown="{{ dragLeft }}" onPointerMove="{{ dragPane }}" onPointerUp="{{ endPane }}" onPointerCancel="{{ endPane }}" onLostPointerCapture="{{ endPane }}" onDoubleClick="{{ resetLeft }}" onKeyDown="{{ keyLeft }}" style="right:-5px"><span></span></div></sc-if>
 <div style="padding:8px 8px 6px;display:flex;flex-direction:column;gap:6px">
 <div style="display:flex;gap:4px;min-width:0"><input class="input" value="{{ q }}" onChange="{{ onQ }}" placeholder="세션 검색 (이름·경로)" style="flex:1;min-width:0;min-height:36px;font-size:13px;color:var(--fg)"><sc-if value="{{ canFoldList }}"><button onClick="{{ toggleList }}" title="세션 목록 접기" style="all:unset;cursor:pointer;width:36px;height:36px;flex:none;box-sizing:border-box;display:grid;place-items:center;color:var(--fg3);border-radius:var(--r-md)" style-hover="color:var(--fg);background:var(--hover)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round"><path d="m15 6-6 6 6 6"></path></svg></button></sc-if></div>
-<div style="display:flex;gap:4px;flex-wrap:wrap"><sc-for list="{{ listFilters }}" as="f"><button onClick="{{ f.onTap }}" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:5px;min-height:28px;padding:0 9px;box-sizing:border-box;border-radius:999px;font-size:12px;border:1px solid {{ f.bd }};background:{{ f.bg }};color:{{ f.fg }}" style-hover="color:var(--fg)"><span style="width:6px;height:6px;border-radius:50%;background:{{ f.dot }}"></span>{{ f.label }}<span style="font:12px var(--mono);opacity:.8">{{ f.count }}</span></button></sc-for></div>
+<div style="display:flex;gap:4px;flex-wrap:wrap"><sc-for list="{{ listFilters }}" as="f"><button data-press="btn" onClick="{{ f.onTap }}" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:5px;min-height:28px;padding:0 9px;box-sizing:border-box;border-radius:999px;font-size:12px;border:1px solid {{ f.bd }};background:{{ f.bg }};color:{{ f.fg }}" style-hover="color:var(--fg)"><span style="width:6px;height:6px;border-radius:50%;background:{{ f.dot }}"></span>{{ f.label }}<span style="font:12px var(--mono);opacity:.8">{{ f.count }}</span></button></sc-for></div>
 </div>
 <div style="flex:1;overflow:auto;padding:2px 6px 9px;display:flex;flex-direction:column;gap:1px">
-<sc-for list="{{ listItems }}" as="x"><button onClick="{{ x.onTap }}" style="all:unset;cursor:pointer;display:flex;flex-direction:column;gap:3px;width:100%;box-sizing:border-box;padding:7px 9px;border-radius:var(--r-md);background:{{ x.bg }};outline:{{ x.ring }};outline-offset:-2px" style-hover="background:var(--hover)">
+<sc-for list="{{ listItems }}" as="x"><button data-press="row" onClick="{{ x.onTap }}" style="all:unset;cursor:pointer;display:flex;flex-direction:column;gap:3px;width:100%;box-sizing:border-box;padding:7px 9px;border-radius:var(--r-md);background:{{ x.bg }};outline:{{ x.ring }};outline-offset:-2px" style-hover="background:var(--hover)">
 <div style="display:flex;align-items:center;gap:5px;min-width:0"><span style="width:6px;height:6px;border-radius:50%;flex:none;background:{{ x.statusColor }}"></span><span style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0">{{ x.name }}</span><sc-if value="{{ x.hasTerm }}"><span title="{{ x.termTitle }}" style="flex:none;display:flex;color:{{ x.termFg }}"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="flex:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round"><rect x="3" y="4" width="18" height="16" rx="3"></rect><path d="m7.5 9.5 3 2.5-3 2.5"></path><path d="M12.5 15h4"></path></svg></span></sc-if><span style="font-size:12px;color:var(--fg3);white-space:nowrap">{{ x.updatedAgo }}</span></div>
 <div style="display:flex;gap:4px;font-size:12px;color:var(--fg3);padding-left:9px;min-width:0"><span style="font-family:var(--mono);white-space:nowrap;color:var(--fg2)">{{ x.projectName }}</span><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:{{ x.miniColor }}">{{ x.mini }}</span></div>
 </button></sc-for>
@@ -201,7 +254,7 @@ html,body{margin:0;height:var(--root-h, 100%);background:#161618;overflow:hidden
 <sc-if value="{{ hasSel }}">
 <div ref="{{ detailRef }}" style="flex:1;min-width:0;display:flex;flex-direction:column;min-height:0">
 <div style="flex:none;display:flex;align-items:center;gap:4px;padding:{{ detailHeadPad }};border-bottom:1px solid var(--line-soft)">
-<sc-if value="{{ showBack }}"><button onClick="{{ goBack }}" style="all:unset;cursor:pointer;width:44px;height:44px;display:grid;place-items:center;color:var(--fg)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round"><path d="m15 18-6-6 6-6"></path></svg></button></sc-if>
+<sc-if value="{{ showBack }}"><button data-press="btn" onClick="{{ goBack }}" style="all:unset;cursor:pointer;width:44px;height:44px;display:grid;place-items:center;color:var(--fg)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round"><path d="m15 18-6-6 6-6"></path></svg></button></sc-if>
 <div style="display:flex;flex-direction:column;min-width:0;flex:1">
 <button onClick="{{ renameSel }}" title="눌러서 이름 변경" style="all:unset;cursor:pointer;display:block;min-width:0;font:600 {{ detailTitleSize }}/1.15 var(--font-heading);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ sel.name }}</button>
 <span style="font:12px var(--mono);color:var(--fg3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ sel.cwd }} · {{ sel.elapsed }}</span>
@@ -209,9 +262,9 @@ html,body{margin:0;height:var(--root-h, 100%);background:#161618;overflow:hidden
 <sc-if value="{{ headKeys }}"><span title="이전·다음 세션" style="font:12px var(--mono);color:var(--fg3);white-space:nowrap;padding:0 4px">⌥↑ ⌥↓ 세션</span></sc-if>
 <sc-if value="{{ selNotSub }}"><span style="font-size:12px;color:var(--fg3);border-radius:999px;background:var(--tint);padding:3px 9px;white-space:nowrap">구독 안 함</span></sc-if>
 <span style="font-size:12px;font-weight:500;padding:3px 9px;border-radius:999px;white-space:nowrap;color:color-mix(in oklab, {{ sel.statusColor }} 72%, var(--fg));background:color-mix(in oklab, {{ sel.statusColor }} 15%, transparent);transition:color .3s,background .3s">{{ sel.statusLabel }}</span>
-<button onClick="{{ openMenu }}" title="세션 관리" style="all:unset;cursor:pointer;width:44px;height:44px;display:grid;place-items:center;color:var(--fg2)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="stroke-width:1.5;stroke-linecap:round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg></button>
+<button data-press="btn" onClick="{{ openMenu }}" title="세션 관리" style="all:unset;cursor:pointer;width:44px;height:44px;display:grid;place-items:center;color:var(--fg2)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="stroke-width:1.5;stroke-linecap:round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg></button>
 </div>
-<sc-if value="{{ isPhone }}"><div style="flex:none;display:flex;gap:2px;padding:4px 6px;border-bottom:1px solid var(--line-soft)"><sc-for list="{{ ptabs }}" as="t"><button onClick="{{ t.onTap }}" style="all:unset;cursor:pointer;flex:1 1 auto;display:flex;align-items:center;justify-content:center;gap:3px;min-height:40px;padding:0 4px;border-radius:var(--r-md);font-size:12.5px;font-weight:500;white-space:nowrap;color:{{ t.fg }};background:{{ t.bg }}">{{ t.label }}<span style="font:12px var(--mono);color:var(--fg3)">{{ t.count }}</span></button></sc-for></div></sc-if>
+<sc-if value="{{ isPhone }}"><div style="flex:none;display:flex;gap:2px;padding:4px 6px;border-bottom:1px solid var(--line-soft)"><sc-for list="{{ ptabs }}" as="t"><button data-press="btn" onClick="{{ t.onTap }}" style="all:unset;cursor:pointer;flex:1 1 auto;display:flex;align-items:center;justify-content:center;gap:3px;min-height:40px;padding:0 4px;border-radius:var(--r-md);font-size:12.5px;font-weight:500;white-space:nowrap;color:{{ t.fg }};background:{{ t.bg }}">{{ t.label }}<span style="font:12px var(--mono);color:var(--fg3)">{{ t.count }}</span></button></sc-for></div></sc-if>
 <div style="flex:1;min-height:0;display:flex">
 <div style="flex:1;min-width:0;display:flex;flex-direction:column;min-height:0">
 <sc-if value="{{ showTimeline }}" hint-placeholder-val="{{ true }}">
@@ -234,8 +287,8 @@ html,body{margin:0;height:var(--root-h, 100%);background:#161618;overflow:hidden
 <sc-if value="{{ todoRawShow }}"><div style="font-size:12px;color:var(--fg3);margin-bottom:4px">todo 인자를 해석하지 못해 결과 텍스트를 그대로 보여줍니다</div><div style="font:12px/1.5 var(--mono);white-space:pre-wrap;background:var(--tint);border-radius:var(--r-md);padding:8px 10px">{{ todoRaw }}</div></sc-if>
 <sc-if value="{{ todoNone }}"><div style="font-size:13px;color:var(--fg3);padding:6px 0">이 세션에는 todo가 없습니다.</div></sc-if>
 </div></sc-if>
-<sc-if value="{{ rAgents }}"><div style="display:contents"><sc-if value="{{ agentsNone }}"><div style="font-size:13px;color:var(--fg3);padding:6px 0">실행 중인 서브에이전트가 없습니다.</div></sc-if><sc-for list="{{ agentRows }}" as="a"><div style="display:flex;flex-direction:column;border-bottom:1px solid var(--line-soft)"><button onClick="{{ a.onToggle }}" title="{{ a.hint }}" style="all:unset;cursor:pointer;display:flex;flex-direction:column;gap:3px;padding:7px 0;box-sizing:border-box;width:100%;min-width:0"><div style="display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;box-sizing:border-box;border-radius:50%;flex:none;background:{{ a.fill }};border:1.5px solid {{ a.color }}"></span><span style="font:12px var(--mono);color:var(--fg2)">{{ a.type }}</span><span style="margin-left:auto;font-size:12px;color:var(--fg3)">{{ a.stateLabel }}</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="flex:none;color:var(--fg3);stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;transition:transform .2s;transform:rotate({{ a.chevRot }})"><path d="m6 9 6 6 6-6"></path></svg></div><span style="font-size:13.5px;line-height:1.4;white-space:{{ a.nameWs }};overflow:hidden;text-overflow:ellipsis">{{ a.name }}</span></button><sc-if value="{{ a.open }}"><div style="display:flex;flex-direction:column;gap:4px;padding:0 0 8px 13px"><sc-if value="{{ a.hasSummary }}"><span style="font-size:12.5px;line-height:1.45;color:var(--fg2)">{{ a.summary }}</span></sc-if><sc-if value="{{ a.hasModel }}"><span style="font:12px var(--mono);color:var(--fg3)">{{ a.model }}</span></sc-if><span style="font-size:12.5px;color:var(--fg3)">{{ a.act }}</span><sc-if value="{{ a.hasFinal }}"><div style="font-size:12.5px;line-height:1.5;color:var(--fg2);border-left:1px solid var(--line2);padding-left:6px;white-space:pre-wrap;word-break:break-word">{{ a.final }}</div></sc-if><sc-if value="{{ a.hasChild }}"><button onClick="{{ a.onChild }}" style="all:unset;cursor:pointer;font-size:12.5px;color:var(--acc-fg);min-height:32px;display:flex;align-items:center">자식 세션 열기 ›</button></sc-if></div></sc-if></div></sc-for><sc-if value="{{ hasDoneAgents }}"><button onClick="{{ toggleDoneAgents }}" style="all:unset;cursor:pointer;display:flex;align-items:center;min-height:36px;font-size:12.5px;color:var(--fg2)" style-hover="color:var(--fg)">{{ doneAgentsLabel }}</button></sc-if></div></sc-if>
-<sc-if value="{{ rGoal }}"><div style="display:contents"><sc-if value="{{ hasGoal }}"><div style="display:flex;flex-direction:column;gap:7px"><div style="display:flex;align-items:center;gap:6px"><span style="font-size:12px;font-weight:500;padding:3px 9px;border-radius:999px;color:{{ goalColor }};background:color-mix(in oklab, {{ goalColor }} 14%, transparent)">{{ goalStatus }}</span></div><div style="font-size:14.5px;line-height:1.5">{{ goalText }}</div><sc-if value="{{ goalHasBudget }}"><div style="display:flex;flex-direction:column;gap:3px"><div style="height:4px;border-radius:999px;overflow:hidden;background:var(--line);position:relative"><div style="position:absolute;inset:0 auto 0 0;width:{{ goalPct }};background:var(--acc);transition:width .4s"></div></div><span style="font:12px var(--mono);color:var(--fg3)">{{ goalBudget }}</span></div></sc-if><div style="display:flex;gap:4px;flex-wrap:wrap"><sc-for list="{{ goalActions }}" as="b"><button class="btn btn-secondary" onClick="{{ b.onTap }}" style="min-height:40px;font-size:12.5px;color:{{ b.fg }}">{{ b.label }}</button></sc-for></div></div></sc-if><sc-if value="{{ noGoal }}"><div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:13px;color:var(--fg2)">목표를 정하면 에이전트가 완료될 때까지 이어서 작업합니다.</span><textarea class="input" value="{{ goalDraft }}" onChange="{{ onGoalDraft }}" placeholder="예: 결제 테스트 100% 통과" style="min-height:70px;font-size:13.5px;color:var(--fg)"></textarea><div style="display:flex;gap:4px;align-items:center"><input class="input" value="{{ goalBudgetDraft }}" onChange="{{ onGoalBudgetDraft }}" placeholder="토큰 예산 (선택)" style="flex:1;min-height:40px;font:12.5px var(--mono);color:var(--fg)"><button class="btn btn-primary" disabled="{{ goalDraftEmpty }}" onClick="{{ saveGoal }}" style="min-height:40px;font-size:13.5px">목표 설정</button></div></div></sc-if></div></sc-if>
+<sc-if value="{{ rAgents }}"><div style="display:contents"><sc-if value="{{ agentsNone }}"><div style="font-size:13px;color:var(--fg3);padding:6px 0">실행 중인 서브에이전트가 없습니다.</div></sc-if><sc-for list="{{ agentRows }}" as="a"><div style="display:flex;flex-direction:column;border-bottom:1px solid var(--line-soft)"><button onClick="{{ a.onToggle }}" title="{{ a.hint }}" style="all:unset;cursor:pointer;display:flex;flex-direction:column;gap:3px;padding:7px 0;box-sizing:border-box;width:100%;min-width:0"><div style="display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;box-sizing:border-box;border-radius:50%;flex:none;background:{{ a.fill }};border:1.5px solid {{ a.color }}"></span><span style="font:12px var(--mono);color:var(--fg2)">{{ a.type }}</span><span style="margin-left:auto;font-size:12px;color:var(--fg3)">{{ a.stateLabel }}</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="flex:none;color:var(--fg3);stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;transition:transform .2s;transform:rotate({{ a.chevRot }})"><path d="m6 9 6 6 6-6"></path></svg></div><span style="font-size:13.5px;line-height:1.4;white-space:{{ a.nameWs }};overflow:hidden;text-overflow:ellipsis">{{ a.name }}</span></button><sc-if value="{{ a.open }}"><div style="animation:mcDrop var(--dur) var(--ease-out);display:flex;flex-direction:column;gap:4px;padding:0 0 8px 13px"><sc-if value="{{ a.hasSummary }}"><span style="font-size:12.5px;line-height:1.45;color:var(--fg2)">{{ a.summary }}</span></sc-if><sc-if value="{{ a.hasModel }}"><span style="font:12px var(--mono);color:var(--fg3)">{{ a.model }}</span></sc-if><span style="font-size:12.5px;color:var(--fg3)">{{ a.act }}</span><sc-if value="{{ a.hasFinal }}"><div style="font-size:12.5px;line-height:1.5;color:var(--fg2);border-left:1px solid var(--line2);padding-left:6px;white-space:pre-wrap;word-break:break-word">{{ a.final }}</div></sc-if><sc-if value="{{ a.hasChild }}"><button onClick="{{ a.onChild }}" style="all:unset;cursor:pointer;font-size:12.5px;color:var(--acc-fg);min-height:32px;display:flex;align-items:center">자식 세션 열기 ›</button></sc-if></div></sc-if></div></sc-for><sc-if value="{{ hasDoneAgents }}"><button onClick="{{ toggleDoneAgents }}" style="all:unset;cursor:pointer;display:flex;align-items:center;min-height:36px;font-size:12.5px;color:var(--fg2)" style-hover="color:var(--fg)">{{ doneAgentsLabel }}</button></sc-if></div></sc-if>
+<sc-if value="{{ rGoal }}"><div style="display:contents"><sc-if value="{{ hasGoal }}"><div style="display:flex;flex-direction:column;gap:7px"><div style="display:flex;align-items:center;gap:6px"><span style="font-size:12px;font-weight:500;padding:3px 9px;border-radius:999px;color:{{ goalColor }};background:color-mix(in oklab, {{ goalColor }} 14%, transparent)">{{ goalStatus }}</span></div><div style="font-size:14.5px;line-height:1.5">{{ goalText }}</div><sc-if value="{{ goalHasBudget }}"><div style="display:flex;flex-direction:column;gap:3px"><div style="height:4px;border-radius:999px;overflow:hidden;background:var(--line);position:relative"><div style="position:absolute;inset:0 auto 0 0;width:100%;transform-origin:0 50%;scale:{{ goalPct }} 1;background:var(--acc);transition:scale .4s var(--ease-out)"></div></div><span style="font:12px var(--mono);color:var(--fg3)">{{ goalBudget }}</span></div></sc-if><div style="display:flex;gap:4px;flex-wrap:wrap"><sc-for list="{{ goalActions }}" as="b"><button class="btn btn-secondary" onClick="{{ b.onTap }}" style="min-height:40px;font-size:12.5px;color:{{ b.fg }}">{{ b.label }}</button></sc-for></div></div></sc-if><sc-if value="{{ noGoal }}"><div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:13px;color:var(--fg2)">목표를 정하면 에이전트가 완료될 때까지 이어서 작업합니다.</span><textarea class="input" value="{{ goalDraft }}" onChange="{{ onGoalDraft }}" placeholder="예: 결제 테스트 100% 통과" style="min-height:70px;font-size:13.5px;color:var(--fg)"></textarea><div style="display:flex;gap:4px;align-items:center"><input class="input" value="{{ goalBudgetDraft }}" onChange="{{ onGoalBudgetDraft }}" placeholder="토큰 예산 (선택)" style="flex:1;min-height:40px;font:12.5px var(--mono);color:var(--fg)"><button class="btn btn-primary" disabled="{{ goalDraftEmpty }}" onClick="{{ saveGoal }}" style="min-height:40px;font-size:13.5px">목표 설정</button></div></div></sc-if></div></sc-if>
 <sc-if value="{{ rDiff }}"><div style="display:flex;flex-direction:column;gap:6px"><div style="font-size:12px;color:var(--fg3)">이번 턴 동안 누적된 변경</div><sc-for list="{{ diffItems }}" as="it"><dc-import name="McItem" it="{{ it }}" hint-size="100%,120px"></dc-import></sc-for><sc-if value="{{ diffNone }}"><div style="font-size:13px;color:var(--fg3)">이번 턴에 변경 사항이 없습니다.</div></sc-if></div></sc-if>
 </div></sc-if>
 <sc-if value="{{ showComposer }}"><dc-import name="McComposer" c="{{ composer }}" hint-size="100%,110px"></dc-import></sc-if>
@@ -244,7 +297,7 @@ html,body{margin:0;height:var(--root-h, 100%);background:#161618;overflow:hidden
 <sc-if value="{{ showRight }}">
 <div data-pane="right" style="position:relative;width:{{ rightW }};flex:none;border-left:1px solid var(--line-soft);display:flex;flex-direction:column;min-height:0">
 <div class="pane-resizer" role="separator" tabindex="0" aria-label="보조 패널 너비 조절" aria-orientation="vertical" aria-valuemin="260" aria-valuemax="{{ rightMax }}" aria-valuenow="{{ rightSize }}" title="드래그로 너비 조절 · 더블클릭 초기화 · ← →" onPointerDown="{{ dragRight }}" onPointerMove="{{ dragPane }}" onPointerUp="{{ endPane }}" onPointerCancel="{{ endPane }}" onLostPointerCapture="{{ endPane }}" onDoubleClick="{{ resetRight }}" onKeyDown="{{ keyRight }}" style="left:-5px"><span></span></div>
-<div style="flex:none;display:flex;align-items:center;gap:1px;border-bottom:1px solid var(--line-soft);padding:6px 2px 6px 6px"><sc-for list="{{ rtabs }}" as="t"><button onClick="{{ t.onTap }}" style="all:unset;cursor:pointer;flex:1 1 auto;display:flex;align-items:center;justify-content:center;gap:3px;min-height:32px;padding:0 3px;border-radius:var(--r-sm);font-size:12px;font-weight:500;white-space:nowrap;color:{{ t.fg }};background:{{ t.bg }}" style-hover="color:var(--fg)">{{ t.label }}<span style="font:11px var(--mono);color:var(--fg3)">{{ t.count }}</span></button></sc-for><button onClick="{{ toggleRight }}" title="패널 접기" style="all:unset;cursor:pointer;width:32px;height:32px;flex:none;border-radius:var(--r-sm);display:grid;place-items:center;color:var(--fg3)" style-hover="color:var(--fg);background:var(--hover)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round"><path d="m9 6 6 6-6 6"></path></svg></button></div>
+<div style="flex:none;display:flex;align-items:center;gap:1px;border-bottom:1px solid var(--line-soft);padding:6px 2px 6px 6px"><sc-for list="{{ rtabs }}" as="t"><button data-press="btn" onClick="{{ t.onTap }}" style="all:unset;cursor:pointer;flex:1 1 auto;display:flex;align-items:center;justify-content:center;gap:3px;min-height:32px;padding:0 3px;border-radius:var(--r-sm);font-size:12px;font-weight:500;white-space:nowrap;color:{{ t.fg }};background:{{ t.bg }}" style-hover="color:var(--fg)">{{ t.label }}<span style="font:11px var(--mono);color:var(--fg3)">{{ t.count }}</span></button></sc-for><button onClick="{{ toggleRight }}" title="패널 접기" style="all:unset;cursor:pointer;width:32px;height:32px;flex:none;border-radius:var(--r-sm);display:grid;place-items:center;color:var(--fg3)" style-hover="color:var(--fg);background:var(--hover)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round"><path d="m9 6 6 6-6 6"></path></svg></button></div>
 <div style="flex:1;min-height:0;overflow:auto;padding:9px 10px">
 <sc-if value="{{ rTerminal }}"><mc-terminal session-id="{{ terminalSessionId }}" cwd="{{ terminalCwd }}" style="display:block;height:100%;min-height:0"></mc-terminal></sc-if>
 <sc-if value="{{ rTodo }}"><div style="display:contents">
@@ -253,8 +306,8 @@ html,body{margin:0;height:var(--root-h, 100%);background:#161618;overflow:hidden
 <sc-if value="{{ todoRawShow }}"><div style="font-size:12px;color:var(--fg3);margin-bottom:4px">todo 인자를 해석하지 못해 결과 텍스트를 그대로 보여줍니다</div><div style="font:12px/1.5 var(--mono);white-space:pre-wrap;background:var(--tint);border-radius:var(--r-md);padding:8px 10px">{{ todoRaw }}</div></sc-if>
 <sc-if value="{{ todoNone }}"><div style="font-size:13px;color:var(--fg3);padding:6px 0">이 세션에는 todo가 없습니다.</div></sc-if>
 </div></sc-if>
-<sc-if value="{{ rAgents }}"><div style="display:contents"><sc-if value="{{ agentsNone }}"><div style="font-size:13px;color:var(--fg3);padding:6px 0">실행 중인 서브에이전트가 없습니다.</div></sc-if><sc-for list="{{ agentRows }}" as="a"><div style="display:flex;flex-direction:column;border-bottom:1px solid var(--line-soft)"><button onClick="{{ a.onToggle }}" title="{{ a.hint }}" style="all:unset;cursor:pointer;display:flex;flex-direction:column;gap:3px;padding:7px 0;box-sizing:border-box;width:100%;min-width:0"><div style="display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;box-sizing:border-box;border-radius:50%;flex:none;background:{{ a.fill }};border:1.5px solid {{ a.color }}"></span><span style="font:12px var(--mono);color:var(--fg2)">{{ a.type }}</span><span style="margin-left:auto;font-size:12px;color:var(--fg3)">{{ a.stateLabel }}</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="flex:none;color:var(--fg3);stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;transition:transform .2s;transform:rotate({{ a.chevRot }})"><path d="m6 9 6 6 6-6"></path></svg></div><span style="font-size:13.5px;line-height:1.4;white-space:{{ a.nameWs }};overflow:hidden;text-overflow:ellipsis">{{ a.name }}</span></button><sc-if value="{{ a.open }}"><div style="display:flex;flex-direction:column;gap:4px;padding:0 0 8px 13px"><sc-if value="{{ a.hasSummary }}"><span style="font-size:12.5px;line-height:1.45;color:var(--fg2)">{{ a.summary }}</span></sc-if><sc-if value="{{ a.hasModel }}"><span style="font:12px var(--mono);color:var(--fg3)">{{ a.model }}</span></sc-if><span style="font-size:12.5px;color:var(--fg3)">{{ a.act }}</span><sc-if value="{{ a.hasFinal }}"><div style="font-size:12.5px;line-height:1.5;color:var(--fg2);border-left:1px solid var(--line2);padding-left:6px;white-space:pre-wrap;word-break:break-word">{{ a.final }}</div></sc-if><sc-if value="{{ a.hasChild }}"><button onClick="{{ a.onChild }}" style="all:unset;cursor:pointer;font-size:12.5px;color:var(--acc-fg);min-height:32px;display:flex;align-items:center">자식 세션 열기 ›</button></sc-if></div></sc-if></div></sc-for><sc-if value="{{ hasDoneAgents }}"><button onClick="{{ toggleDoneAgents }}" style="all:unset;cursor:pointer;display:flex;align-items:center;min-height:36px;font-size:12.5px;color:var(--fg2)" style-hover="color:var(--fg)">{{ doneAgentsLabel }}</button></sc-if></div></sc-if>
-<sc-if value="{{ rGoal }}"><div style="display:contents"><sc-if value="{{ hasGoal }}"><div style="display:flex;flex-direction:column;gap:7px"><div style="display:flex;align-items:center;gap:6px"><span style="font-size:12px;font-weight:500;padding:3px 9px;border-radius:999px;color:{{ goalColor }};background:color-mix(in oklab, {{ goalColor }} 14%, transparent)">{{ goalStatus }}</span></div><div style="font-size:14.5px;line-height:1.5">{{ goalText }}</div><sc-if value="{{ goalHasBudget }}"><div style="display:flex;flex-direction:column;gap:3px"><div style="height:4px;border-radius:999px;overflow:hidden;background:var(--line);position:relative"><div style="position:absolute;inset:0 auto 0 0;width:{{ goalPct }};background:var(--acc);transition:width .4s"></div></div><span style="font:12px var(--mono);color:var(--fg3)">{{ goalBudget }}</span></div></sc-if><div style="display:flex;gap:4px;flex-wrap:wrap"><sc-for list="{{ goalActions }}" as="b"><button class="btn btn-secondary" onClick="{{ b.onTap }}" style="min-height:36px;font-size:12.5px;color:{{ b.fg }}">{{ b.label }}</button></sc-for></div></div></sc-if><sc-if value="{{ noGoal }}"><div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:13px;color:var(--fg2)">목표를 정하면 에이전트가 완료될 때까지 이어서 작업합니다.</span><textarea class="input" value="{{ goalDraft }}" onChange="{{ onGoalDraft }}" placeholder="예: 결제 테스트 100% 통과" style="min-height:70px;font-size:13.5px;color:var(--fg)"></textarea><div style="display:flex;gap:4px;align-items:center"><input class="input" value="{{ goalBudgetDraft }}" onChange="{{ onGoalBudgetDraft }}" placeholder="토큰 예산 (선택)" style="flex:1;min-height:36px;font:12.5px var(--mono);color:var(--fg)"><button class="btn btn-primary" disabled="{{ goalDraftEmpty }}" onClick="{{ saveGoal }}" style="min-height:36px;font-size:13.5px">목표 설정</button></div></div></sc-if></div></sc-if>
+<sc-if value="{{ rAgents }}"><div style="display:contents"><sc-if value="{{ agentsNone }}"><div style="font-size:13px;color:var(--fg3);padding:6px 0">실행 중인 서브에이전트가 없습니다.</div></sc-if><sc-for list="{{ agentRows }}" as="a"><div style="display:flex;flex-direction:column;border-bottom:1px solid var(--line-soft)"><button onClick="{{ a.onToggle }}" title="{{ a.hint }}" style="all:unset;cursor:pointer;display:flex;flex-direction:column;gap:3px;padding:7px 0;box-sizing:border-box;width:100%;min-width:0"><div style="display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;box-sizing:border-box;border-radius:50%;flex:none;background:{{ a.fill }};border:1.5px solid {{ a.color }}"></span><span style="font:12px var(--mono);color:var(--fg2)">{{ a.type }}</span><span style="margin-left:auto;font-size:12px;color:var(--fg3)">{{ a.stateLabel }}</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="flex:none;color:var(--fg3);stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;transition:transform .2s;transform:rotate({{ a.chevRot }})"><path d="m6 9 6 6 6-6"></path></svg></div><span style="font-size:13.5px;line-height:1.4;white-space:{{ a.nameWs }};overflow:hidden;text-overflow:ellipsis">{{ a.name }}</span></button><sc-if value="{{ a.open }}"><div style="animation:mcDrop var(--dur) var(--ease-out);display:flex;flex-direction:column;gap:4px;padding:0 0 8px 13px"><sc-if value="{{ a.hasSummary }}"><span style="font-size:12.5px;line-height:1.45;color:var(--fg2)">{{ a.summary }}</span></sc-if><sc-if value="{{ a.hasModel }}"><span style="font:12px var(--mono);color:var(--fg3)">{{ a.model }}</span></sc-if><span style="font-size:12.5px;color:var(--fg3)">{{ a.act }}</span><sc-if value="{{ a.hasFinal }}"><div style="font-size:12.5px;line-height:1.5;color:var(--fg2);border-left:1px solid var(--line2);padding-left:6px;white-space:pre-wrap;word-break:break-word">{{ a.final }}</div></sc-if><sc-if value="{{ a.hasChild }}"><button onClick="{{ a.onChild }}" style="all:unset;cursor:pointer;font-size:12.5px;color:var(--acc-fg);min-height:32px;display:flex;align-items:center">자식 세션 열기 ›</button></sc-if></div></sc-if></div></sc-for><sc-if value="{{ hasDoneAgents }}"><button onClick="{{ toggleDoneAgents }}" style="all:unset;cursor:pointer;display:flex;align-items:center;min-height:36px;font-size:12.5px;color:var(--fg2)" style-hover="color:var(--fg)">{{ doneAgentsLabel }}</button></sc-if></div></sc-if>
+<sc-if value="{{ rGoal }}"><div style="display:contents"><sc-if value="{{ hasGoal }}"><div style="display:flex;flex-direction:column;gap:7px"><div style="display:flex;align-items:center;gap:6px"><span style="font-size:12px;font-weight:500;padding:3px 9px;border-radius:999px;color:{{ goalColor }};background:color-mix(in oklab, {{ goalColor }} 14%, transparent)">{{ goalStatus }}</span></div><div style="font-size:14.5px;line-height:1.5">{{ goalText }}</div><sc-if value="{{ goalHasBudget }}"><div style="display:flex;flex-direction:column;gap:3px"><div style="height:4px;border-radius:999px;overflow:hidden;background:var(--line);position:relative"><div style="position:absolute;inset:0 auto 0 0;width:100%;transform-origin:0 50%;scale:{{ goalPct }} 1;background:var(--acc);transition:scale .4s var(--ease-out)"></div></div><span style="font:12px var(--mono);color:var(--fg3)">{{ goalBudget }}</span></div></sc-if><div style="display:flex;gap:4px;flex-wrap:wrap"><sc-for list="{{ goalActions }}" as="b"><button class="btn btn-secondary" onClick="{{ b.onTap }}" style="min-height:36px;font-size:12.5px;color:{{ b.fg }}">{{ b.label }}</button></sc-for></div></div></sc-if><sc-if value="{{ noGoal }}"><div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:13px;color:var(--fg2)">목표를 정하면 에이전트가 완료될 때까지 이어서 작업합니다.</span><textarea class="input" value="{{ goalDraft }}" onChange="{{ onGoalDraft }}" placeholder="예: 결제 테스트 100% 통과" style="min-height:70px;font-size:13.5px;color:var(--fg)"></textarea><div style="display:flex;gap:4px;align-items:center"><input class="input" value="{{ goalBudgetDraft }}" onChange="{{ onGoalBudgetDraft }}" placeholder="토큰 예산 (선택)" style="flex:1;min-height:36px;font:12.5px var(--mono);color:var(--fg)"><button class="btn btn-primary" disabled="{{ goalDraftEmpty }}" onClick="{{ saveGoal }}" style="min-height:36px;font-size:13.5px">목표 설정</button></div></div></sc-if></div></sc-if>
 <sc-if value="{{ rDiff }}"><div style="display:flex;flex-direction:column;gap:6px"><div style="font-size:12px;color:var(--fg3)">이번 턴 동안 누적된 변경</div><sc-for list="{{ diffItems }}" as="it"><dc-import name="McItem" it="{{ it }}" hint-size="100%,120px"></dc-import></sc-for><sc-if value="{{ diffNone }}"><div style="font-size:13px;color:var(--fg3)">이번 턴에 변경 사항이 없습니다.</div></sc-if></div></sc-if>
 </div>
 </div>
@@ -266,7 +319,7 @@ html,body{margin:0;height:var(--root-h, 100%);background:#161618;overflow:hidden
 </sc-if>
 
 <sc-if value="{{ multiBar }}">
-<div style="position:absolute;left:10px;right:10px;bottom:10px;z-index:15;border:1px solid var(--line2);border-radius:var(--r-lg);background:var(--bg2);padding:10px 12px;display:flex;flex-direction:column;gap:8px;box-shadow:var(--shadow-lg)">
+<div style="animation:mcRise var(--dur) var(--ease-out);position:absolute;left:10px;right:10px;bottom:10px;z-index:15;border:1px solid var(--line2);border-radius:var(--r-lg);background:var(--bg2);padding:10px 12px;display:flex;flex-direction:column;gap:8px;box-shadow:var(--shadow-lg)">
 <div style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--fg2)"><span style="color:var(--fg);font-weight:500">{{ multiCount }}개 세션 선택</span><span>대기 중인 세션은 새 턴, 작업 중인 세션은 끼어들기로 보냅니다.</span><button onClick="{{ toggleSelMode }}" style="all:unset;cursor:pointer;margin-left:auto;min-height:36px;padding:0 6px;color:var(--fg2)">취소</button></div>
 <div style="display:flex;gap:4px"><textarea class="input" rows="1" value="{{ multiText }}" onChange="{{ onMultiText }}" placeholder="선택한 세션 모두에게 보낼 메시지" style="flex:1;min-height:44px;height:44px;resize:none;padding:8px 7px;font-size:14.5px;color:var(--fg)"></textarea><button class="btn btn-primary" disabled="{{ multiDisabled }}" onClick="{{ multiSend }}" style="min-height:44px;padding:0 12px;font-size:14.5px;white-space:nowrap">모두에게 보내기</button></div>
 </div>
@@ -275,28 +328,28 @@ html,body{margin:0;height:var(--root-h, 100%);background:#161618;overflow:hidden
 
 <sc-if value="{{ phoneTabBar }}">
 <div style="flex:none;display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--line-soft);padding:2px 6px max(4px, env(safe-area-inset-bottom));background:var(--bg)">
-<sc-for list="{{ phoneTabs }}" as="t" hint-placeholder-count="4"><button onClick="{{ t.onTap }}" style="all:unset;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:48px;color:{{ t.fg }};font-size:12px;position:relative"><span style="height:22px;display:flex;align-items:center"><sc-if value="{{ t.isBoard }}"><svg aria-hidden="true" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="flex:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round"><rect x="3" y="4" width="18" height="16" rx="3"></rect><path d="M9 4v16"></path><path d="M15 4v16"></path></svg></sc-if><sc-if value="{{ t.isSession }}"><svg aria-hidden="true" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="flex:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round"><path d="M5 6h14"></path><path d="M5 12h14"></path><path d="M5 18h9"></path></svg></sc-if><sc-if value="{{ t.isTerm }}"><svg aria-hidden="true" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="flex:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round"><rect x="3" y="4" width="18" height="16" rx="3"></rect><path d="m7.5 9.5 3 2.5-3 2.5"></path><path d="M12.5 15h4"></path></svg></sc-if><sc-if value="{{ t.isNew }}"><svg aria-hidden="true" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="flex:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v8"></path><path d="M8 12h8"></path></svg></sc-if></span>{{ t.label }}<sc-if value="{{ t.hasBadge }}"><span style="position:absolute;top:2px;left:calc(50% + 6px);font:600 11px/16px var(--font-ui);background:var(--warn);color:var(--on-warn);padding:0 5px;min-width:16px;box-sizing:border-box;border-radius:999px;text-align:center">{{ t.badge }}</span></sc-if></button></sc-for>
+<sc-for list="{{ phoneTabs }}" as="t" hint-placeholder-count="4"><button data-press="btn" onClick="{{ t.onTap }}" style="all:unset;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:48px;color:{{ t.fg }};font-size:12px;position:relative"><span style="height:22px;display:flex;align-items:center"><sc-if value="{{ t.isBoard }}"><svg aria-hidden="true" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="flex:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round"><rect x="3" y="4" width="18" height="16" rx="3"></rect><path d="M9 4v16"></path><path d="M15 4v16"></path></svg></sc-if><sc-if value="{{ t.isSession }}"><svg aria-hidden="true" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="flex:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round"><path d="M5 6h14"></path><path d="M5 12h14"></path><path d="M5 18h9"></path></svg></sc-if><sc-if value="{{ t.isTerm }}"><svg aria-hidden="true" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="flex:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round"><rect x="3" y="4" width="18" height="16" rx="3"></rect><path d="m7.5 9.5 3 2.5-3 2.5"></path><path d="M12.5 15h4"></path></svg></sc-if><sc-if value="{{ t.isNew }}"><svg aria-hidden="true" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="flex:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v8"></path><path d="M8 12h8"></path></svg></sc-if></span>{{ t.label }}<sc-if value="{{ t.hasBadge }}"><span style="animation:{{ badgeAnim }};position:absolute;top:2px;left:calc(50% + 6px);font:600 11px/16px var(--font-ui);background:var(--warn);color:var(--on-warn);padding:0 5px;min-width:16px;box-sizing:border-box;border-radius:999px;text-align:center">{{ t.badge }}</span></sc-if></button></sc-for>
 </div>
 </sc-if>
 
 <sc-if value="{{ drawerMounted }}">
 <div onClick="{{ closeDrawer }}" style="position:absolute;inset:0;background:rgba(10,11,12,.6);opacity:{{ drawerO }};pointer-events:{{ drawerPE }};transition:opacity .22s;z-index:40"></div>
 <div style="position:absolute;top:0;bottom:0;left:0;width:300px;max-width:86vw;background:var(--side);border-right:1px solid var(--line);border-radius:0 var(--r-lg) var(--r-lg) 0;transform:translateX({{ drawerX }});transition:transform .26s cubic-bezier(.2,.8,.2,1);z-index:41;display:flex;flex-direction:column;padding:max(7px, env(safe-area-inset-top)) 0 14px;overflow:auto;box-sizing:border-box">
-<div style="display:flex;align-items:center;padding:0 4px 0 12px"><span style="font:600 19.5px var(--font-heading)">omonitor</span><button onClick="{{ closeDrawer }}" style="all:unset;cursor:pointer;margin-left:auto;width:44px;height:44px;display:grid;place-items:center;color:var(--fg2)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="stroke-width:1.5;stroke-linecap:round"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></button></div>
+<div style="display:flex;align-items:center;padding:0 4px 0 12px"><span style="font:600 19.5px var(--font-heading)">omonitor</span><button data-press="btn" onClick="{{ closeDrawer }}" style="all:unset;cursor:pointer;margin-left:auto;width:44px;height:44px;display:grid;place-items:center;color:var(--fg2)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="stroke-width:1.5;stroke-linecap:round"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></button></div>
 <div style="padding:0 12px 7px;font:12px var(--mono);color:var(--fg3)">127.0.0.1 · <span style="color:{{ connDot }}">{{ connLabel }}</span></div>
 <div style="font-size:12px;font-weight:500;color:var(--fg3);padding:7px 12px 3px;border-top:1px solid var(--line-soft)">프로젝트</div>
-<button onClick="{{ clearProjectFilter }}" style="all:unset;cursor:pointer;display:flex;align-items:center;min-height:44px;padding:0 12px;font-size:13.5px;background:{{ allProjBg }}">전체</button>
-<sc-for list="{{ projects }}" as="p"><button onClick="{{ p.onTap }}" style="all:unset;cursor:pointer;display:flex;align-items:center;min-height:44px;padding:0 12px;background:{{ p.bg }};color:{{ p.fg }}"><span style="font:12.5px var(--mono)">{{ p.name }}</span><span style="margin-left:auto;font:12px var(--mono);color:var(--fg3)">{{ p.count }}</span></button></sc-for>
+<button data-press="row" onClick="{{ clearProjectFilter }}" style="all:unset;cursor:pointer;display:flex;align-items:center;min-height:44px;padding:0 12px;font-size:13.5px;background:{{ allProjBg }}">전체</button>
+<sc-for list="{{ projects }}" as="p"><button data-press="row" onClick="{{ p.onTap }}" style="all:unset;cursor:pointer;display:flex;align-items:center;min-height:44px;padding:0 12px;background:{{ p.bg }};color:{{ p.fg }}"><span style="font:12.5px var(--mono)">{{ p.name }}</span><span style="margin-left:auto;font:12px var(--mono);color:var(--fg3)">{{ p.count }}</span></button></sc-for>
 <div style="font-size:12px;font-weight:500;color:var(--fg3);padding:9px 12px 3px;border-top:1px solid var(--line-soft);margin-top:4px">설정</div>
-<button onClick="{{ toggleTheme }}" style="all:unset;cursor:pointer;display:flex;align-items:center;min-height:44px;padding:0 12px;font-size:13.5px">테마<span style="margin-left:auto;color:var(--fg2)">{{ themeLabel }}</span></button>
-<button onClick="{{ askNotify }}" style="all:unset;cursor:pointer;display:flex;align-items:center;min-height:44px;padding:0 12px;font-size:13.5px">브라우저 알림<span style="margin-left:auto;width:30px;height:18px;flex:none;border-radius:999px;background:{{ nbTrack }};position:relative;transition:background .15s"><span style="position:absolute;top:2px;left:{{ nbLeft }};width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3);transition:left .15s"></span></span></button>
-<button onClick="{{ toggleSound }}" style="all:unset;cursor:pointer;display:flex;align-items:center;min-height:44px;padding:0 12px;font-size:13.5px">알림음<span style="margin-left:auto;width:30px;height:18px;flex:none;border-radius:999px;background:{{ nsTrack }};position:relative;transition:background .15s"><span style="position:absolute;top:2px;left:{{ nsLeft }};width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3);transition:left .15s"></span></span></button>
-<button onClick="{{ togglePush }}" disabled="{{ pushDisabled }}" title="작업이 끝나거나 멈추거나 질문·승인을 기다리면 이 기기로 알립니다" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:8px;min-height:44px;padding:0 12px;font-size:13.5px;opacity:{{ pushOpacity }}">푸시 알림<span style="font-size:12px;color:var(--fg3)">이 기기</span><span style="margin-left:auto;width:30px;height:18px;flex:none;border-radius:999px;background:{{ pushTrack }};position:relative;transition:background .15s"><span style="position:absolute;top:2px;left:{{ pushLeft }};width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3);transition:left .15s"></span></span></button>
+<button data-press="row" onClick="{{ toggleTheme }}" style="all:unset;cursor:pointer;display:flex;align-items:center;min-height:44px;padding:0 12px;font-size:13.5px">테마<span style="margin-left:auto;color:var(--fg2)">{{ themeLabel }}</span></button>
+<button data-press="row" onClick="{{ askNotify }}" style="all:unset;cursor:pointer;display:flex;align-items:center;min-height:44px;padding:0 12px;font-size:13.5px">브라우저 알림<span style="margin-left:auto;width:30px;height:18px;flex:none;border-radius:999px;background:{{ nbTrack }};position:relative;transition:background .15s"><span style="position:absolute;top:2px;left:2px;translate:{{ nbX }};width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3);transition:translate .15s var(--ease-out)"></span></span></button>
+<button data-press="row" onClick="{{ toggleSound }}" style="all:unset;cursor:pointer;display:flex;align-items:center;min-height:44px;padding:0 12px;font-size:13.5px">알림음<span style="margin-left:auto;width:30px;height:18px;flex:none;border-radius:999px;background:{{ nsTrack }};position:relative;transition:background .15s"><span style="position:absolute;top:2px;left:2px;translate:{{ nsX }};width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3);transition:translate .15s var(--ease-out)"></span></span></button>
+<button data-press="row" onClick="{{ togglePush }}" disabled="{{ pushDisabled }}" title="작업이 끝나거나 멈추거나 질문·승인을 기다리면 이 기기로 알립니다" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:8px;min-height:44px;padding:0 12px;font-size:13.5px;opacity:{{ pushOpacity }}">푸시 알림<span style="font-size:12px;color:var(--fg3)">이 기기</span><span style="margin-left:auto;width:30px;height:18px;flex:none;border-radius:999px;background:{{ pushTrack }};position:relative;transition:background .15s"><span style="position:absolute;top:2px;left:2px;translate:{{ pushX }};width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3);transition:translate .15s var(--ease-out)"></span></span></button>
 <sc-if value="{{ pushHasHint }}"><div style="padding:0 12px 8px;font-size:12px;line-height:1.45;color:var(--fg3)">{{ pushHint }}</div></sc-if>
 <sc-if value="{{ pushOn }}"><button onClick="{{ testPush }}" style="all:unset;cursor:pointer;align-self:flex-start;min-height:40px;padding:0 12px;font-size:13px;color:var(--acc-fg)">테스트 알림 보내기</button></sc-if>
 <sc-if value="{{ isMock }}"><div style="font-size:12px;font-weight:500;color:var(--fg3);padding:9px 12px 3px;border-top:1px solid var(--line-soft);margin-top:4px">데모</div>
-<button onClick="{{ cycleSpeed }}" style="all:unset;cursor:pointer;display:flex;align-items:center;min-height:44px;padding:0 12px;font-size:13.5px">시뮬레이터 속도<span style="margin-left:auto;font-family:var(--mono);color:var(--fg2)">{{ speedLabel }}</span></button>
-<button onClick="{{ simDisconnect }}" style="all:unset;cursor:pointer;display:flex;align-items:center;min-height:44px;padding:0 12px;font-size:13.5px">연결 끊김 시뮬레이션</button></sc-if>
+<button data-press="row" onClick="{{ cycleSpeed }}" style="all:unset;cursor:pointer;display:flex;align-items:center;min-height:44px;padding:0 12px;font-size:13.5px">시뮬레이터 속도<span style="margin-left:auto;font-family:var(--mono);color:var(--fg2)">{{ speedLabel }}</span></button>
+<button data-press="row" onClick="{{ simDisconnect }}" style="all:unset;cursor:pointer;display:flex;align-items:center;min-height:44px;padding:0 12px;font-size:13.5px">연결 끊김 시뮬레이션</button></sc-if>
 <div style="margin-top:auto;padding:12px 12px 0;font:12px var(--mono);color:var(--fg3)">{{ serverInfo }}</div>
 </div>
 </sc-if>
@@ -304,8 +357,8 @@ html,body{margin:0;height:var(--root-h, 100%);background:#161618;overflow:hidden
 <sc-if value="{{ showDemoChip }}"><div style="position:absolute;left:12px;bottom:12px;z-index:12;display:flex;gap:3px;font-size:12px;background:var(--bg2);border:1px solid var(--line);border-radius:var(--r-md);box-shadow:var(--shadow-lg);padding:3px"><button onClick="{{ cycleSpeed }}" style="all:unset;cursor:pointer;padding:3px 6px;color:var(--fg2)">시뮬레이터 <span style="font-family:var(--mono);color:var(--fg)">{{ speedLabel }}</span></button><button onClick="{{ simDisconnect }}" style="all:unset;cursor:pointer;padding:3px 6px;color:var(--fg2);border-left:1px solid var(--line)">연결 끊기</button></div></sc-if>
 
 <sc-if value="{{ palOpen }}">
-<div onClick="{{ closePalette }}" style="position:absolute;inset:0;z-index:50;background:rgba(0,0,0,.45);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);display:flex;justify-content:center;align-items:flex-start;padding:{{ palPad }}">
-<div onClick="{{ stop }}" style="width:min(560px,100%);background:var(--bg2);border:1px solid var(--line2);border-radius:var(--r-lg);overflow:hidden;box-shadow:var(--shadow-lg);display:flex;flex-direction:column;max-height:70vh">
+<div onClick="{{ closePalette }}" style="animation:mcFade var(--dur-fast) ease-out;position:absolute;inset:0;z-index:50;background:rgba(0,0,0,.45);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);display:flex;justify-content:center;align-items:flex-start;padding:{{ palPad }}">
+<div onClick="{{ stop }}" style="animation:mcPop var(--dur) var(--ease-out);transform-origin:50% 0;width:min(560px,100%);background:var(--bg2);border:1px solid var(--line2);border-radius:var(--r-lg);overflow:hidden;box-shadow:var(--shadow-lg);display:flex;flex-direction:column;max-height:70vh">
 <input class="input" autofocus="{{ true }}" value="{{ palQ }}" onChange="{{ onPalQ }}" onKeyDown="{{ palKey }}" placeholder="세션 이동 · 명령 실행" style="min-height:50px;font-size:15.5px;border:0;border-bottom:1px solid var(--line-soft);border-radius:0;padding:0 14px;background:transparent;color:var(--fg)">
 <div style="overflow:auto;padding:4px">
 <sc-for list="{{ palItems }}" as="p"><sc-if value="{{ p.head }}"><div style="font-size:12px;font-weight:500;color:var(--fg3);padding:6px 10px 2px">{{ p.label }}</div></sc-if><sc-if value="{{ p.row }}"><button onMouseDown="{{ p.onTap }}" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:7px;width:100%;box-sizing:border-box;min-height:40px;padding:0 10px;border-radius:var(--r-md);background:{{ p.bg }}"><span style="width:6px;height:6px;border-radius:50%;background:{{ p.dot }};flex:none"></span><span style="font-size:13.5px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ p.label }}</span><span style="font:12px var(--mono);color:var(--fg3);white-space:nowrap">{{ p.hint }}</span></button></sc-if></sc-for>
@@ -317,9 +370,9 @@ html,body{margin:0;height:var(--root-h, 100%);background:#161618;overflow:hidden
 </sc-if>
 
 <sc-if value="{{ sheetOpen }}">
-<div onClick="{{ closeSheet }}" style="position:absolute;inset:0;z-index:50;background:rgba(0,0,0,.5);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);display:flex;justify-content:center;align-items:{{ sheetAlign }};padding:{{ sheetOuterPad }};box-sizing:border-box">
-<div onClick="{{ stop }}" style="width:min(520px,100%);max-height:100%;min-height:0;background:var(--bg2);border:1px solid var(--line2);border-radius:{{ sheetRadius }};overflow:hidden;box-shadow:var(--shadow-lg);display:flex;flex-direction:column;box-sizing:border-box">
-<div style="flex:none;display:flex;align-items:center;padding:9px 7px 6px 13px;border-bottom:1px solid var(--line-soft)"><span style="font:600 18px var(--font-heading)">새 세션</span><button onClick="{{ closeSheet }}" style="all:unset;cursor:pointer;margin-left:auto;width:40px;height:40px;display:grid;place-items:center;color:var(--fg2)">✕</button></div>
+<div data-exit="{{ sheetExit }}" onClick="{{ closeSheet }}" style="animation:mcFade var(--dur-fast) ease-out;position:absolute;inset:0;z-index:50;background:rgba(0,0,0,.5);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);display:flex;justify-content:center;align-items:{{ sheetAlign }};padding:{{ sheetOuterPad }};box-sizing:border-box">
+<div data-surface="1" onClick="{{ stop }}" style="animation:{{ sheetAnim }};width:min(520px,100%);max-height:100%;min-height:0;background:var(--bg2);border:1px solid var(--line2);border-radius:{{ sheetRadius }};overflow:hidden;box-shadow:var(--shadow-lg);display:flex;flex-direction:column;box-sizing:border-box">
+<div style="flex:none;display:flex;align-items:center;padding:9px 7px 6px 13px;border-bottom:1px solid var(--line-soft)"><span style="font:600 18px var(--font-heading)">새 세션</span><button data-press="btn" onClick="{{ closeSheet }}" style="all:unset;cursor:pointer;margin-left:auto;width:40px;height:40px;display:grid;place-items:center;color:var(--fg2)">✕</button></div>
 <div style="flex:1 1 auto;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:9px;padding:10px 13px">
 <div style="display:flex;flex-direction:column;gap:4px">
 <span style="font-size:12px;color:var(--fg2)">작업 폴더</span>
@@ -355,7 +408,7 @@ html,body{margin:0;height:var(--root-h, 100%);background:#161618;overflow:hidden
 <option value="">기본 (app-server 설정)</option>
 <sc-for list="{{ sheetModelGroups }}" as="g"><optgroup label="{{ g.label }}"><sc-for list="{{ g.items }}" as="m"><option value="{{ m.id }}">{{ m.label }}</option></sc-for></optgroup></sc-for>
 </select>
-<sc-if value="{{ sheetHasEfforts }}"><div style="display:flex;gap:3px;flex-wrap:wrap"><sc-for list="{{ sheetEfforts }}" as="e"><button onClick="{{ e.onTap }}" style="all:unset;cursor:pointer;min-height:36px;padding:0 12px;box-sizing:border-box;border-radius:999px;display:flex;align-items:center;font:12.5px var(--mono);border:1px solid {{ e.bd }};background:{{ e.bg }};color:{{ e.fg }}">{{ e.label }}</button></sc-for></div></sc-if>
+<sc-if value="{{ sheetHasEfforts }}"><div style="display:flex;gap:3px;flex-wrap:wrap"><sc-for list="{{ sheetEfforts }}" as="e"><button data-press="btn" onClick="{{ e.onTap }}" style="all:unset;cursor:pointer;min-height:36px;padding:0 12px;box-sizing:border-box;border-radius:999px;display:flex;align-items:center;font:12.5px var(--mono);border:1px solid {{ e.bd }};background:{{ e.bg }};color:{{ e.fg }}">{{ e.label }}</button></sc-for></div></sc-if>
 </div>
 <div class="field"><label>첫 메시지 (선택)</label><textarea class="input" value="{{ sheetText }}" onChange="{{ onSheetText }}" onPaste="{{ onSheetPaste }}" onDragOver="{{ onSheetDragOver }}" onDrop="{{ onSheetDrop }}" placeholder="{{ sheetPlaceholder }}" style="min-height:{{ sheetTextH }};font-size:14.5px;color:var(--fg)"></textarea>
 <sc-if value="{{ canAttachSheet }}"><div style="display:flex;align-items:flex-start;gap:8px;flex-wrap:wrap;padding-top:8px"><sc-for list="{{ sheetImages }}" as="im"><div title="{{ im.title }}" style="position:relative;width:56px;height:56px;flex:none;border:1px solid {{ im.bd }};border-radius:var(--r-md);background:var(--tint)"><img src="{{ im.preview }}" alt="붙여넣은 이미지" style="display:block;width:100%;height:100%;object-fit:cover;border-radius:7px;opacity:{{ im.opacity }}"><sc-if value="{{ im.hasNote }}"><span style="position:absolute;left:0;right:0;bottom:0;padding:1px 0;font-size:11px;text-align:center;background:rgba(10,11,12,.72);color:{{ im.noteColor }}">{{ im.note }}</span></sc-if><button onClick="{{ im.onRemove }}" title="첨부 빼기" style="all:unset;cursor:pointer;position:absolute;top:-8px;right:-8px;width:22px;height:22px;display:grid;place-items:center;border-radius:50%;background:var(--bg2);border:1px solid var(--line2);font-size:14px;line-height:1;color:var(--fg)">×</button></div></sc-for><button onClick="{{ pickSheetImage }}" title="이미지 첨부 — 붙여넣기(⌘V)나 끌어다 놓기도 됩니다" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:4px;min-height:32px;padding:0 8px;font-size:12.5px;color:var(--fg2);border-radius:var(--r-md);border:1px dashed var(--line2)" style-hover="color:var(--fg)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round"><rect x="3" y="4" width="18" height="16" rx="1"></rect><circle cx="9" cy="10" r="1.6"></circle><path d="m21 16-5-5-9 9"></path></svg>이미지</button><input ref="{{ sheetFileRef }}" type="file" accept="image/png,image/jpeg,image/gif,image/webp" multiple onChange="{{ onSheetPick }}" style="display:none"></div></sc-if></div>
@@ -367,11 +420,11 @@ html,body{margin:0;height:var(--root-h, 100%);background:#161618;overflow:hidden
 
 <sc-if value="{{ prefsOpen }}">
 <div onClick="{{ closePrefs }}" style="position:absolute;inset:0;z-index:45">
-<div onClick="{{ stop }}" style="position:absolute;top:{{ prefsTop }};right:10px;width:250px;padding:4px;box-sizing:border-box;background:var(--bg2);border:1px solid var(--line2);border-radius:var(--r);box-shadow:var(--shadow-lg);display:flex;flex-direction:column">
-<button onClick="{{ toggleTheme }}" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:8px;min-height:40px;padding:0 10px;border-radius:var(--r-md);font-size:13.5px;color:var(--fg)" style-hover="background:var(--hover)">테마<span style="margin-left:auto;font-size:12.5px;color:var(--fg2)">{{ themeLabel }}</span></button>
-<button onClick="{{ askNotify }}" title="{{ nbTitle }}" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:8px;min-height:40px;padding:0 10px;border-radius:var(--r-md);font-size:13.5px;color:var(--fg)" style-hover="background:var(--hover)">브라우저 알림<span style="margin-left:auto;width:30px;height:18px;flex:none;border-radius:999px;background:{{ nbTrack }};position:relative;transition:background .15s"><span style="position:absolute;top:2px;left:{{ nbLeft }};width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3);transition:left .15s"></span></span></button>
-<button onClick="{{ toggleSound }}" title="새 질문·승인 요청이 오면 소리로 알립니다" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:8px;min-height:40px;padding:0 10px;border-radius:var(--r-md);font-size:13.5px;color:var(--fg)" style-hover="background:var(--hover)">알림음<span style="margin-left:auto;width:30px;height:18px;flex:none;border-radius:999px;background:{{ nsTrack }};position:relative;transition:background .15s"><span style="position:absolute;top:2px;left:{{ nsLeft }};width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3);transition:left .15s"></span></span></button>
-<button onClick="{{ togglePush }}" disabled="{{ pushDisabled }}" title="작업이 끝나거나 멈추거나 질문·승인을 기다리면 이 기기로 알립니다" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:8px;min-height:40px;padding:0 10px;border-radius:var(--r-md);font-size:13.5px;color:var(--fg);opacity:{{ pushOpacity }}" style-hover="background:var(--hover)">푸시 알림<span style="font-size:12px;color:var(--fg3)">이 기기</span><span style="margin-left:auto;width:30px;height:18px;flex:none;border-radius:999px;background:{{ pushTrack }};position:relative;transition:background .15s"><span style="position:absolute;top:2px;left:{{ pushLeft }};width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3);transition:left .15s"></span></span></button>
+<div onClick="{{ stop }}" style="animation:mcPop var(--dur) var(--ease-out);transform-origin:100% 0;position:absolute;top:{{ prefsTop }};right:10px;width:250px;padding:4px;box-sizing:border-box;background:var(--bg2);border:1px solid var(--line2);border-radius:var(--r);box-shadow:var(--shadow-lg);display:flex;flex-direction:column">
+<button data-press="row" onClick="{{ toggleTheme }}" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:8px;min-height:40px;padding:0 10px;border-radius:var(--r-md);font-size:13.5px;color:var(--fg)" style-hover="background:var(--hover)">테마<span style="margin-left:auto;font-size:12.5px;color:var(--fg2)">{{ themeLabel }}</span></button>
+<button data-press="row" onClick="{{ askNotify }}" title="{{ nbTitle }}" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:8px;min-height:40px;padding:0 10px;border-radius:var(--r-md);font-size:13.5px;color:var(--fg)" style-hover="background:var(--hover)">브라우저 알림<span style="margin-left:auto;width:30px;height:18px;flex:none;border-radius:999px;background:{{ nbTrack }};position:relative;transition:background .15s"><span style="position:absolute;top:2px;left:2px;translate:{{ nbX }};width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3);transition:translate .15s var(--ease-out)"></span></span></button>
+<button data-press="row" onClick="{{ toggleSound }}" title="새 질문·승인 요청이 오면 소리로 알립니다" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:8px;min-height:40px;padding:0 10px;border-radius:var(--r-md);font-size:13.5px;color:var(--fg)" style-hover="background:var(--hover)">알림음<span style="margin-left:auto;width:30px;height:18px;flex:none;border-radius:999px;background:{{ nsTrack }};position:relative;transition:background .15s"><span style="position:absolute;top:2px;left:2px;translate:{{ nsX }};width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3);transition:translate .15s var(--ease-out)"></span></span></button>
+<button data-press="row" onClick="{{ togglePush }}" disabled="{{ pushDisabled }}" title="작업이 끝나거나 멈추거나 질문·승인을 기다리면 이 기기로 알립니다" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:8px;min-height:40px;padding:0 10px;border-radius:var(--r-md);font-size:13.5px;color:var(--fg);opacity:{{ pushOpacity }}" style-hover="background:var(--hover)">푸시 알림<span style="font-size:12px;color:var(--fg3)">이 기기</span><span style="margin-left:auto;width:30px;height:18px;flex:none;border-radius:999px;background:{{ pushTrack }};position:relative;transition:background .15s"><span style="position:absolute;top:2px;left:2px;translate:{{ pushX }};width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3);transition:translate .15s var(--ease-out)"></span></span></button>
 <sc-if value="{{ pushHasHint }}"><div style="padding:0 10px 6px;font-size:12px;line-height:1.45;color:var(--fg3)">{{ pushHint }}</div></sc-if>
 <sc-if value="{{ pushOn }}"><button onClick="{{ testPush }}" style="all:unset;cursor:pointer;align-self:flex-start;min-height:32px;margin:0 10px 4px;font-size:12.5px;color:var(--acc-fg)" style-hover="color:var(--fg)">테스트 알림 보내기</button></sc-if>
 </div>
@@ -379,16 +432,16 @@ html,body{margin:0;height:var(--root-h, 100%);background:#161618;overflow:hidden
 </sc-if>
 
 <sc-if value="{{ menuOpen }}">
-<div onClick="{{ closeMenu }}" style="position:absolute;inset:0;z-index:45;background:{{ menuScrim }};display:flex;justify-content:{{ menuJustify }};align-items:{{ menuAlign }};padding:{{ menuPad }}">
-<div onClick="{{ stop }}" style="width:{{ menuW }};background:var(--bg2);border:1px solid var(--line2);border-radius:{{ menuRadius }};box-shadow:var(--shadow-lg);display:flex;flex-direction:column;padding:4px 4px {{ menuPadBottom }}">
-<sc-for list="{{ menuItems }}" as="m"><button onClick="{{ m.onTap }}" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:7px;min-height:44px;padding:0 10px;border-radius:var(--r-md);font-size:13.5px;color:{{ m.fg }};border-top:{{ m.sep }}" style-hover="background:var(--hover)">{{ m.label }}<span style="margin-left:auto;font-size:12px;color:var(--fg3)">{{ m.hint }}</span></button></sc-for>
+<div onClick="{{ closeMenu }}" style="animation:mcFade var(--dur-fast) ease-out;position:absolute;inset:0;z-index:45;background:{{ menuScrim }};display:flex;justify-content:{{ menuJustify }};align-items:{{ menuAlign }};padding:{{ menuPad }}">
+<div onClick="{{ stop }}" style="animation:{{ menuAnim }};transform-origin:100% 0;width:{{ menuW }};background:var(--bg2);border:1px solid var(--line2);border-radius:{{ menuRadius }};box-shadow:var(--shadow-lg);display:flex;flex-direction:column;padding:4px 4px {{ menuPadBottom }}">
+<sc-for list="{{ menuItems }}" as="m"><button data-press="row" onClick="{{ m.onTap }}" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:7px;min-height:44px;padding:0 10px;border-radius:var(--r-md);font-size:13.5px;color:{{ m.fg }};border-top:{{ m.sep }}" style-hover="background:var(--hover)">{{ m.label }}<span style="margin-left:auto;font-size:12px;color:var(--fg3)">{{ m.hint }}</span></button></sc-for>
 </div>
 </div>
 </sc-if>
 
 <sc-if value="{{ dlgOpen }}">
-<div class="dialog-backdrop" onClick="{{ dlgCancel }}" style="position:absolute;z-index:60;background:rgba(0,0,0,.5);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)">
-<div class="dialog" onClick="{{ stop }}" style="background:var(--bg2);color:var(--fg);border:1px solid var(--line2);box-shadow:var(--shadow-lg)">
+<div class="dialog-backdrop" data-exit="pop" onClick="{{ dlgCancel }}" style="animation:mcFade var(--dur-fast) ease-out;position:absolute;z-index:60;background:rgba(0,0,0,.5);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)">
+<div class="dialog" data-surface="1" onClick="{{ stop }}" style="animation:mcPop var(--dur) var(--ease-out);background:var(--bg2);color:var(--fg);border:1px solid var(--line2);box-shadow:var(--shadow-lg)">
 <div class="dialog-title">{{ dlgTitle }}</div>
 <div class="dialog-body" style="line-height:1.55">{{ dlgBody }}</div>
 <sc-if value="{{ dlgHasInput }}"><input class="input" data-dlg-input="1" autofocus="{{ true }}" value="{{ dlgInput }}" onChange="{{ onDlgInput }}" onKeyDown="{{ dlgKey }}" style="min-height:44px;font-size:14.5px;color:var(--fg)"></sc-if>
@@ -398,7 +451,7 @@ html,body{margin:0;height:var(--root-h, 100%);background:#161618;overflow:hidden
 </sc-if>
 
 <div style="position:absolute;z-index:70;right:14px;left:{{ toastLeft }};bottom:{{ toastBottom }};display:flex;flex-direction:column;gap:4px;align-items:flex-end;pointer-events:none">
-<sc-for list="{{ toasts }}" as="t"><div style="pointer-events:auto;max-width:420px;background:var(--bg2);border:1px solid var(--line2);border-radius:var(--r);box-shadow:var(--shadow-lg);padding:9px 12px;font-size:13px;display:flex;gap:8px;align-items:flex-start"><span style="width:7px;height:7px;margin-top:5px;flex:none;border-radius:50%;background:{{ t.bd }}"></span>{{ t.text }}</div></sc-for>
+<sc-for list="{{ toasts }}" as="t"><sc-if value="{{ t.show }}"><div style="animation:{{ t.anim }};pointer-events:auto;max-width:420px;background:var(--bg2);border:1px solid var(--line2);border-radius:var(--r);box-shadow:var(--shadow-lg);padding:9px 12px;font-size:13px;display:flex;gap:8px;align-items:flex-start"><span style="width:7px;height:7px;margin-top:5px;flex:none;border-radius:50%;background:{{ t.bd }}"></span>{{ t.text }}</div></sc-if></sc-for>
 <sc-if value="{{ showUpdateBtn }}"><button onClick="{{ onUpdateBtn }}" title="{{ updateTitle }}" style="all:unset;pointer-events:auto;cursor:pointer;display:flex;align-items:center;gap:6px;padding:5px 12px;border-radius:999px;background:{{ updateBg }};border:1px solid {{ updateBd }};font:12px var(--mono);color:{{ updateFg }};animation:{{ updateAnim }}" style-hover="background:var(--hover)"><sc-if value="{{ updateHasDot }}"><span style="width:6px;height:6px;border-radius:50%;background:{{ updateDot }};flex:none"></span></sc-if>{{ updateLabel }}</button></sc-if>
 </div>
 
@@ -415,6 +468,9 @@ const TAB_ICON = { ok: tabIcon('#a6dbd2'), wait: tabIcon('#f2c46a') };
 const COARSE = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
 const ESC_MS = 800; // a second Esc within this window stops the running turn (see escStop)
 const EDGE_PX = 24; // a back swipe starts this close to the left edge (see onTouchStart)
+// Reduced motion turns movement into fades (the style block redefines the keyframes); script-driven motion checks it too.
+const REDUCE = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : { matches: false };
+const EXIT = { duration: 120, easing: 'cubic-bezier(.4,0,1,1)', fill: 'forwards' };
 class Component extends DCLogic {
   state = { v: 0, now: Date.now(), w: window.innerWidth, view: 'board', selId: null, backTo: 'board', theme: null, drawer: false, drawerMounted: false,
     pal: null, sheet: null, dialog: null, menu: false, selMode: false, sel: {}, multiText: '', grouped: false, groupOpen: {}, panels: { left: false, right: false }, colC: {}, secC: { archived: true },
@@ -437,6 +493,13 @@ class Component extends DCLogic {
   dropSheetImages(sh) { (sh?.images || []).forEach((m) => URL.revokeObjectURL(m.preview)); }
 
   async componentDidMount() {
+    // The new-session sheet and the dialogs leave the way they came in. React drops them in one go, so the dropped
+    // element is put back and animated out on its own (ghostOut); React no longer tracks it.
+    const root = document.querySelector('.mc');
+    if (root) {
+      this.exits = new MutationObserver((recs) => { for (const r of recs) for (const n of r.removedNodes) if (n.nodeType === 1 && n.dataset.exit) this.ghostOut(r.target, n, r.nextSibling); });
+      this.exits.observe(root, { childList: true });
+    }
     this.onResize = () => this.setState({ w: window.innerWidth });
     this.onKey = (e) => this.key(e);
     window.addEventListener('resize', this.onResize);
@@ -550,7 +613,7 @@ class Component extends DCLogic {
       this.upstream = cfg?.upstream || '';
       this.store = new S.Store(this.client);
       this.store.s.notify = { browser: this.notify.browser && this.notifyAllowed(), sound: !!this.notify.sound };
-      this.store.subscribe((v) => this.setState({ v }));
+      this.store.subscribe((v) => this.onStore(v));
       this.setState({ v: 1 });
       await this.store.init();
       this.push = push;
@@ -569,7 +632,7 @@ class Component extends DCLogic {
       this.versionTick = setInterval(() => this.checkOmoVersion(), 30 * 60 * 1000);
     } catch (e) { console.error(e); this.setState({ fatal: String(e?.message || e) }); }
   }
-  componentWillUnmount() { window.visualViewport?.removeEventListener('resize', this.fitViewport); window.visualViewport?.removeEventListener('scroll', this.fitViewport); window.removeEventListener('scroll', this.fitViewport); document.removeEventListener('touchstart', this.onTouchStart); document.removeEventListener('touchmove', this.onTouchMove); document.removeEventListener('touchend', this.onTouchEnd); document.removeEventListener('touchcancel', this.onTouchEnd); window.removeEventListener('resize', this.onResize); window.removeEventListener('keydown', this.onKey); window.removeEventListener('dragover', this.onWinDrag); window.removeEventListener('drop', this.onWinDrag); document.removeEventListener('mc-terminal-live', this.onTermLive); clearInterval(this.tick); clearInterval(this.versionTick); clearInterval(this.termTick); this.client?.close(); }
+  componentWillUnmount() { window.visualViewport?.removeEventListener('resize', this.fitViewport); window.visualViewport?.removeEventListener('scroll', this.fitViewport); window.removeEventListener('scroll', this.fitViewport); document.removeEventListener('touchstart', this.onTouchStart); document.removeEventListener('touchmove', this.onTouchMove); document.removeEventListener('touchend', this.onTouchEnd); document.removeEventListener('touchcancel', this.onTouchEnd); window.removeEventListener('resize', this.onResize); window.removeEventListener('keydown', this.onKey); window.removeEventListener('dragover', this.onWinDrag); window.removeEventListener('drop', this.onWinDrag); document.removeEventListener('mc-terminal-live', this.onTermLive); clearInterval(this.tick); clearInterval(this.versionTick); clearInterval(this.termTick); this.exits?.disconnect(); this.client?.close(); }
   // The conversation follows the finger during a back swipe. Styles go straight to the element so the drag does not
   // re-render; React leaves them alone because the template sets no transform, transition or shadow there.
   slideDetail(dx) {
@@ -587,6 +650,99 @@ class Component extends DCLogic {
     el.style.transform = go ? 'translateX(100%)' : 'translateX(0)';
     // Going back unmounts the conversation, so it is reset only if it is somehow still on screen.
     setTimeout(() => { if (!go) return reset(); back(); setTimeout(() => el.isConnected && reset(), 300); }, 180);
+  }
+  // A DOM update run as a view transition where the browser has them (Chrome, Safari 18+), applied directly elsewhere.
+  // update returns a promise that settles once React has committed; finished settles after the animation (or the commit).
+  viewTransition(update) {
+    if (!document.startViewTransition || document.visibilityState !== 'visible') return { finished: update() };
+    return document.startViewTransition(update);
+  }
+  setStateVT(patch) { return this.viewTransition(() => new Promise((done) => this.setState(patch, done))); }
+  // Phone and tablet show a conversation over the whole screen: it pushes in from the right, and the back button pops it
+  // off the same way (the edge swipe does that by hand, see settleDetail). html[data-vt] picks the animation.
+  navVT(dir, patch) {
+    const html = document.documentElement;
+    html.dataset.vt = dir;
+    const clear = () => { if (html.dataset.vt === dir) delete html.dataset.vt; };
+    this.setStateVT(patch).finished.then(clear, clear);
+  }
+  // Puts an element React just removed back where it was and fades it out: 'pop' shrinks its surface a little, 'down'
+  // slides it off the bottom (the phone sheet). Its own enter animations are cleared so they do not replay.
+  ghostOut(parent, node, next) {
+    if (!parent.isConnected) return;
+    const kind = node.dataset.exit;
+    delete node.dataset.exit;
+    const surface = node.querySelector('[data-surface]');
+    for (const el of [node, surface]) if (el) el.style.animation = 'none';
+    node.style.pointerEvents = 'none';
+    parent.insertBefore(node, next?.parentNode === parent ? next : null);
+    const opts = { ...EXIT, duration: kind === 'down' ? 200 : EXIT.duration };
+    const anims = [node.animate({ opacity: [1, 0] }, opts)];
+    if (surface && !REDUCE.matches) anims.push(surface.animate(kind === 'down' ? { translate: ['0 0', '0 100%'] } : { scale: [1, 0.97] }, opts));
+    Promise.all(anims.map((a) => a.finished)).finally(() => node.remove());
+  }
+  // Store updates render at once, except one that moves a board card to another column: that one runs as a view
+  // transition so the card travels there, and a card that comes to need input lights up once it lands.
+  onStore(v) {
+    this.nextV = v;
+    if (this.vtWait) return; // the pending transition renders the latest version
+    const moves = this.boardMoves();
+    if (!moves) return this.setState({ v });
+    this.vtWait = true;
+    this.nameCards(moves.ids);
+    const vt = this.viewTransition(() => new Promise((done) => {
+      this.vtWait = false;
+      this.setState({ v: this.nextV }, () => { this.nameCards(moves.ids); done(); });
+    }));
+    const land = () => { this.clearCardNames(); this.flashCards(moves.input); };
+    vt.finished.then(land, land);
+  }
+  // Which sessions changed column (or appeared, or went away) since the last update, while the board is on screen.
+  boardMoves() {
+    const st = this.store, S = this.S;
+    const cols = new Map([...st.s.threads.values()].map((T) => [T.id, S.columnOf(T, st.reqsFor(T.id))]));
+    const prev = this.cols;
+    this.cols = cols;
+    if (!prev?.size || this.state.view !== 'board' || st.s.loading) return null;
+    const ids = new Set([...prev.keys()].filter((id) => !cols.has(id)));
+    for (const [id, c] of cols) if (prev.get(id) !== c) ids.add(id);
+    return ids.size ? { ids, input: [...ids].filter((id) => cols.get(id) === 'input' && prev.has(id)) } : null;
+  }
+  // Cards get a view-transition-name for the length of a transition: the ones that move, and others fully in view. A
+  // named element is lifted out of its column's scroll clip while it animates, so half-hidden ones stay unnamed.
+  nameCards(moved) {
+    this.clearCardNames();
+    for (const el of document.querySelectorAll('[data-cards] [data-sid]')) {
+      const box = el.closest('[data-cards]').getBoundingClientRect(), r = el.getBoundingClientRect();
+      const inView = r.height > 0 && r.top >= box.top && r.bottom <= box.bottom;
+      if (!inView && !(moved.has(el.dataset.sid) && r.bottom > box.top && r.top < box.bottom)) continue;
+      el.style.viewTransitionName = `mc-s-${el.dataset.sid.replace(/[^\w-]/g, '_')}`;
+      el.style.setProperty('view-transition-class', 'mc-card');
+      this.namedCards.push(el);
+    }
+  }
+  clearCardNames() {
+    for (const el of this.namedCards || []) { el.style.viewTransitionName = ''; el.style.removeProperty('view-transition-class'); }
+    this.namedCards = [];
+  }
+  flashCards(ids) {
+    for (const id of ids) {
+      const el = document.querySelector(`[data-sid="${CSS.escape(id)}"]`);
+      if (el) el.animate({ backgroundColor: ['color-mix(in oklab, var(--warn) 22%, var(--card))', getComputedStyle(el).backgroundColor] }, { duration: 1400, easing: 'ease-out' });
+    }
+  }
+  // Timeline items that arrive while a session is open rise in; the ones there when it opened, or when its saved history
+  // loaded, do not. The window outlasts the animation, so a re-render half-way does not cut it off.
+  freshItems(T, items) {
+    const now = performance.now();
+    let m = this.seen;
+    if (!m || m.id !== T.id || (!m.loaded && T.historyLoaded)) m = this.seen = { id: T.id, loaded: !!T.historyLoaded, at: new Map(items.map((x) => [x.key, 0])) };
+    for (const x of items) {
+      if (!m.at.has(x.key)) m.at.set(x.key, now);
+      const at = m.at.get(x.key);
+      x.anim = at && now - at < 400 ? 'mcRise var(--dur) var(--ease-out)' : 'none';
+    }
+    return items;
   }
   // The browser tab names the current screen and shows pending questions/approvals, so a background tab tells when
   // omo is waiting: "(2) 보드 · omonitor" with an amber dot on the icon.
@@ -614,7 +770,11 @@ class Component extends DCLogic {
   }
 
   layout() { const w = this.state.w; return w < 700 ? 'phone' : w < 1100 ? 'tablet' : 'desktop'; }
-  go(view) { this.setState({ view, focus: -1, drawer: false, menu: false, prefs: false }); if (view === 'terminals') this.refreshTerms(); }
+  go(view) {
+    const patch = { view, focus: -1, drawer: false, menu: false, prefs: false };
+    if (view === this.state.view) this.setState(patch); else this.setStateVT(patch);
+    if (view === 'terminals') this.refreshTerms();
+  }
   // Open session shells from the backend: the 터미널 screen, the shell marks in the session list, cleanup on delete.
   // A refresh asked for while one is in flight runs again after it, so an action's result never shows stale.
   async refreshTerms() {
@@ -752,7 +912,13 @@ class Component extends DCLogic {
     this.focusComposer(focus);
     // Back (button or edge swipe) returns to where the session was opened: the board, or the session list (the session
     // view with nothing selected). Moving between sessions keeps the original origin.
-    this.setState((s) => ({ view: 'session', selId: id, backTo: s.view !== 'session' ? s.view : s.selId ? s.backTo : 'session', ptab: 'tl', pal: null, drawer: false }));
+    const update = (s) => ({ view: 'session', selId: id, backTo: s.view !== 'session' ? s.view : s.selId ? s.backTo : 'session', ptab: 'tl', pal: null, drawer: false });
+    // Desktop cross-fades into the session screen; phone and tablet push the conversation in over the screen it was
+    // opened from. Moving between sessions inside the session screen just switches.
+    const s = this.state, desk = this.layout() === 'desktop';
+    if (desk && s.view !== 'session') this.setStateVT(update);
+    else if (!desk && !(s.view === 'session' && s.selId)) this.navVT('push', update);
+    else this.setState(update);
     if (!T) { st?.resume(id).catch(() => {}); return; }
     if (!T.historyLoaded) st.guard(st.loadHistory(id), '세션 기록을 읽지 못했습니다').catch(() => {});
   }
@@ -1007,7 +1173,7 @@ class Component extends DCLogic {
       // The home-screen app draws under the iOS status bar (black-translucent). Phone bars pad themselves; the wider
       // layouts (iPad) start below it here.
       safeTop: isPhone ? '0px' : 'env(safe-area-inset-top)',
-      toggleTheme: () => this.setState({ theme: theme === 'dark' ? 'light' : 'dark' }), themeLabel: theme === 'dark' ? '다크' : '라이트',
+      toggleTheme: () => this.setStateVT({ theme: theme === 'dark' ? 'light' : 'dark' }), themeLabel: theme === 'dark' ? '다크' : '라이트',
       openPalette: () => this.setState({ pal: { q: '', idx: 0 } }), openNew: () => this.setState({ sheet: this.newSheet() }),
       serverInfo: this.info || '', skel: [1, 2, 3, 4, 5].slice(0, isPhone ? 1 : isDesk ? 5 : 4).map((k) => ({ h1: `${120 + (k % 3) * 40}px`, h2: `${80 + (k % 2) * 60}px` })),
       skelCols: `repeat(${isPhone ? 1 : isDesk ? 5 : 4}, minmax(0,1fr))`,
@@ -1022,6 +1188,10 @@ class Component extends DCLogic {
     const views = threads.map((T) => this.sessionView(T, now, lay, focusId));
     const reqsAll = [...st.s.requests.values()].sort((a, b) => a.receivedAt - b.receivedAt);
     const inboxN = reqsAll.length;
+    // The waiting-count badge bumps once each time the count goes up: switching between two identical keyframes
+    // restarts the animation on the same element.
+    if (inboxN > (this.inboxSeen ?? 0)) this.badgeFlip = !this.badgeFlip;
+    this.inboxSeen = inboxN;
 
     const columns = S.COLS.map((c) => {
       let list = views.filter((v) => v.col === c.key).sort((a, b) => (b.id > a.id ? 1 : -1));
@@ -1057,7 +1227,7 @@ class Component extends DCLogic {
     this._cols = columns;
 
     const tabDefs = [['board', '보드', inboxN ? String(inboxN) : '', 1], ['session', '세션', '', 2], ['terminals', '터미널', '', 3]];
-    const tabs = tabDefs.map(([k, label, badge, n]) => ({ label, badge, hasBadge: !!badge, title: `${label} (⌥${n})`, key: `⌥${n}`, hasKey: !COARSE, fg: s.view === k ? 'var(--fg)' : 'var(--fg2)', bg: s.view === k ? 'var(--seg)' : 'transparent', shadow: s.view === k ? 'var(--seg-shadow)' : 'none', onTap: () => this.go(k) }));
+    const tabs = tabDefs.map(([k, label, badge, n]) => ({ label, badge, hasBadge: !!badge, title: `${label} (⌥${n})`, key: `⌥${n}`, hasKey: !COARSE, fg: s.view === k ? 'var(--fg)' : 'var(--fg2)', bg: s.view === k ? 'var(--seg)' : 'transparent', shadow: s.view === k ? 'var(--seg-shadow)' : 'none', vtn: s.view === k ? 'mc-seg' : 'none', onTap: () => this.go(k) }));
     const phoneTabs = [['board', '보드'], ['session', '세션'], ['terminals', '터미널'], ['new', '새 세션']].map(([k, label]) => ({
       label, isBoard: k === 'board', isSession: k === 'session', isTerm: k === 'terminals', isNew: k === 'new', badge: k === 'board' && inboxN ? String(inboxN) : '', hasBadge: k === 'board' && inboxN > 0, fg: s.view === k ? 'var(--acc-fg)' : 'var(--fg3)',
       onTap: () => (k === 'new' ? this.setState({ sheet: this.newSheet() }) : this.go(k)) }));
@@ -1070,7 +1240,7 @@ class Component extends DCLogic {
       reconnectNow: () => this.client.reconnectNow(),
       connDot: connState === 'open' ? 'var(--acc)' : connState === 'reconnecting' || connState === 'connecting' ? 'var(--warn)' : 'var(--err)',
       connLabel: { open: '연결됨', connecting: '연결 중', reconnecting: '재연결 중', closed: '끊김' }[connState] || connState,
-      tabs, phoneTabs,
+      tabs, phoneTabs, badgeAnim: `${this.badgeFlip ? 'mcBumpB' : 'mcBumpA'} var(--dur-slow) var(--ease-out)`,
       vBoard: s.view === 'board',
       boardDesk: !loading && s.view === 'board' && !isPhone, boardPhone: !loading && s.view === 'board' && isPhone,
       vSessionReady: !loading && s.view === 'session',
@@ -1083,7 +1253,7 @@ class Component extends DCLogic {
       toggleSelMode: () => this.setState((x) => ({ selMode: !x.selMode, sel: {}, multiText: '' })),
       selModeLabel: s.selMode ? '선택 끝내기' : '여러 세션 선택', selModeShort: s.selMode ? '완료' : '선택', selModeFg: s.selMode ? 'var(--acc-fg)' : 'var(--fg2)',
       selModeBd: s.selMode ? 'transparent' : 'var(--line)', selModeBg: s.selMode ? 'var(--acc-tint)' : 'transparent',
-      nbTrack: s.nb ? 'var(--acc)' : 'var(--line3)', nbLeft: s.nb ? '14px' : '2px', nbHint: typeof Notification !== 'undefined' && Notification.permission === 'denied' ? '브라우저에서 차단됨' : '',
+      nbTrack: s.nb ? 'var(--acc)' : 'var(--line3)', nbX: s.nb ? '12px' : '0px', nbHint: typeof Notification !== 'undefined' && Notification.permission === 'denied' ? '브라우저에서 차단됨' : '',
       nbTitle: typeof Notification !== 'undefined' && Notification.permission === 'denied' ? '브라우저 알림: 브라우저에서 차단됨' : '브라우저 알림: 다른 탭에 있을 때 질문·승인 요청을 알립니다',
       askNotify: async () => {
         if (s.nb) { this.saveNotify({ browser: false }); st.s.notify.browser = false; return this.setState({ nb: false }); }
@@ -1092,13 +1262,13 @@ class Component extends DCLogic {
         const on = p === 'granted';
         this.saveNotify({ browser: on }); st.s.notify.browser = on; this.setState({ nb: on });
       },
-      nsTrack: s.ns ? 'var(--acc)' : 'var(--line3)', nsLeft: s.ns ? '14px' : '2px',
+      nsTrack: s.ns ? 'var(--acc)' : 'var(--line3)', nsX: s.ns ? '12px' : '0px',
       toggleSound: () => { const on = !s.ns; this.saveNotify({ sound: on }); st.s.notify.sound = on; this.setState({ ns: on }); },
       // Theme and notification switches sit in a popover under the header's settings button (the phone drawer has them too).
       prefsOpen: s.prefs && !isPhone, togglePrefs: () => this.setState((x) => ({ prefs: !x.prefs })), closePrefs: () => this.setState({ prefs: false }),
       prefsBg: s.prefs ? 'var(--sel)' : 'transparent', prefsTop: `calc(${connState === 'reconnecting' ? 97 : 52}px + env(safe-area-inset-top))`,
       // Push on this device: finished, failed and waiting sessions reach it even with the app closed (app/push.js).
-      pushOn: s.push.on, pushTrack: s.push.on ? 'var(--acc)' : 'var(--line3)', pushLeft: s.push.on ? '14px' : '2px',
+      pushOn: s.push.on, pushTrack: s.push.on ? 'var(--acc)' : 'var(--line3)', pushX: s.push.on ? '12px' : '0px',
       pushDisabled: !s.push.ready || s.push.busy || (!s.push.on && !!s.push.why), pushOpacity: !s.push.ready || (!s.push.on && s.push.why) ? '.55' : '1',
       pushHint: s.push.on ? '작업이 끝나거나 멈추거나 답을 기다리면 이 기기로 알립니다' : s.push.why, pushHasHint: !!(s.push.on || s.push.why),
       // enablePush asks for permission before its first await: iOS allows the prompt only inside the tap.
@@ -1117,7 +1287,7 @@ class Component extends DCLogic {
       cycleSpeed: () => { const n = (s.speedIdx + 1) % SPEEDS.length; this.client.setSpeed(SPEEDS[n]); this.setState({ speedIdx: n }); },
       simDisconnect: () => { this.client.simulateDisconnect(); this.setState({ drawer: false }); },
       showDemoChip: this.mode === 'mock' && !isPhone && s.view === 'board' && !s.selMode && (this.props.showDemo ?? true), isMock: this.mode === 'mock',
-      toasts: st.s.toasts.map((t) => ({ text: t.text, bd: t.kind === 'error' ? 'var(--err)' : 'var(--acc)' })),
+      toasts: st.s.toasts.map((t) => ({ text: t.text, bd: t.kind === 'error' ? 'var(--err)' : 'var(--acc)', show: !t.gone, anim: t.leaving ? 'mcRiseOut var(--dur) ease-in forwards' : 'mcRise var(--dur) var(--ease-out)' })),
       toastLeft: isPhone ? '14px' : 'auto', toastBottom: isPhone ? (s.view === 'session' ? '130px' : '70px') : '14px',
       multiBar: s.selMode && Object.values(s.sel).some(Boolean) && s.view === 'board',
       multiCount: String(Object.values(s.sel).filter(Boolean).length), multiText: s.multiText,
@@ -1194,7 +1364,8 @@ class Component extends DCLogic {
     this._tabTitle = `${inboxN ? `(${inboxN}) ` : ''}${screen} · omonitor`;
     this._tabIcon = inboxN ? TAB_ICON.wait : TAB_ICON.ok;
     Object.assign(vals, { hasSel: !!T, noSel: !T && isDesk, showBack: !isDesk, detailRef: this.detailRef });
-    const goBack = () => this.setState((x) => (isPhone ? { view: x.backTo || 'board', selId: null } : { selId: null }));
+    const backPatch = (x) => (isPhone ? { view: x.backTo || 'board', selId: null } : { selId: null });
+    const goBack = () => this.setState(backPatch);
     // The left-edge swipe (onTouchStart) does the back button's job, unless something is open over the conversation.
     this.swipeBack = T && !isDesk && !(s.pal || s.sheet || s.dialog || s.menu) ? goBack : null;
     if (!isDesk && !T) { vals.showList = true; vals.listW = '100%'; }
@@ -1209,7 +1380,7 @@ class Component extends DCLogic {
     if (T) {
       const sel = allViews.find((v) => v.id === T.id) || this.sessionView(T, now, lay, null);
       const running = this.running(T.id);
-      const items = S.viewItems(T, now);
+      const items = this.freshItems(T, S.viewItems(T, now));
       const live = S.liveStatus(T, now);
       const todo = S.replayTodos(S.allItems(T));
       // The latest user message is what the agent is working on now; the Todo panel shows it above the list.
@@ -1228,7 +1399,7 @@ class Component extends DCLogic {
         hasSelReqs: st.reqsFor(T.id).length > 0,
         selTerminal: S.isTerminal(T), selNotSub: !T.subscribed && !T.archived, selNotSubNote: !T.subscribed && !T.archived && T.source !== 'cli',
         selLost: S.historyLost(T) && !todo, restoreSel: () => st.restoreTodos(T.id), subscribeSel: () => (this.needsTakeover(T) ? this.confirm('takeover', T.id) : st.resume(T.id)), takeoverSel: () => this.confirm('takeover', T.id),
-        goBack,
+        goBack: () => this.navVT('pop', backPatch),
         detailHeadPad: isPhone ? `max(4px, env(safe-area-inset-top)) 4px 0 2px` : '4px 6px 4px 12px', detailTitleSize: isPhone ? '17px' : '18.5px',
         openMenu: () => this.setState({ menu: true }), renameSel: () => this.confirm('rename', T.id, { input: T.name || '' }),
         rtabs: tabsDef.map(mkTab(rtab, 'rtab')), ptabs: [['tl', '타임라인', ''], ...tabsDef].map(mkTab(ptab, 'ptab')),
@@ -1301,7 +1472,7 @@ class Component extends DCLogic {
     Object.assign(vals, {
       menuOpen: s.menu && !!T, closeMenu: () => this.setState({ menu: false }),
       menuScrim: isPhone ? 'rgba(10,11,12,.5)' : 'transparent', menuJustify: isPhone ? 'stretch' : 'flex-end', menuAlign: isPhone ? 'flex-end' : 'flex-start',
-      menuPad: isPhone ? '0' : `calc(${54 + (vals.connBanner ? 40 : 0) + 44}px + env(safe-area-inset-top)) ${isDesk ? 330 : 310}px 0 0`, menuW: isPhone ? '100%' : '240px', menuRadius: isPhone ? 'var(--r-lg) var(--r-lg) 0 0' : 'var(--r)', menuPadBottom: isPhone ? 'max(12px, env(safe-area-inset-bottom))' : '4px',
+      menuPad: isPhone ? '0' : `calc(${54 + (vals.connBanner ? 40 : 0) + 44}px + env(safe-area-inset-top)) ${isDesk ? 330 : 310}px 0 0`, menuW: isPhone ? '100%' : '240px', menuAnim: isPhone ? 'mcSheet var(--dur-slow) var(--ease-out)' : 'mcPop var(--dur) var(--ease-out)', menuRadius: isPhone ? 'var(--r-lg) var(--r-lg) 0 0' : 'var(--r)', menuPadBottom: isPhone ? 'max(12px, env(safe-area-inset-bottom))' : '4px',
     });
 
     // ── dialogs ──
@@ -1369,7 +1540,7 @@ class Component extends DCLogic {
         onRemove: () => { URL.revokeObjectURL(m.preview); this.setState((x) => (x.sheet ? { sheet: { ...x.sheet, images: (x.sheet.images || []).filter((y) => y.id !== m.id) } } : {})); },
       })),
       sheetDisabled: cw.sheetDisabled || shUploading,
-      sheetOpen: !!sh, closeSheet: () => { this.dropSheetImages(sh); this.setState({ sheet: null }); }, sheetAlign: isPhone ? 'flex-end' : 'center', sheetRadius: isPhone ? 'var(--r-lg) var(--r-lg) 0 0' : 'var(--r-lg)', sheetPadBottom: isPhone ? 'max(12px, env(safe-area-inset-bottom))' : '12px',
+      sheetOpen: !!sh, closeSheet: () => { this.dropSheetImages(sh); this.setState({ sheet: null }); }, sheetAlign: isPhone ? 'flex-end' : 'center', sheetExit: isPhone ? 'down' : 'pop', sheetAnim: isPhone ? 'mcSheet var(--dur-slow) var(--ease-out)' : 'mcPop var(--dur) var(--ease-out)', sheetRadius: isPhone ? 'var(--r-lg) var(--r-lg) 0 0' : 'var(--r-lg)', sheetPadBottom: isPhone ? 'max(12px, env(safe-area-inset-bottom))' : '12px',
       sheetOuterPad: isPhone ? 'max(12px, env(safe-area-inset-top)) 0 0' : '12px', sheetTextH: window.innerHeight < 700 ? '60px' : '90px',
       sheetText: sh?.text || '', onSheetText: (e) => this.setState({ sheet: { ...sh, text: e.target.value } }),
       sheetCta: sh?.text?.trim() || shPaths.length ? '만들고 보내기' : '만들기',
@@ -1413,7 +1584,7 @@ class Component extends DCLogic {
       const q = pal.q.trim().toLowerCase();
       const actions = [
         ['새 세션', 'N', () => this.setState({ sheet: this.newSheet() })], ['보드로 이동', '⌥1 · g b', () => this.go('board')],
-        ['세션 화면으로 이동', '⌥2 · g s', () => this.go('session')], ['터미널 관리로 이동', '⌥3 · g t', () => this.go('terminals')], [`테마: ${theme === 'dark' ? '라이트로' : '다크로'} 전환`, '', () => this.setState({ theme: theme === 'dark' ? 'light' : 'dark' })],
+        ['세션 화면으로 이동', '⌥2 · g s', () => this.go('session')], ['터미널 관리로 이동', '⌥3 · g t', () => this.go('terminals')], [`테마: ${theme === 'dark' ? '라이트로' : '다크로'} 전환`, '', () => this.setStateVT({ theme: theme === 'dark' ? 'light' : 'dark' })],
         ['여러 세션에 메시지 보내기', '', () => this.setState({ view: 'board', selMode: true, sel: {} })],
         ...(this.mode === 'mock' ? [['연결 끊김 시뮬레이션', '데모', () => this.client.simulateDisconnect()]] : []),
       ].filter(([l]) => !q || l.toLowerCase().includes(q)).map(([label, hint, run]) => ({ label, hint, dot: 'transparent', run }));
