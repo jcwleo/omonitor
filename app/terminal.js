@@ -24,10 +24,9 @@ class McTerminal extends HTMLElement {
       <link rel="stylesheet" href="${url('vendor/xterm.css')}">
       <link rel="stylesheet" href="${url('app/terminal.css')}">
       <section class="terminal">
-        <header><span class="status" role="status">준비 중</span>
+        <header><span class="status" role="status">준비 중</span><span class="cwd"></span>
           <button type="button" data-action="start">터미널 시작</button>
           <button type="button" data-action="close" hidden>종료</button></header>
-        <div class="cwd"></div>
         <div class="screen"></div>
         <div class="empty">세션 작업 폴더에서 새 셸을 엽니다. 탭을 닫아도 셸은 유지됩니다.</div>
         <div class="keys" aria-label="터미널 보조키" hidden>
@@ -118,6 +117,10 @@ class McTerminal extends HTMLElement {
     return response.status === 204 ? null : response.json();
   }
   status(text) { this.el('.status').textContent = text; }
+  // Tells the dashboard whether this session has a shell, so the side panel widens only when there is one to show.
+  live(on) {
+    this.dispatchEvent(new CustomEvent('mc-terminal-live', { bubbles: true, detail: { sessionId: this.getAttribute('session-id'), live: on } }));
+  }
   error(error) { this.el('.error').textContent = error?.message || String(error); this.el('.error').hidden = false; }
   async initialize() {
     this.dispose();
@@ -145,7 +148,7 @@ class McTerminal extends HTMLElement {
       if (generation !== this.generation) return;
       this.summary = summary;
       if (summary) await this.mount(generation);
-      else this.status('시작 전');
+      else { this.status('시작 전'); this.live(false); }
     } catch (error) {
       if (generation === this.generation) { this.status('연결 오류'); this.error(error); }
     } finally {
@@ -213,6 +216,7 @@ class McTerminal extends HTMLElement {
     this.disposables.push(this.bridge, installTerminalClipboard(this.xterm),
       installInactiveTerminalReportGuards(this.xterm, () => this.ready && this.isConnected),
       this.xterm.onData((data) => this.sendInput(data)));
+    this.live(true);
     this.el('.empty').hidden = true;
     this.el('.keys').hidden = false;
     this.el('[data-action="start"]').hidden = true;

@@ -36,6 +36,17 @@ type Summary = {
   readonly cwd: string;
   readonly status: 'running' | 'exited';
 };
+type Program = { readonly pid: number; readonly command: string };
+type Usage = { readonly memoryKb: number; readonly programs: readonly Program[] };
+type Proc = { readonly pid: number; readonly ppid: number; readonly pgid: number; readonly rss: number; readonly tty: string; readonly command: string };
+export type TerminalPolicy = {
+  // An unwatched shell running no program is closed after this long without input or output.
+  readonly idleMs: number;
+  // An exited shell nobody is watching keeps its screen this long.
+  readonly exitedMs: number;
+  readonly sweepMs: number;
+};
+const defaultPolicy: TerminalPolicy = { idleMs: 24 * 60 * 60 * 1000, exitedMs: 10 * 60 * 1000, sweepMs: 5 * 60 * 1000 };
 // A record owns the live PTY, parser state, and connected subscribers.
 type RecordState = {
   readonly id: string;
@@ -51,6 +62,9 @@ type RecordState = {
   exitCode: number | null;
   pendingBytes: number;
   disposed: boolean;
+  readonly startedAt: number;
+  lastActivityAt: number;
+  exitedAt: number | null;
 };
 
 export class TerminalError extends Error {
@@ -62,12 +76,29 @@ export class TerminalManager {
   private readonly sessions = new Map<string, string>();
   private readonly creating = new Map<string, Promise<Summary>>();
   private stopping = false;
+  private readonly sweeper: ReturnType<typeof setInterval>;
+
+  constructor(private readonly policy: TerminalPolicy = defaultPolicy) {
+    this.sweeper = setInterval(() => {
+      if (this.stopping) return;
+      this.reclaim(policy.idleMs, policy.exitedMs).then((closed) => {
+        if (closed) console.log(`[terminal] 쓰지 않는 터미널 ${closed}개를 닫았습니다`);
+      }, (error: unknown) => console.error('[terminal cleanup]', error));
+    }, policy.sweepMs);
+    this.sweeper.unref();
+  }
 
   private summary(record: RecordState): Summary {
     return { id: record.id, sessionId: record.sessionId, cwd: record.cwd, status: record.status };
   }
 
   async http(req: Request, url: URL): Promise<Response> {
+    if (url.pathname === '/api/terminals' && req.method === 'GET') {
+      const { idleMs, exitedMs } = this.policy;
+      return Response.json({ terminals: await this.list(), policy: { idleMs, exitedMs } });
+    }
+    if (url.pathname === '/api/terminals/close-idle' && req.method === 'POST') return Response.json({ closed: await this.reclaim(0, 0) });
+    if (url.pathname !== '/api/terminal') return new Response('not found', { status: 404 });
     switch (req.method) {
       case 'POST': {
         if (!(req.headers.get('content-type') || '').startsWith('application/json'))
@@ -109,6 +140,7 @@ export class TerminalManager {
         return Response.json(record ? this.summary(record) : null);
       }
       case 'DELETE': {
+        if (url.searchParams.has('sessionId')) return Response.json(await this.closeSession(url));
         const id = this.parseId(url.searchParams.get('id'));
         const record = this.records.get(id);
         if (!record) throw new TerminalError(404, '터미널을 찾지 못했습니다');
@@ -126,6 +158,86 @@ export class TerminalManager {
   }
 
   has(id: string): boolean { return this.records.has(id); }
+
+  // Every shell, newest activity first, with its process tree's memory and the programs running in it.
+  private async list() {
+    const records = [...this.records.values()];
+    const usage = await this.usage(records);
+    return records.filter((record) => !record.disposed).map((record) => ({
+      ...this.summary(record), exitCode: record.exitCode, startedAt: record.startedAt,
+      lastActivityAt: record.lastActivityAt, exitedAt: record.exitedAt, viewers: record.subscribers.size,
+      ...(usage.get(record.id) ?? { memoryKb: 0, programs: [] }),
+    })).sort((a, b) => b.lastActivityAt - a.lastActivityAt);
+  }
+
+  // One ps snapshot for the given shells: the memory of each shell's process tree and the programs started from its
+  // prompt. A program is a descendant on the shell's TTY in a job (process group) of its own; prompt helpers stay in
+  // the shell's group or run on a pty of their own, so an idle shell reports none.
+  private async usage(records: readonly RecordState[]): Promise<Map<string, Usage>> {
+    const out = new Map<string, Usage>();
+    const running = records.filter((record) => record.status === 'running' && !record.disposed);
+    if (!running.length) return out;
+    const ps = Bun.spawn(['ps', '-A', '-o', 'pid=,ppid=,pgid=,rss=,tty=,args='], { stdout: 'pipe', stderr: 'ignore' });
+    const [text, code] = await Promise.all([new Response(ps.stdout).text(), ps.exited]);
+    if (code !== 0) throw new TerminalError(500, '프로세스 목록을 읽지 못했습니다');
+    const byPid = new Map<number, Proc>();
+    const children = new Map<number, Proc[]>();
+    for (const line of text.split('\n')) {
+      const match = /^\s*(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\S+)\s*(.*)$/.exec(line);
+      if (!match) continue;
+      const [, pid, ppid, pgid, rss, tty, command] = match;
+      const proc: Proc = { pid: Number(pid), ppid: Number(ppid), pgid: Number(pgid), rss: Number(rss), tty: String(tty), command: String(command) };
+      byPid.set(proc.pid, proc);
+      const siblings = children.get(proc.ppid);
+      if (siblings) siblings.push(proc); else children.set(proc.ppid, [proc]);
+    }
+    for (const record of running) {
+      const shell = byPid.get(record.process.pid);
+      if (!shell) { out.set(record.id, { memoryKb: 0, programs: [] }); continue; }
+      let memoryKb = shell.rss;
+      const programs: Program[] = [];
+      const stack = [...(children.get(shell.pid) ?? [])];
+      for (let proc = stack.pop(); proc; proc = stack.pop()) {
+        memoryKb += proc.rss;
+        if (proc.tty === shell.tty && proc.pgid !== shell.pgid) programs.push({ pid: proc.pid, command: proc.command.slice(0, 300) });
+        stack.push(...(children.get(proc.pid) ?? []));
+      }
+      programs.sort((a, b) => a.pid - b.pid);
+      out.set(record.id, { memoryKb, programs });
+    }
+    return out;
+  }
+
+  // Closes unwatched shells that ran no program and saw no input or output for idleFor, and unwatched exited ones
+  // older than exitedFor. A shell still running a program is never closed here.
+  private async reclaim(idleFor: number, exitedFor: number): Promise<number> {
+    const now = Date.now();
+    const unwatched = (record: RecordState) => !record.disposed && record.subscribers.size === 0;
+    const due = [...this.records.values()].filter((record) => unwatched(record) && (record.status === 'exited'
+      ? now - (record.exitedAt ?? now) >= exitedFor
+      : now - record.lastActivityAt >= idleFor));
+    const usage = await this.usage(due);
+    const doomed = due.filter((record) => unwatched(record) && (record.status === 'exited' || usage.get(record.id)?.programs.length === 0));
+    const results = await Promise.allSettled(doomed.map((record) => this.dispose(record)));
+    for (const result of results) if (result.status === 'rejected') console.error('[terminal cleanup]', result.reason);
+    return results.filter((result) => result.status === 'fulfilled').length;
+  }
+
+  // Closes a session's shell when the session is deleted or archived. onlyIdle keeps a shell that still runs a program
+  // and reports what runs there.
+  private async closeSession(url: URL): Promise<{ closed: boolean; programs: string[] }> {
+    const parsed = sessionId.safeParse(url.searchParams.get('sessionId'));
+    if (!parsed.success) throw new TerminalError(400, '잘못된 세션 ID입니다');
+    const id = this.sessions.get(parsed.data);
+    const record = id ? this.records.get(id) : undefined;
+    if (!record) return { closed: false, programs: [] };
+    if (url.searchParams.get('onlyIdle') === '1') {
+      const programs = (await this.usage([record])).get(record.id)?.programs ?? [];
+      if (programs.length) return { closed: false, programs: programs.map((program) => program.command) };
+    }
+    await this.dispose(record);
+    return { closed: true, programs: [] };
+  }
 
   private async create(options: z.infer<typeof createRequest>): Promise<Summary> {
     if (this.stopping) throw new TerminalError(503, '서버가 종료 중입니다');
@@ -182,6 +294,7 @@ export class TerminalManager {
           cols: options.cols, rows: options.rows,
           data(_terminal, bytes) {
             if (!record || record.disposed) return;
+            record.lastActivityAt = Date.now();
             // Bound parser backlog without silently dropping state and corrupting future snapshots.
             record.pendingBytes += bytes.byteLength;
             if (record.pendingBytes > 8 * 1024 * 1024) {
@@ -218,6 +331,7 @@ export class TerminalManager {
       id: crypto.randomUUID(), sessionId: options.sessionId, cwd, mirror, addon,
       subscribers: new Set(), decoder: new TextDecoder(), process: proc, terminal,
       status: 'running', exitCode: null, pendingBytes: 0, disposed: false,
+      startedAt: Date.now(), lastActivityAt: Date.now(), exitedAt: null,
     };
     const current = record;
     this.records.set(current.id, current);
@@ -226,6 +340,7 @@ export class TerminalManager {
       if (current.disposed) return;
       current.status = 'exited';
       current.exitCode = exitCode;
+      current.exitedAt = Date.now();
       current.terminal.close();
       current.mirror.write(current.decoder.decode(), () => {
         if (!current.disposed)
@@ -277,6 +392,7 @@ export class TerminalManager {
       if (!record || record.status !== 'running') throw new TerminalError(409, '터미널이 종료되었습니다');
       switch (parsed.data.type) {
         case 'input':
+          record.lastActivityAt = Date.now();
           record.terminal.write(parsed.data.data);
           break;
         case 'resize': {
@@ -340,6 +456,7 @@ export class TerminalManager {
 
   async shutdown(): Promise<void> {
     this.stopping = true;
+    clearInterval(this.sweeper);
     await Promise.all([...this.records.values()].map((record) => this.dispose(record)));
   }
 }

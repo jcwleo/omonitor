@@ -145,6 +145,38 @@ html,body{margin:0;height:var(--root-h, 100%);background:#161618;overflow:hidden
 </div>
 </sc-if>
 
+<sc-if value="{{ vTerminals }}">
+<div style="flex:1;min-height:0;overflow:auto;padding:{{ termPad }}">
+<div style="max-width:860px;margin:0 auto;display:flex;flex-direction:column;gap:8px">
+<div style="display:flex;align-items:center;gap:8px;min-height:36px">
+<sc-if value="{{ notPhone }}"><span style="font:600 16px var(--font-heading)">열린 터미널</span></sc-if>
+<span style="font:12.5px var(--mono);color:var(--fg3)">{{ termSummary }}</span>
+<button type="button" class="btn btn-secondary" onClick="{{ closeIdleTerms }}" disabled="{{ noIdleTerms }}" title="실행 중인 프로그램이 없고 아무도 보고 있지 않은 셸과 끝난 셸을 닫습니다" style="margin-left:auto;font-size:12.5px;min-height:34px;padding:0 11px;color:var(--fg)">빈 셸 모두 닫기</button>
+</div>
+<div style="font-size:12px;line-height:1.5;color:var(--fg3)">{{ termPolicyText }}</div>
+<sc-if value="{{ hasTermErr }}"><div style="border-radius:var(--r);background:var(--err-tint);padding:9px 12px;font-size:12.5px;color:var(--err-fg)">터미널 목록을 읽지 못했습니다: {{ termErr }}</div></sc-if>
+<sc-if value="{{ termEmpty }}"><div style="border-radius:var(--r);background:var(--tint);padding:14px 12px;font-size:13px;line-height:1.5;color:var(--fg3)">열린 터미널이 없습니다. 세션 화면의 터미널 탭에서 셸을 열 수 있습니다.</div></sc-if>
+<sc-for list="{{ termRows }}" as="r">
+<div style="border-radius:var(--r);background:var(--card);padding:9px 8px 10px 12px;display:flex;flex-direction:column;gap:5px;min-width:0">
+<div style="display:flex;align-items:center;gap:7px;min-width:0">
+<span style="width:7px;height:7px;border-radius:50%;flex:none;background:{{ r.dot }}"></span>
+<span style="font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0">{{ r.name }}</span>
+<span style="flex:none;font-size:11.5px;font-weight:500;padding:2px 8px;border-radius:999px;white-space:nowrap;color:{{ r.pillFg }};background:{{ r.pillBg }}">{{ r.state }}</span>
+<sc-if value="{{ r.archived }}"><span style="flex:none;font-size:11.5px;color:var(--fg3);white-space:nowrap">보관됨</span></sc-if>
+<div style="margin-left:auto;flex:none;display:flex;gap:2px">
+<sc-if value="{{ r.canOpen }}"><button type="button" class="btn btn-ghost" onClick="{{ r.onOpen }}" style="font-size:12.5px;min-height:34px;padding:0 9px;color:var(--acc-fg)">열기</button></sc-if>
+<button type="button" class="btn btn-ghost" onClick="{{ r.onClose }}" style="font-size:12.5px;min-height:34px;padding:0 9px;color:var(--err-fg)">종료</button>
+</div>
+</div>
+<div style="font:11.5px var(--mono);color:var(--fg3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-left:14px">{{ r.cwd }}</div>
+<sc-if value="{{ r.hasProgs }}"><div style="display:flex;flex-wrap:wrap;gap:4px;padding-left:14px;min-width:0"><sc-for list="{{ r.progs }}" as="p"><span style="font:11.5px var(--mono);padding:2px 7px;border-radius:var(--r-sm);background:var(--tint);color:var(--fg);max-width:100%;box-sizing:border-box;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ p.label }}</span></sc-for></div></sc-if>
+<div style="font-size:12px;line-height:1.45;color:var(--fg3);padding-left:14px">{{ r.meta }}</div>
+</div>
+</sc-for>
+</div>
+</div>
+</sc-if>
+
 <sc-if value="{{ vSessionReady }}">
 <div style="flex:1;min-height:0;display:flex">
 <sc-if value="{{ showListRail }}"><button onClick="{{ toggleList }}" title="세션 목록 펼치기" style="all:unset;cursor:pointer;width:36px;flex:none;border-right:1px solid var(--line-soft);display:flex;flex-direction:column;align-items:center;gap:8px;padding:12px 0;box-sizing:border-box;background:var(--tint);color:var(--fg2)" style-hover="background:var(--hover)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round"><path d="m9 6 6 6-6 6"></path></svg><span style="writing-mode:vertical-rl;font:600 13px var(--font-heading);letter-spacing:.02em">세션 목록</span></button></sc-if>
@@ -157,7 +189,7 @@ html,body{margin:0;height:var(--root-h, 100%);background:#161618;overflow:hidden
 </div>
 <div style="flex:1;overflow:auto;padding:2px 6px 9px;display:flex;flex-direction:column;gap:1px">
 <sc-for list="{{ listItems }}" as="x"><button onClick="{{ x.onTap }}" style="all:unset;cursor:pointer;display:flex;flex-direction:column;gap:3px;width:100%;box-sizing:border-box;padding:7px 9px;border-radius:var(--r-md);background:{{ x.bg }};outline:{{ x.ring }};outline-offset:-2px" style-hover="background:var(--hover)">
-<div style="display:flex;align-items:center;gap:5px;min-width:0"><span style="width:6px;height:6px;border-radius:50%;flex:none;background:{{ x.statusColor }}"></span><span style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0">{{ x.name }}</span><span style="font-size:12px;color:var(--fg3);white-space:nowrap">{{ x.updatedAgo }}</span></div>
+<div style="display:flex;align-items:center;gap:5px;min-width:0"><span style="width:6px;height:6px;border-radius:50%;flex:none;background:{{ x.statusColor }}"></span><span style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0">{{ x.name }}</span><sc-if value="{{ x.hasTerm }}"><span title="{{ x.termTitle }}" style="flex:none;display:flex;color:{{ x.termFg }}"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="flex:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round"><rect x="3" y="4" width="18" height="16" rx="3"></rect><path d="m7.5 9.5 3 2.5-3 2.5"></path><path d="M12.5 15h4"></path></svg></span></sc-if><span style="font-size:12px;color:var(--fg3);white-space:nowrap">{{ x.updatedAgo }}</span></div>
 <div style="display:flex;gap:4px;font-size:12px;color:var(--fg3);padding-left:9px;min-width:0"><span style="font-family:var(--mono);white-space:nowrap;color:var(--fg2)">{{ x.projectName }}</span><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:{{ x.miniColor }}">{{ x.mini }}</span></div>
 </button></sc-for>
 <sc-if value="{{ listEmpty }}"><div style="padding:12px 9px;font-size:12.5px;color:var(--fg3)">일치하는 세션이 없습니다</div></sc-if>
@@ -242,8 +274,8 @@ html,body{margin:0;height:var(--root-h, 100%);background:#161618;overflow:hidden
 </div>
 
 <sc-if value="{{ phoneTabBar }}">
-<div style="flex:none;display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--line-soft);padding:2px 6px max(4px, env(safe-area-inset-bottom));background:var(--bg)">
-<sc-for list="{{ phoneTabs }}" as="t" hint-placeholder-count="4"><button onClick="{{ t.onTap }}" style="all:unset;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:48px;color:{{ t.fg }};font-size:12px;position:relative"><span style="height:22px;display:flex;align-items:center"><sc-if value="{{ t.isBoard }}"><svg aria-hidden="true" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="flex:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round"><rect x="3" y="4" width="18" height="16" rx="3"></rect><path d="M9 4v16"></path><path d="M15 4v16"></path></svg></sc-if><sc-if value="{{ t.isSession }}"><svg aria-hidden="true" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="flex:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round"><path d="M5 6h14"></path><path d="M5 12h14"></path><path d="M5 18h9"></path></svg></sc-if><sc-if value="{{ t.isNew }}"><svg aria-hidden="true" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="flex:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v8"></path><path d="M8 12h8"></path></svg></sc-if></span>{{ t.label }}<sc-if value="{{ t.hasBadge }}"><span style="position:absolute;top:2px;left:calc(50% + 6px);font:600 11px/16px var(--font-ui);background:var(--warn);color:var(--on-warn);padding:0 5px;min-width:16px;box-sizing:border-box;border-radius:999px;text-align:center">{{ t.badge }}</span></sc-if></button></sc-for>
+<div style="flex:none;display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--line-soft);padding:2px 6px max(4px, env(safe-area-inset-bottom));background:var(--bg)">
+<sc-for list="{{ phoneTabs }}" as="t" hint-placeholder-count="4"><button onClick="{{ t.onTap }}" style="all:unset;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:48px;color:{{ t.fg }};font-size:12px;position:relative"><span style="height:22px;display:flex;align-items:center"><sc-if value="{{ t.isBoard }}"><svg aria-hidden="true" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="flex:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round"><rect x="3" y="4" width="18" height="16" rx="3"></rect><path d="M9 4v16"></path><path d="M15 4v16"></path></svg></sc-if><sc-if value="{{ t.isSession }}"><svg aria-hidden="true" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="flex:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round"><path d="M5 6h14"></path><path d="M5 12h14"></path><path d="M5 18h9"></path></svg></sc-if><sc-if value="{{ t.isTerm }}"><svg aria-hidden="true" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="flex:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round"><rect x="3" y="4" width="18" height="16" rx="3"></rect><path d="m7.5 9.5 3 2.5-3 2.5"></path><path d="M12.5 15h4"></path></svg></sc-if><sc-if value="{{ t.isNew }}"><svg aria-hidden="true" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="flex:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v8"></path><path d="M8 12h8"></path></svg></sc-if></span>{{ t.label }}<sc-if value="{{ t.hasBadge }}"><span style="position:absolute;top:2px;left:calc(50% + 6px);font:600 11px/16px var(--font-ui);background:var(--warn);color:var(--on-warn);padding:0 5px;min-width:16px;box-sizing:border-box;border-radius:999px;text-align:center">{{ t.badge }}</span></sc-if></button></sc-for>
 </div>
 </sc-if>
 
@@ -387,7 +419,7 @@ class Component extends DCLogic {
   state = { v: 0, now: Date.now(), w: window.innerWidth, view: 'board', selId: null, backTo: 'board', theme: null, drawer: false, drawerMounted: false,
     pal: null, sheet: null, dialog: null, menu: false, selMode: false, sel: {}, multiText: '', grouped: false, groupOpen: {}, panels: { left: false, right: false }, colC: {}, secC: { archived: true },
     exp: {}, agentOpen: {}, doneOpen: null, escArmed: null, allC: false, rtab: 'todo', ptab: 'tl', q: '', lf: 'all', focus: -1, pf: null, speedIdx: 0,
-    goalDraft: '', goalBudgetDraft: '', fatal: null, nb: false, ns: false, omoVer: null, omoUpdating: false, panelWidths: {}, prefs: false, push: { ready: false, on: false, busy: false, why: '' } };
+    goalDraft: '', goalBudgetDraft: '', fatal: null, nb: false, ns: false, omoVer: null, omoUpdating: false, panelWidths: {}, termLive: {}, terms: [], termPolicy: null, termErr: '', prefs: false, push: { ready: false, on: false, busy: false, why: '' } };
   tlRef = React.createRef();
   detailRef = React.createRef();
   sheetFileRef = React.createRef();
@@ -485,6 +517,12 @@ class Component extends DCLogic {
     this.onWinDrag = (e) => { if ([...(e.dataTransfer?.types || [])].includes('Files')) e.preventDefault(); };
     window.addEventListener('dragover', this.onWinDrag);
     window.addEventListener('drop', this.onWinDrag);
+    // Which sessions have a shell (mc-terminal reports it); kept per session so revisiting the tab does not jump in width.
+    this.onTermLive = ({ detail: d }) => {
+      this.setState((x) => (!!x.termLive[d.sessionId] === d.live ? {} : { termLive: { ...x.termLive, [d.sessionId]: d.live } }));
+      this.refreshTerms();
+    };
+    document.addEventListener('mc-terminal-live', this.onTermLive);
     this.tick = setInterval(() => this.setState({ now: Date.now() }), 1000);
     try { this.setState({ favs: JSON.parse(localStorage.getItem('mc.favCwds') || '[]') }); } catch {}
     try { this.setState({ panels: { left: false, right: false, ...JSON.parse(localStorage.getItem('mc.panels') || '{}') } }); } catch {}
@@ -504,8 +542,9 @@ class Component extends DCLogic {
       if (cfg.mode !== 'real' && cfg.mode !== 'mock') throw new Error('대시보드 서버의 실행 모드를 확인할 수 없습니다.');
       const real = cfg.mode === 'real';
       this.mode = cfg.mode;
-      const [mod, S, terminal, push] = await Promise.all([import(`${base}app/${real ? 'real' : 'mock'}-client.js`), import(`${base}app/store.js`), import(`${base}app/terminal.js`), import(`${base}app/push.js`)]);
+      const [mod, S, terminal, push, TM] = await Promise.all([import(`${base}app/${real ? 'real' : 'mock'}-client.js`), import(`${base}app/store.js`), import(`${base}app/terminal.js`), import(`${base}app/push.js`), import(`${base}app/terminals.js`)]);
       terminal.defineTerminal();
+      this.TM = TM;
       this.S = S;
       this.client = real ? new mod.RealClient({ sessionKey: cfg.key }) : new mod.MockClient({ speed: 1 });
       this.upstream = cfg?.upstream || '';
@@ -516,6 +555,10 @@ class Component extends DCLogic {
       await this.store.init();
       this.push = push;
       this.syncPush();
+      // Open shells: every 5s on the 터미널 screen, every 30s elsewhere (session list marks), only while the page is visible.
+      this.refreshTerms();
+      let termN = 0;
+      this.termTick = setInterval(() => { if (document.visibilityState === 'visible' && (this.state.view === 'terminals' || ++termN % 6 === 0)) this.refreshTerms(); }, 5000);
       // A tap on a push notification opens its session: an open dashboard hears it from the service worker, a closed app
       // starts at #session=<id> (sw.js).
       navigator.serviceWorker?.addEventListener('message', (e) => { if (e.data?.type === 'omonitor:open' && e.data.threadId) this.openSession(e.data.threadId); });
@@ -526,7 +569,7 @@ class Component extends DCLogic {
       this.versionTick = setInterval(() => this.checkOmoVersion(), 30 * 60 * 1000);
     } catch (e) { console.error(e); this.setState({ fatal: String(e?.message || e) }); }
   }
-  componentWillUnmount() { window.visualViewport?.removeEventListener('resize', this.fitViewport); window.visualViewport?.removeEventListener('scroll', this.fitViewport); window.removeEventListener('scroll', this.fitViewport); document.removeEventListener('touchstart', this.onTouchStart); document.removeEventListener('touchmove', this.onTouchMove); document.removeEventListener('touchend', this.onTouchEnd); document.removeEventListener('touchcancel', this.onTouchEnd); window.removeEventListener('resize', this.onResize); window.removeEventListener('keydown', this.onKey); window.removeEventListener('dragover', this.onWinDrag); window.removeEventListener('drop', this.onWinDrag); clearInterval(this.tick); clearInterval(this.versionTick); this.client?.close(); }
+  componentWillUnmount() { window.visualViewport?.removeEventListener('resize', this.fitViewport); window.visualViewport?.removeEventListener('scroll', this.fitViewport); window.removeEventListener('scroll', this.fitViewport); document.removeEventListener('touchstart', this.onTouchStart); document.removeEventListener('touchmove', this.onTouchMove); document.removeEventListener('touchend', this.onTouchEnd); document.removeEventListener('touchcancel', this.onTouchEnd); window.removeEventListener('resize', this.onResize); window.removeEventListener('keydown', this.onKey); window.removeEventListener('dragover', this.onWinDrag); window.removeEventListener('drop', this.onWinDrag); document.removeEventListener('mc-terminal-live', this.onTermLive); clearInterval(this.tick); clearInterval(this.versionTick); clearInterval(this.termTick); this.client?.close(); }
   // The conversation follows the finger during a back swipe. Styles go straight to the element so the drag does not
   // re-render; React leaves them alone because the template sets no transform, transition or shadow there.
   slideDetail(dx) {
@@ -571,7 +614,28 @@ class Component extends DCLogic {
   }
 
   layout() { const w = this.state.w; return w < 700 ? 'phone' : w < 1100 ? 'tablet' : 'desktop'; }
-  go(view) { this.setState({ view, focus: -1, drawer: false, menu: false, prefs: false }); }
+  go(view) { this.setState({ view, focus: -1, drawer: false, menu: false, prefs: false }); if (view === 'terminals') this.refreshTerms(); }
+  // Open session shells from the backend: the 터미널 screen, the shell marks in the session list, cleanup on delete.
+  // A refresh asked for while one is in flight runs again after it, so an action's result never shows stale.
+  async refreshTerms() {
+    if (!this.TM) return;
+    if (this.termBusy) { this.termAgain = true; return; }
+    this.termBusy = true;
+    try { const r = await this.TM.listTerminals(); this.setState({ terms: r.terminals, termPolicy: r.policy, termErr: '' }); }
+    catch (e) { this.setState({ termErr: String(e?.message || e) }); }
+    finally { this.termBusy = false; if (this.termAgain) { this.termAgain = false; this.refreshTerms(); } }
+  }
+  async termAction(run, fail) {
+    try { return await run(); }
+    catch (e) { this.store?.toast(`${fail}: ${e?.message || e}`, 'error'); return null; }
+    finally { this.refreshTerms(); }
+  }
+  openTerminal(id) { this.openSession(id, false); this.setState({ rtab: 'terminal', ptab: 'terminal' }); }
+  // Archiving closes the session's idle shell; one still running a program stays open, and the toast says what runs.
+  async archiveTerm(id) {
+    const r = await this.termAction(() => this.TM.closeSessionTerminal(id, true), '터미널을 정리하지 못했습니다');
+    if (r && !r.closed && r.programs.length) this.store.toast(`터미널에서 ${[...new Set(r.programs.map(this.TM.programName))].join(', ')} 실행 중이라 열어 두었습니다. 터미널 화면에서 닫을 수 있습니다.`, 'info');
+  }
   // Composer drafts per session, so text and attached images survive switching tabs or sessions. Text is also kept in
   // localStorage (reloads); image previews are page-lifetime blob URLs, so images are kept in memory only.
   drafts = new Map();
@@ -632,7 +696,8 @@ class Component extends DCLogic {
     const left = Math.min(leftMax, Math.max(220, s.panelWidths.left || 320));
     const leftSpace = desk ? (leftOpen ? left : 36) : 0;
     const rightMax = Math.max(260, Math.min(720, s.w - leftSpace - center));
-    const rightDefault = s.rtab === 'terminal' ? Math.min(720, s.w * .45) : desk ? 320 : 300;
+    // The terminal tab gets a wide panel only once a shell exists; before that it holds just the start button.
+    const rightDefault = s.rtab === 'terminal' && s.termLive[s.selId] ? Math.min(720, s.w * .45) : desk ? 320 : 300;
     const right = Math.min(rightMax, Math.max(260, s.panelWidths.right || rightDefault));
     return { left, right, leftMax, rightMax, leftSpace, center, rightOpen };
   }
@@ -721,6 +786,7 @@ class Component extends DCLogic {
   running(id) { const T = this.store?.T(id); return !!T && T.status?.type === 'active' && !!this.S.currentTurn(T); }
 
   navIds() {
+    if (this.state.view === 'terminals') return [];
     if (this.state.view === 'session') return (this._list || []).map((x) => x.id);
     return (this._cols || []).filter((c) => c.open !== false).flatMap((c) => c.sessions.map((s) => s.id));
   }
@@ -743,13 +809,14 @@ class Component extends DCLogic {
       return;
     }
     if (this.state.pal || this.state.dialog || this.state.sheet) return;
-    // Option+1/2 switch screens and Option+Up/Down step through sessions, also from inside the message box (an opened
+    // Option+1/2/3 switch screens and Option+Up/Down step through sessions, also from inside the message box (an opened
     // session focuses it). Matched on e.code: Option changes e.key on macOS.
     if (e.altKey && !e.metaKey && !e.ctrlKey && !e.defaultPrevented && !e.isComposing && e.keyCode !== 229) {
-      if (e.code === 'Digit1' || e.code === 'Digit2') {
+      const screen = { Digit1: 'board', Digit2: 'session', Digit3: 'terminals' }[e.code];
+      if (screen) {
         e.preventDefault();
-        if (e.code === 'Digit2' && this.state.selId) this.focusComposer();
-        this.go(e.code === 'Digit1' ? 'board' : 'session');
+        if (screen === 'session' && this.state.selId) this.focusComposer();
+        this.go(screen);
         return;
       }
       if (e.code === 'ArrowUp' || e.code === 'ArrowDown') { e.preventDefault(); this.step(e.code === 'ArrowDown' ? 1 : -1, true); return; }
@@ -759,7 +826,7 @@ class Component extends DCLogic {
     const k = /^Key[A-Z]$/.test(e.code) ? e.code.slice(3).toLowerCase() : e.key;
     if (this.gAt && Date.now() - this.gAt < 900) {
       this.gAt = 0;
-      if (k === 'b') this.go('board'); else if (k === 's') this.go('session');
+      if (k === 'b') this.go('board'); else if (k === 's') this.go('session'); else if (k === 't') this.go('terminals');
       return;
     }
     if (k === 'g') { this.gAt = Date.now(); return; }
@@ -989,10 +1056,10 @@ class Component extends DCLogic {
     });
     this._cols = columns;
 
-    const tabDefs = [['board', '보드', inboxN ? String(inboxN) : ''], ['session', '세션', '']];
-    const tabs = tabDefs.map(([k, label, badge]) => ({ label, badge, hasBadge: !!badge, title: `${label} (⌥${k === 'board' ? 1 : 2})`, key: `⌥${k === 'board' ? 1 : 2}`, hasKey: !COARSE, fg: s.view === k ? 'var(--fg)' : 'var(--fg2)', bg: s.view === k ? 'var(--seg)' : 'transparent', shadow: s.view === k ? 'var(--seg-shadow)' : 'none', onTap: () => this.go(k) }));
-    const phoneTabs = [['board', '보드'], ['session', '세션'], ['new', '새 세션']].map(([k, label]) => ({
-      label, isBoard: k === 'board', isSession: k === 'session', isNew: k === 'new', badge: k === 'board' && inboxN ? String(inboxN) : '', hasBadge: k === 'board' && inboxN > 0, fg: s.view === k ? 'var(--acc-fg)' : 'var(--fg3)',
+    const tabDefs = [['board', '보드', inboxN ? String(inboxN) : '', 1], ['session', '세션', '', 2], ['terminals', '터미널', '', 3]];
+    const tabs = tabDefs.map(([k, label, badge, n]) => ({ label, badge, hasBadge: !!badge, title: `${label} (⌥${n})`, key: `⌥${n}`, hasKey: !COARSE, fg: s.view === k ? 'var(--fg)' : 'var(--fg2)', bg: s.view === k ? 'var(--seg)' : 'transparent', shadow: s.view === k ? 'var(--seg-shadow)' : 'none', onTap: () => this.go(k) }));
+    const phoneTabs = [['board', '보드'], ['session', '세션'], ['terminals', '터미널'], ['new', '새 세션']].map(([k, label]) => ({
+      label, isBoard: k === 'board', isSession: k === 'session', isTerm: k === 'terminals', isNew: k === 'new', badge: k === 'board' && inboxN ? String(inboxN) : '', hasBadge: k === 'board' && inboxN > 0, fg: s.view === k ? 'var(--acc-fg)' : 'var(--fg3)',
       onTap: () => (k === 'new' ? this.setState({ sheet: this.newSheet() }) : this.go(k)) }));
 
 
@@ -1009,7 +1076,7 @@ class Component extends DCLogic {
       vSessionReady: !loading && s.view === 'session',
       columns, cardGap: isDesk ? '8px' : '6px',
       phoneTop: isPhone && s.view !== 'session', phoneTabBar: isPhone && s.view !== 'session',
-      phoneTitle: '보드', phoneCount: `${views.filter((v) => v.col !== 'archived').length}개`,
+      phoneTitle: s.view === 'terminals' ? '터미널' : '보드', phoneCount: `${s.view === 'terminals' ? s.terms.length : views.filter((v) => v.col !== 'archived').length}개`,
       phoneCountColor: 'var(--fg3)',
       toggleAllC: () => this.setState((x) => ({ allC: !x.allC, exp: {} })), allCLabel: s.allC ? '모두 펼치기' : '모두 접기',
       toggleGroup: () => this.setState((x) => ({ grouped: !x.grouped })), groupFg: s.grouped ? 'var(--acc-fg)' : 'var(--fg2)', groupBg: s.grouped ? 'var(--acc-tint)' : 'transparent', groupBd: s.grouped ? 'transparent' : 'var(--line)', groupPressed: s.grouped ? 'true' : 'false',
@@ -1062,6 +1129,40 @@ class Component extends DCLogic {
       },
     };
 
+    // ── open terminals (backend list, refreshed by refreshTerms) ──
+    const terms = s.terms;
+    const termOf = new Map(terms.map((t) => [t.sessionId, t]));
+    const mb = (kb) => (kb >= 1048576 ? `${(kb / 1048576).toFixed(1)}GB` : `${(kb / 1024).toFixed(kb < 102400 ? 1 : 0)}MB`);
+    const progsOf = (t) => (t.status === 'running' ? [...new Set(t.programs.map((p) => this.TM.programName(p.command)))] : []);
+    const termName = (t) => { const T = st.T(t.sessionId); return T ? T.name || T.preview?.slice(0, 40) || '이름 없는 세션' : '목록에 없는 세션'; };
+    const termMark = (id) => {
+      const t = termOf.get(id);
+      if (!t) return { hasTerm: false };
+      const progs = progsOf(t);
+      return { hasTerm: true, termFg: progs.length ? 'var(--acc-fg)' : 'var(--fg3)', termTitle: progs.length ? `터미널에서 실행 중: ${progs.join(', ')}` : t.status === 'running' ? '터미널 열림 (빈 셸)' : '터미널 종료됨' };
+    };
+    const idleTerms = terms.filter((t) => t.viewers === 0 && (t.status === 'exited' || !t.programs.length));
+    const pol = s.termPolicy;
+    Object.assign(vals, {
+      vTerminals: !loading && s.view === 'terminals', termPad: isPhone ? '6px 10px 16px' : '18px 20px 28px',
+      termSummary: terms.length ? `${isPhone ? '' : `${terms.length}개 · `}메모리 ${mb(terms.reduce((n, t) => n + t.memoryKb, 0))}` : '',
+      termPolicyText: pol ? `실행 중인 프로그램이 없고 아무도 보지 않는 셸은 ${S.dur(pol.idleMs)} 동안 입출력이 없으면 자동으로 닫힙니다. 끝난 셸은 ${S.dur(pol.exitedMs)} 뒤 정리합니다. 프로그램이 실행 중인 셸은 자동으로 닫지 않습니다. omonitor를 재시작하면 모든 터미널이 종료됩니다.` : '',
+      termErr: s.termErr, hasTermErr: !!s.termErr, termEmpty: !terms.length && !s.termErr,
+      noIdleTerms: idleTerms.length === 0, closeIdleTerms: () => this.confirm('termCloseIdle', null),
+      termRows: terms.map((t) => {
+        const T = st.T(t.sessionId), running = t.status === 'running', progs = progsOf(t), busy = progs.length > 0;
+        return {
+          name: termName(t), cwd: t.cwd, archived: !!T?.archived, canOpen: !!T,
+          dot: busy ? 'var(--acc)' : running ? 'var(--fg3)' : 'var(--line3)',
+          state: busy ? '프로그램 실행 중' : running ? '빈 셸' : `종료됨${t.exitCode == null ? '' : ` (${t.exitCode})`}`,
+          pillFg: busy ? 'var(--acc-fg)' : 'var(--fg2)', pillBg: busy ? 'var(--acc-tint)' : 'var(--sel)',
+          progs: progs.map((label) => ({ label })), hasProgs: busy,
+          meta: [running ? `메모리 ${mb(t.memoryKb)}` : '', `마지막 활동 ${S.ago(now - t.lastActivityAt)}`, `${S.ago(now - t.startedAt)} 시작`, t.viewers ? `${t.viewers}곳에서 보는 중` : ''].filter(Boolean).join(' · '),
+          onOpen: () => this.openTerminal(t.sessionId), onClose: () => this.confirm('termClose', t.id),
+        };
+      }),
+    });
+
     // ── session detail ──
     const listFilter = s.lf;
     const allViews = [...st.s.threads.values()].map((T) => this.sessionView(T, now, lay, null));
@@ -1074,7 +1175,7 @@ class Component extends DCLogic {
       q: s.q, onQ: (e) => this.setState({ q: e.target.value }),
       listFilters: [{ key: 'all', label: '전체', color: 'var(--fg)', n: allViews.length - counts.archived }, ...S.COLS.map((c) => ({ key: c.key, label: c.label, color: c.color, n: counts[c.key] }))].map((f) => ({
         label: f.label, count: String(f.n), dot: f.color, bd: listFilter === f.key ? 'transparent' : 'var(--line-soft)', bg: listFilter === f.key ? 'var(--sel)' : 'transparent', fg: listFilter === f.key ? 'var(--fg)' : 'var(--fg2)', onTap: () => this.setState({ lf: f.key }) })),
-      listItems: listed.map((v, i) => ({ ...v, mini: v.hasReq ? v.reqKind : v.hasTodo ? `${v.todoText} ${v.phaseName}` : v.actLabel, miniColor: v.hasReq ? 'var(--warn)' : 'var(--fg3)',
+      listItems: listed.map((v, i) => ({ ...v, ...termMark(v.id), mini: v.hasReq ? v.reqKind : v.hasTodo ? `${v.todoText} ${v.phaseName}` : v.actLabel, miniColor: v.hasReq ? 'var(--warn)' : 'var(--fg3)',
         bg: v.id === s.selId ? 'var(--sel)' : 'transparent', ring: s.view === 'session' && s.focus === i ? '2px solid var(--acc)' : 'none', onTap: () => this.openSession(v.id) })),
       listEmpty: listed.length === 0, showList: !isPhone && (isDesk || !s.selId), listW: isDesk ? '320px' : '100%',
     });
@@ -1089,7 +1190,7 @@ class Component extends DCLogic {
       resetLeft: () => this.resetPaneWidth('left'), resetRight: () => this.resetPaneWidth('right'),
       keyLeft: (e) => this.paneKey('left', e), keyRight: (e) => this.paneKey('right', e),
     });
-    const screen = s.view === 'session' ? (T ? T.name || T.preview?.slice(0, 30) || '이름 없는 세션' : '세션') : '보드';
+    const screen = s.view === 'session' ? (T ? T.name || T.preview?.slice(0, 30) || '이름 없는 세션' : '세션') : s.view === 'terminals' ? '터미널' : '보드';
     this._tabTitle = `${inboxN ? `(${inboxN}) ` : ''}${screen} · omonitor`;
     this._tabIcon = inboxN ? TAB_ICON.wait : TAB_ICON.ok;
     Object.assign(vals, { hasSel: !!T, noSel: !T && isDesk, showBack: !isDesk, detailRef: this.detailRef });
@@ -1114,7 +1215,7 @@ class Component extends DCLogic {
       // The latest user message is what the agent is working on now; the Todo panel shows it above the list.
       const ask = items.findLast((x) => x.isUser);
       const diff = S.diffFiles(T.diff || '');
-      const tabsDef = [['todo', 'Todo', sel.hasTodo ? sel.todoText : ''], ['agents', '에이전트', sel.agents.length ? String(sel.agents.length) : ''], ['goal', '목표', T.goal ? '●' : ''], ['diff', '변경', diff.length ? String(diff.length) : ''], ['terminal', '터미널', '']];
+      const tabsDef = [['todo', 'Todo', sel.hasTodo ? sel.todoText : ''], ['agents', '에이전트', sel.agents.length ? String(sel.agents.length) : ''], ['goal', '목표', T.goal ? '●' : ''], ['diff', '변경', diff.length ? String(diff.length) : ''], ['terminal', '터미널', termOf.has(T.id) ? '●' : '']];
       const rtab = s.rtab, ptab = s.ptab;
       const panel = isPhone ? ptab : rtab;
       const g = T.goal;
@@ -1192,7 +1293,7 @@ class Component extends DCLogic {
         { label: '이름 변경', hint: '', fg: 'var(--fg)', sep: 'none', onTap: () => this.confirm('rename', T.id, { input: T.name || '' }) },
         { label: '복제 (fork)', hint: '', fg: 'var(--fg)', sep: 'none', onTap: async () => { this.setState({ menu: false }); const id = await st.fork(T.id); this.openSession(id); } },
         { label: '컨텍스트 압축', hint: '', fg: 'var(--fg)', sep: 'none', onTap: () => { this.setState({ menu: false }); st.compact(T.id).catch(() => {}); } },
-        T.archived ? { label: '보관 해제', hint: '', fg: 'var(--fg)', sep, onTap: () => { this.setState({ menu: false }); st.unarchive(T.id); } } : { label: '보관', hint: '', fg: 'var(--fg)', sep, onTap: () => { this.setState({ menu: false }); st.archive(T.id); } },
+        T.archived ? { label: '보관 해제', hint: '', fg: 'var(--fg)', sep, onTap: () => { this.setState({ menu: false }); st.unarchive(T.id); } } : { label: '보관', hint: '', fg: 'var(--fg)', sep, onTap: () => { this.setState({ menu: false }); st.archive(T.id).then(() => this.archiveTerm(T.id), () => {}); } },
         T.subscribed ? { label: '구독 해제', hint: '실시간 알림 끔', fg: 'var(--fg)', sep: 'none', onTap: () => this.confirm('unsubscribe', T.id) } : { label: '구독', hint: '실시간 알림 켬', fg: 'var(--fg)', sep: 'none', onTap: () => { if (this.needsTakeover(T)) return this.confirm('takeover', T.id); this.setState({ menu: false }); st.resume(T.id); } },
         { label: '삭제…', hint: '', fg: 'var(--err-fg)', sep, onTap: () => this.confirm('delete', T.id) },
       ];
@@ -1206,8 +1307,12 @@ class Component extends DCLogic {
     // ── dialogs ──
     const d = s.dialog;
     const dT = d ? st.T(d.id) : null;
+    const dTerm = d?.kind === 'termClose' ? terms.find((t) => t.id === d.id) : null;
+    const dTermProgs = dTerm ? progsOf(dTerm) : [];
     const DLG = {
-      delete: ['세션을 삭제할까요?', `“${dT?.name || ''}” 세션과 기록이 모두 지워집니다. 되돌릴 수 없습니다.`, '삭제', 'var(--err)', async () => { await st.remove(d.id); this.setState({ selId: null, view: s.view === 'session' ? (isPhone ? 'board' : 'session') : s.view }); }],
+      delete: ['세션을 삭제할까요?', `“${dT?.name || ''}” 세션과 기록이 모두 지워집니다.${termOf.has(d?.id) ? ' 이 세션의 터미널도 함께 종료됩니다.' : ''} 되돌릴 수 없습니다.`, '삭제', 'var(--err)', async () => { await st.remove(d.id); this.setState({ selId: null, view: s.view === 'session' ? (isPhone ? 'board' : 'session') : s.view }); this.termAction(() => this.TM.closeSessionTerminal(d.id), '세션 터미널을 종료하지 못했습니다'); }],
+      termClose: dTerm ? ['터미널을 종료할까요?', `“${termName(dTerm)}” 세션의 셸을 종료합니다.${dTermProgs.length ? ` 실행 중인 ${dTermProgs.join(', ')}도 함께 종료됩니다.` : ''} 화면 기록도 사라집니다.`, '종료', 'var(--err)', () => this.termAction(() => this.TM.closeTerminal(dTerm.id), '터미널을 종료하지 못했습니다')] : null,
+      termCloseIdle: ['빈 셸을 모두 닫을까요?', `실행 중인 프로그램이 없고 아무도 보고 있지 않은 터미널 ${idleTerms.length}개를 닫습니다. 끝난 셸의 화면 기록도 정리합니다.`, '모두 닫기', 'var(--err)', () => this.termAction(async () => { const r = await this.TM.closeIdleTerminals(); st.toast(`터미널 ${r.closed}개를 닫았습니다`, 'info'); }, '터미널을 닫지 못했습니다')],
       takeover: ['대시보드로 이어 받을까요?', `이 세션을 app-server로 불러옵니다. 터미널 omo에서 같은 세션이 열려 있으면 두 곳에서 동시에 기록해 충돌하니 먼저 종료하세요. 목표(goal)나 끝나지 않은 todo가 있으면 불러오자마자 omo가 이어서 작업할 수 있습니다.${d?.text ? ` 확인하면 메시지 “${d.text.length > 60 ? `${d.text.slice(0, 60)}…` : d.text}”를 보냅니다.` : ''}${d?.settings ? ' 확인하면 모델 설정을 바꿉니다.' : ''}`, d?.text ? '이어 받고 보내기' : '이어 받기', 'var(--acc)', async () => { await st.resume(d.id); if (d.settings) await st.setSettings(d.id, d.settings); if (d.text) await st.send(d.id, d.text); this.openSession(d.id); }],
       takeoverMany: ['여러 세션에 보낼까요?', `선택한 세션 중 ${(d?.ids || []).filter((id) => this.needsTakeover(st.T(id))).length}개는 아직 app-server에 불러오지 않았습니다. 터미널 omo에서 열려 있으면 충돌할 수 있고, 목표나 끝나지 않은 todo가 있으면 omo가 이어서 작업할 수 있습니다.`, '보내기', 'var(--acc)', () => this.sendMany(d.ids, d.text)],
       interrupt: ['작업을 중단할까요?', '진행 중인 턴을 멈춥니다. 대기 중인 승인 요청도 함께 취소됩니다.', '중단', 'var(--err)', () => st.interrupt(d.id)],
@@ -1308,7 +1413,7 @@ class Component extends DCLogic {
       const q = pal.q.trim().toLowerCase();
       const actions = [
         ['새 세션', 'N', () => this.setState({ sheet: this.newSheet() })], ['보드로 이동', '⌥1 · g b', () => this.go('board')],
-        ['세션 화면으로 이동', '⌥2 · g s', () => this.go('session')], [`테마: ${theme === 'dark' ? '라이트로' : '다크로'} 전환`, '', () => this.setState({ theme: theme === 'dark' ? 'light' : 'dark' })],
+        ['세션 화면으로 이동', '⌥2 · g s', () => this.go('session')], ['터미널 관리로 이동', '⌥3 · g t', () => this.go('terminals')], [`테마: ${theme === 'dark' ? '라이트로' : '다크로'} 전환`, '', () => this.setState({ theme: theme === 'dark' ? 'light' : 'dark' })],
         ['여러 세션에 메시지 보내기', '', () => this.setState({ view: 'board', selMode: true, sel: {} })],
         ...(this.mode === 'mock' ? [['연결 끊김 시뮬레이션', '데모', () => this.client.simulateDisconnect()]] : []),
       ].filter(([l]) => !q || l.toLowerCase().includes(q)).map(([label, hint, run]) => ({ label, hint, dot: 'transparent', run }));

@@ -2,14 +2,16 @@
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 .terminal{display:flex;flex-direction:column;height:100%;min-width:0;min-height:0;gap:6px}
-header{display:flex;align-items:center;gap:6px;flex:none}
-.status{flex:1;font-size:12px;color:var(--fg2)}
+/* One slim row (status, folder, start/close) so the shell gets the height. */
+header{display:flex;align-items:center;gap:8px;flex:none;min-width:0}
+.status{flex:none;font-size:12px;color:var(--fg2)}
+header button{min-height:26px;padding:2px 9px}
 button{font:12px var(--font-body,sans-serif);color:var(--fg);background:var(--bg2);border:1px solid var(--line);border-radius:var(--r-md,8px);padding:5px 8px;min-height:36px;cursor:pointer}
 button:hover{background:var(--hover)}
 button:focus-visible,textarea:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
 button:disabled{opacity:.5;cursor:default}
 button[aria-pressed=true]{color:var(--on-acc,var(--bg));background:var(--acc)}
-.cwd{font:11px var(--mono,monospace);color:var(--fg3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:none}
+.cwd{flex:1;min-width:0;font:11px var(--mono,monospace);color:var(--fg3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .screen{flex:1;min-width:0;min-height:0;overflow:hidden;background:#0a0d10;padding:4px;border-radius:var(--r-md,8px)}
 .screen:empty{display:none}
 .xterm{height:100%}

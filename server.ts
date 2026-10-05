@@ -376,7 +376,7 @@ const STATIC = new Set([
   ENTRY, '/support.js', '/app/real-client.js', '/app/mock-client.js', '/app/store.js', '/app/styles.css',
   '/McSessionCard.dc.html', '/McRequestCard.dc.html', '/McItem.dc.html', '/McComposer.dc.html',
   '/manifest.webmanifest', '/app/icon-180.png', '/app/icon-512.png', '/app/icon-maskable-512.png',
-  '/app/terminal.js', '/app/terminal-input.js', '/app/terminal-clipboard.js',
+  '/app/terminal.js', '/app/terminals.js', '/app/terminal-input.js', '/app/terminal-clipboard.js',
   '/app/terminal-reports.js', '/app/terminal-keys.js', '/app/terminal.css', '/app/push.js', '/sw.js',
 ]);
 const VENDOR = new Map([
@@ -430,7 +430,7 @@ const server = Bun.serve<SocketData>({
     }
     if (url.pathname.startsWith('/api/')) {
       if (!keyOk(req, url)) return new Response('bad key', { status: 401 });
-      if (url.pathname === '/api/terminal') {
+      if (url.pathname === '/api/terminal' || url.pathname.startsWith('/api/terminals/') || url.pathname === '/api/terminals') {
         try { return await terminals.http(req, url); }
         catch (error) {
           if (error instanceof TerminalError) return new Response(error.message, { status: error.status });
