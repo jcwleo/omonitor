@@ -141,6 +141,75 @@ async function omoUpdate() {
   catch (e: any) { return { update, restartError: String(e?.message || e) }; }
 }
 
+// ── plan usage of the Claude and ChatGPT subscriptions omo signs in with ──
+// app-server's account/rateLimits/read always fails (it serves only a Codex login) and omo keeps no rate-limit headers,
+// so usage comes from the endpoints behind Claude Code's /usage and Codex's /status, called with omo's own tokens from
+// auth.json. Neither is a public API. Tokens are never refreshed here: a refresh rotates the refresh token and would
+// leave omo's copy dead, so an expired token shows as an error until omo refreshes it on its next request.
+// Dashboards polling at once share one upstream call per USAGE_CACHE_MS.
+type UsageWindow = { label: string; percent: number; resetsAt: number | null };
+type UsageAccount = { provider: 'claude' | 'chatgpt'; name: string; plan: string | null; windows: UsageWindow[]; error?: string; expired?: boolean };
+const USAGE_CACHE_MS = 30 * 1000;
+class UsageExpired extends Error { constructor() { super('토큰이 만료됐습니다. omo가 다음 요청 때 갱신합니다'); } }
+let usageCache: { at: number; data: Promise<{ checkedAt: number; accounts: UsageAccount[] }> } | null = null;
+
+async function usageGet(url: string, headers: Record<string, string>) {
+  const res = await fetch(url, { headers: { ...headers, 'user-agent': 'omonitor/0.1.0', accept: 'application/json' }, signal: AbortSignal.timeout(8000) });
+  if (res.status === 401) throw new UsageExpired();
+  if (!res.ok) throw new Error(`사용량을 읽지 못했습니다 (HTTP ${res.status})`);
+  return res.json();
+}
+const usagePct = (n: unknown) => Math.max(0, Math.min(100, Number(n) || 0));
+const usageAt = (s: unknown) => (typeof s === 'string' && Date.parse(s)) || null;
+// Claude reports limits[] (5-hour session, weekly, weekly per model); older replies have only the named windows.
+function claudeWindows(u: any): UsageWindow[] {
+  if (Array.isArray(u?.limits) && u.limits.length) {
+    return u.limits.map((l: any) => ({
+      label: l.kind === 'session' ? '5시간' : l.kind === 'weekly_all' ? '주간' : l.scope?.model?.display_name ? `주간 ${l.scope.model.display_name}` : String(l.kind),
+      percent: usagePct(l.percent), resetsAt: usageAt(l.resets_at),
+    }));
+  }
+  return ([['five_hour', '5시간'], ['seven_day', '주간'], ['seven_day_opus', '주간 Opus'], ['seven_day_sonnet', '주간 Sonnet']] as const)
+    .filter(([k]) => u?.[k]).map(([k, label]) => ({ label, percent: usagePct(u[k].utilization), resetsAt: usageAt(u[k].resets_at) }));
+}
+const windowLabel = (sec: number) => (sec === 604800 ? '주간' : sec % 86400 === 0 ? `${sec / 86400}일` : sec % 3600 === 0 ? `${sec / 3600}시간` : `${Math.round(sec / 60)}분`);
+function chatgptWindows(u: any): UsageWindow[] {
+  return [u?.rate_limit?.primary_window, u?.rate_limit?.secondary_window].filter(Boolean).map((w: any) => ({
+    label: windowLabel(Number(w.limit_window_seconds) || 0), percent: usagePct(w.used_percent), resetsAt: w.reset_at ? w.reset_at * 1000 : null,
+  }));
+}
+async function usageOf(provider: UsageAccount['provider'], name: string, read: () => Promise<{ plan: string | null; windows: UsageWindow[] }>): Promise<UsageAccount> {
+  try { return { provider, name, ...(await read()) }; }
+  catch (e: any) { return { provider, name, plan: null, windows: [], error: String(e?.message || e), expired: e instanceof UsageExpired }; }
+}
+async function readUsage() {
+  const auth = JSON.parse(await readFile(join(AGENT_DIR, 'auth.json'), 'utf8').catch(() => '{}'));
+  const now = Date.now();
+  const jobs: Promise<UsageAccount>[] = [];
+  // anthropic-subscription keeps one slot per login in accounts[]; its top-level token is a placeholder.
+  const claude = auth[SUBSCRIPTION] ?? auth['claude-sdk-oauth'];
+  const slots = (Array.isArray(claude?.accounts) ? claude.accounts : claude ? [claude] : []).filter((a: any) => a?.access && a.access !== 'claude-sdk-oauth-managed');
+  for (const a of slots) {
+    jobs.push(usageOf('claude', slots.length > 1 && a.name ? `Claude ${a.name}` : 'Claude', async () => {
+      if (a.expires && a.expires <= now) throw new UsageExpired();
+      return { plan: null, windows: claudeWindows(await usageGet('https://api.anthropic.com/api/oauth/usage', { authorization: `Bearer ${a.access}`, 'anthropic-beta': 'oauth-2025-04-20' })) };
+    }));
+  }
+  const gpt = auth['chatgpt-subscription'] ?? auth['openai-codex'];
+  if (gpt?.access) {
+    jobs.push(usageOf('chatgpt', 'ChatGPT', async () => {
+      if (gpt.expires && gpt.expires <= now) throw new UsageExpired();
+      const u = await usageGet('https://chatgpt.com/backend-api/wham/usage', { authorization: `Bearer ${gpt.access}`, ...(gpt.accountId ? { 'chatgpt-account-id': gpt.accountId } : {}) });
+      return { plan: typeof u?.plan_type === 'string' ? u.plan_type : null, windows: chatgptWindows(u) };
+    }));
+  }
+  return { checkedAt: now, accounts: await Promise.all(jobs) };
+}
+function planUsage() {
+  if (!usageCache || Date.now() - usageCache.at >= USAGE_CACHE_MS) usageCache = { at: Date.now(), data: readUsage() };
+  return usageCache.data;
+}
+
 // ── skills: builtin + SKILL.md folders (same precedence as omo) ──
 const BUILTIN = [
   ...[['goal', '세션 목표 설정·조회·일시정지·해제'], ['ulw-execute', 'Prometheus 계획으로 Atlas 실행 시작'], ['refactor', 'LSP·AST-grep 기반 리팩터링 + TDD 검증'], ['handoff', '새 세션으로 넘길 인계 요약 작성'], ['stop-continuation', 'todo 이어가기·목표 등 자동 진행 모두 중단'], ['remove-ai-slops', '브랜치 변경에서 AI 티 나는 코드 정리'], ['hyperplan', '팀 모드 적대적 계획 (team_mode 필요)']].map(([name, desc]) => ({ kind: 'command', name, desc, source: 'builtin' })),
@@ -457,6 +526,7 @@ const server = Bun.serve<SocketData>({
           if (url.pathname === '/api/push/test') return Response.json(await push.test(body));
           if (url.pathname === '/api/push/request') return Response.json(await push.relay(body));
         }
+        if (url.pathname === '/api/usage' && req.method === 'GET') return Response.json(await planUsage());
         if (url.pathname === '/api/omo/version') return Response.json(await omoVersion());
         if (url.pathname === '/api/omo/update' && req.method === 'POST') return Response.json(await omoUpdate());
       } catch (e: any) { return new Response(String(e?.message || e), { status: e instanceof PushError ? e.status : 500 }); }

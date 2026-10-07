@@ -1,6 +1,6 @@
 // SessionClient — the only thing the UI talks to. MockClient (app/mock-client.js) and RealClient
 // below implement the same contract, so swapping them needs no UI change.
-import type { RequestId, RpcNotification, ServerRequest, Skill, Item, InitializeParams, Turn, Model, OmoVersion, OmoUpdateResult } from './protocol';
+import type { RequestId, RpcNotification, ServerRequest, Skill, Item, InitializeParams, Turn, Model, OmoVersion, OmoUpdateResult, PlanUsage } from './protocol';
 
 export type ConnectionState = 'connecting' | 'open' | 'reconnecting' | 'closed';
 export interface ConnectionEvent { state: ConnectionState; attempt?: number; retryInMs?: number; reconnected?: boolean }
@@ -30,6 +30,8 @@ export interface SessionClient {
     pushRequest(body: { threadId: string; requestId: string | number; kind: 'question' | 'approval'; title: string; body: string }): Promise<{ sent: number }>;
     /** Models of extension-registered providers (Claude subscription) that model/list does not return. */
     extraModels(): Promise<Model[]>;
+    /** Claude and ChatGPT plan usage of omo's logins; app-server's account/rateLimits/read does not serve them. */
+    usage(): Promise<PlanUsage>;
     omoVersion(): Promise<OmoVersion>;
     /** Updates omo and restarts the app-server daemon, which ends every session running under it. */
     omoUpdate(): Promise<OmoUpdateResult>;
@@ -91,6 +93,11 @@ export class RealClient implements SessionClient {
     },
     extraModels: async (): Promise<Model[]> => {
       const r = await fetch('/api/models/extra', { headers: this.hdr() });
+      if (!r.ok) throw new Error(await r.text());
+      return r.json();
+    },
+    usage: async (): Promise<PlanUsage> => {
+      const r = await fetch('/api/usage', { headers: this.hdr() });
       if (!r.ok) throw new Error(await r.text());
       return r.json();
     },

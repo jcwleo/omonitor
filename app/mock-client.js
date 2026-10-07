@@ -265,6 +265,14 @@ export class MockClient {
           { type: 'dynamicToolCall', id: nid('it'), tool: 'todo', status: 'completed', success: true, contentItems: [], arguments: { op: 'done', task: '이미지 최적화 캐시' } },
         ];
       },
+      usage: async () => {
+        await sleep(300);
+        const at = (h) => Date.now() + h * 3600 * 1000;
+        return { checkedAt: Date.now(), accounts: [
+          { provider: 'claude', name: 'Claude', plan: null, windows: [{ label: '5시간', percent: 38, resetsAt: at(2.4) }, { label: '주간', percent: 74, resetsAt: at(61) }, { label: '주간 Opus', percent: 12, resetsAt: at(61) }] },
+          { provider: 'chatgpt', name: 'ChatGPT', plan: 'pro', windows: [{ label: '5시간', percent: 9, resetsAt: at(4.1) }, { label: '주간', percent: 93, resetsAt: at(30) }] },
+        ] };
+      },
       omoVersion: async () => {
         await sleep(300);
         return { current: '5.1.5', latest: '5.2.0', updateAvailable: true, checkedAt: Date.now() };

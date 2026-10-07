@@ -62,6 +62,12 @@ export class RealClient {
         if (!r.ok) throw new Error(await r.text());
         return r.json();
       },
+      // Plan usage of the Claude and ChatGPT logins omo uses → { checkedAt, accounts: [{ provider, name, plan, windows, error? }] }.
+      usage: async () => {
+        const r = await fetch(api('api/usage'), { headers: hdr() });
+        if (!r.ok) throw new Error(await r.text());
+        return r.json();
+      },
       omoVersion: async () => {
         const r = await fetch(api('api/omo/version'), { headers: hdr() });
         if (!r.ok) throw new Error(await r.text());

@@ -119,5 +119,11 @@ export interface UserInputAnsweredParams { answers: Record<string, { answers: st
 export interface Skill { kind: 'command' | 'skill' | 'keyword'; name: string; desc: string; source: 'builtin' | 'user'; insert?: string; label?: string }
 /** GET /api/omo/version: the installed omo against the npm `latest` tag (cached 10 minutes by the backend). */
 export interface OmoVersion { current: string; latest: string; updateAvailable: boolean; checkedAt: number }
+/** One limit window of a subscription plan; percent is 0-100 and resetsAt is in ms. */
+export interface UsageWindow { label: string; percent: number; resetsAt: number | null }
+/** A Claude or ChatGPT login of omo. expired: the token ran out and waits for omo to refresh it. */
+export interface UsageAccount { provider: 'claude' | 'chatgpt'; name: string; plan: string | null; windows: UsageWindow[]; error?: string; expired?: boolean }
+/** GET /api/usage: plan usage read with omo's tokens from auth.json (cached 30 seconds by the backend). */
+export interface PlanUsage { checkedAt: number; accounts: UsageAccount[] }
 /** POST /api/omo/update: `omo update`, then `omo app-server daemon restart`. restartError means the update went in but the restart failed. */
 export interface OmoUpdateResult { update: string; restart?: string; restartError?: string }

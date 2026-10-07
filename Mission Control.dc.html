@@ -116,6 +116,7 @@ html[data-vt]::view-transition-old(root),html[data-vt]::view-transition-new(root
 <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="3"><button data-press="btn" onClick="{{ t.onTap }}" title="{{ t.title }}" style="all:unset;cursor:pointer;position:relative;isolation:isolate;display:flex;align-items:center;gap:5px;min-height:32px;padding:0 10px;border-radius:var(--r-sm);font-size:13px;font-weight:500;color:{{ t.fg }}" style-hover="color:var(--fg)"><span aria-hidden="true" style="position:absolute;inset:0;z-index:-1;border-radius:inherit;background:{{ t.bg }};box-shadow:{{ t.shadow }};view-transition-name:{{ t.vtn }}"></span>{{ t.label }}<sc-if value="{{ t.hasKey }}"><span style="font:11.5px var(--mono);color:var(--fg3)">{{ t.key }}</span></sc-if><sc-if value="{{ t.hasBadge }}"><span style="animation:{{ badgeAnim }};font:600 11px/16px var(--font-ui);background:var(--warn);color:var(--on-warn);padding:0 5px;min-width:16px;box-sizing:border-box;border-radius:999px;text-align:center">{{ t.badge }}</span></sc-if></button></sc-for>
 </div>
 <div style="margin-left:auto;display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--fg2)">
+<sc-if value="{{ usageInline }}"><div style="display:flex;align-items:center;gap:4px"><sc-for list="{{ usageAccts }}" as="u"><span title="{{ u.title }}" aria-label="{{ u.title }}" style="display:flex;align-items:center;gap:8px;min-height:28px;padding:0 10px;box-sizing:border-box;border-radius:999px;background:var(--tint);white-space:nowrap;cursor:default"><span style="color:var(--fg);font-weight:500">{{ u.name }}</span><sc-if value="{{ u.hasError }}"><span style="color:var(--fg3)">{{ u.errShort }}</span></sc-if><sc-for list="{{ u.wins }}" as="w"><span style="display:flex;align-items:center;gap:5px"><span style="font-size:11.5px;color:var(--fg3)">{{ w.label }}</span><span aria-hidden="true" style="position:relative;flex:none;width:28px;height:4px;border-radius:999px;background:var(--line2);overflow:hidden"><span style="position:absolute;inset:0;border-radius:inherit;background:{{ w.color }};transform-origin:left center;scale:{{ w.frac }} 1;transition:scale var(--dur-slow) var(--ease-out)"></span></span><span style="font:11.5px var(--mono);color:var(--fg)">{{ w.pct }}</span></span></sc-for></span></sc-for></div></sc-if>
 <span style="display:flex;align-items:center;gap:6px;white-space:nowrap;padding:0 6px"><span style="width:7px;height:7px;border-radius:50%;background:{{ connDot }}"></span>{{ connLabel }}</span>
 <sc-if value="{{ vBoard }}">
 <button data-press="btn" onClick="{{ toggleGroup }}" aria-pressed="{{ groupPressed }}" title="보드를 프로젝트별로 묶기" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:6px;min-height:34px;padding:0 10px;box-sizing:border-box;border-radius:var(--r-md);border:1px solid {{ groupBd }};background:{{ groupBg }};color:{{ groupFg }}" style-hover="background:var(--hover)"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="flex:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round"><path d="m12 3 9 5-9 5-9-5 9-5Z"></path><path d="m3 13 9 5 9-5"></path></svg>프로젝트별</button>
@@ -127,6 +128,7 @@ html[data-vt]::view-transition-old(root),html[data-vt]::view-transition-new(root
 <button class="btn btn-primary" onClick="{{ openNew }}" style="font-size:13px;min-height:34px;padding:0 12px 0 9px;gap:5px"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="flex:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>새 세션</button>
 </div>
 </div>
+<sc-if value="{{ usageRow }}"><div style="flex:none;display:flex;flex-wrap:wrap;align-items:center;gap:4px;padding:5px 10px 5px 14px;border-bottom:1px solid var(--line-soft);font-size:12.5px;color:var(--fg2)"><sc-for list="{{ usageAccts }}" as="u"><span title="{{ u.title }}" aria-label="{{ u.title }}" style="display:flex;align-items:center;gap:8px;min-height:26px;padding:0 10px;box-sizing:border-box;border-radius:999px;background:var(--tint);white-space:nowrap;cursor:default"><span style="color:var(--fg);font-weight:500">{{ u.name }}</span><sc-if value="{{ u.hasError }}"><span style="color:var(--fg3)">{{ u.errShort }}</span></sc-if><sc-for list="{{ u.wins }}" as="w"><span style="display:flex;align-items:center;gap:5px"><span style="font-size:11.5px;color:var(--fg3)">{{ w.label }}</span><span aria-hidden="true" style="position:relative;flex:none;width:28px;height:4px;border-radius:999px;background:var(--line2);overflow:hidden"><span style="position:absolute;inset:0;border-radius:inherit;background:{{ w.color }};transform-origin:left center;scale:{{ w.frac }} 1;transition:scale var(--dur-slow) var(--ease-out)"></span></span><span style="font:11.5px var(--mono);color:var(--fg)">{{ w.pct }}</span></span></sc-for></span></sc-for></div></sc-if>
 </sc-if>
 
 <sc-if value="{{ phoneTop }}">
@@ -137,6 +139,7 @@ html[data-vt]::view-transition-old(root),html[data-vt]::view-transition-new(root
 <button data-press="btn" type="button" onClick="{{ reloadPage }}" title="페이지 새로고침" aria-label="페이지 새로고침" style="all:unset;cursor:pointer;flex:none;width:44px;height:44px;display:grid;place-items:center;color:var(--fg2)" style-hover="background:var(--hover)"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round"><path d="M20 7v5h-5"></path><path d="M20 12a8 8 0 1 0-2.3 5.7M20 7l-2.3-2.7"></path></svg></button>
 <sc-if value="{{ vBoard }}"><button data-press="btn" onClick="{{ toggleGroup }}" style="all:unset;cursor:pointer;margin-left:auto;min-height:44px;padding:0 6px;font-size:12.5px;color:{{ groupFg }};display:flex;align-items:center">프로젝트별</button><button data-press="btn" onClick="{{ toggleAllC }}" style="all:unset;cursor:pointer;min-height:44px;padding:0 6px;font-size:12.5px;color:var(--fg2);display:flex;align-items:center">{{ allCLabel }}</button><button data-press="btn" onClick="{{ toggleSelMode }}" style="all:unset;cursor:pointer;min-height:44px;padding:0 7px 0 4px;font-size:12.5px;color:{{ selModeFg }};display:flex;align-items:center">{{ selModeShort }}</button></sc-if>
 </div>
+<sc-if value="{{ hasUsage }}"><div style="flex:none;display:flex;flex-wrap:wrap;align-items:center;gap:2px 14px;padding:0 14px 6px;font-size:12px;color:var(--fg2)"><sc-for list="{{ usageAccts }}" as="u"><span aria-label="{{ u.title }}" style="display:flex;align-items:center;gap:7px;min-height:22px;white-space:nowrap"><span style="color:var(--fg);font-weight:500">{{ u.name }}</span><sc-if value="{{ u.hasError }}"><span style="color:var(--fg3)">{{ u.errShort }}</span></sc-if><sc-for list="{{ u.wins }}" as="w"><span style="display:flex;align-items:center;gap:4px"><span style="font-size:11.5px;color:var(--fg3)">{{ w.label }}</span><span aria-hidden="true" style="position:relative;flex:none;width:22px;height:4px;border-radius:999px;background:var(--line2);overflow:hidden"><span style="position:absolute;inset:0;border-radius:inherit;background:{{ w.color }};transform-origin:left center;scale:{{ w.frac }} 1;transition:scale var(--dur-slow) var(--ease-out)"></span></span><span style="font:11.5px var(--mono);color:var(--fg)">{{ w.pct }}</span></span></sc-for></span></sc-for></div></sc-if>
 <sc-if value="{{ hasProjectFilter }}"><div style="padding:0 10px 3px;flex:none"><button onClick="{{ clearProjectFilter }}" style="all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:0 12px;box-sizing:border-box;border-radius:999px;background:var(--acc-tint);color:var(--acc-fg);font:12.5px var(--mono)">{{ projectFilter }}<span style="font-family:var(--font-body);color:var(--fg2)">✕</span></button></div></sc-if>
 </sc-if>
 
@@ -630,9 +633,13 @@ class Component extends DCLogic {
       this.info = real ? `${this.client.serverInfo ? `${this.client.serverInfo.name} ${this.client.serverInfo.version}` : 'omo app-server'} · ${this.upstream}` : 'mock 시뮬레이터 · 실제 서버 아님';
       this.checkOmoVersion();
       this.versionTick = setInterval(() => this.checkOmoVersion(), 30 * 60 * 1000);
+      // Plan usage: every minute while the page is visible and after each finished turn (the backend caches it for 30s).
+      this.checkUsage();
+      this.usageTick = setInterval(() => { if (document.visibilityState === 'visible') this.checkUsage(); }, 60 * 1000);
+      this.client.on('notification', (m) => { if (m.method === 'turn/completed') this.checkUsage(); });
     } catch (e) { console.error(e); this.setState({ fatal: String(e?.message || e) }); }
   }
-  componentWillUnmount() { window.visualViewport?.removeEventListener('resize', this.fitViewport); window.visualViewport?.removeEventListener('scroll', this.fitViewport); window.removeEventListener('scroll', this.fitViewport); document.removeEventListener('touchstart', this.onTouchStart); document.removeEventListener('touchmove', this.onTouchMove); document.removeEventListener('touchend', this.onTouchEnd); document.removeEventListener('touchcancel', this.onTouchEnd); window.removeEventListener('resize', this.onResize); window.removeEventListener('keydown', this.onKey); window.removeEventListener('dragover', this.onWinDrag); window.removeEventListener('drop', this.onWinDrag); document.removeEventListener('mc-terminal-live', this.onTermLive); clearInterval(this.tick); clearInterval(this.versionTick); clearInterval(this.termTick); this.exits?.disconnect(); this.client?.close(); }
+  componentWillUnmount() { window.visualViewport?.removeEventListener('resize', this.fitViewport); window.visualViewport?.removeEventListener('scroll', this.fitViewport); window.removeEventListener('scroll', this.fitViewport); document.removeEventListener('touchstart', this.onTouchStart); document.removeEventListener('touchmove', this.onTouchMove); document.removeEventListener('touchend', this.onTouchEnd); document.removeEventListener('touchcancel', this.onTouchEnd); window.removeEventListener('resize', this.onResize); window.removeEventListener('keydown', this.onKey); window.removeEventListener('dragover', this.onWinDrag); window.removeEventListener('drop', this.onWinDrag); document.removeEventListener('mc-terminal-live', this.onTermLive); clearInterval(this.tick); clearInterval(this.versionTick); clearInterval(this.usageTick); clearInterval(this.termTick); this.exits?.disconnect(); this.client?.close(); }
   // The conversation follows the finger during a back swipe. Styles go straight to the element so the drag does not
   // re-render; React leaves them alone because the template sets no transform, transition or shadow there.
   slideDetail(dx) {
@@ -823,6 +830,10 @@ class Component extends DCLogic {
     this.setState({ push: { ready: true, on: !!sub, busy: false, why: sup.why } });
   }
   async checkOmoVersion() { try { const ver = await this.client?.backend?.omoVersion?.(); if (ver) this.setState({ omoVer: ver }); } catch {} }
+  async checkUsage() {
+    try { const usage = await this.client?.backend?.usage?.(); if (usage) this.setState({ usage }); }
+    catch (e) { console.warn('[omonitor] 요금제 사용량을 읽지 못했습니다:', e?.message || e); }
+  }
   async runOmoUpdate() {
     const st = this.store;
     this.setState({ omoUpdating: true });
@@ -1577,6 +1588,26 @@ class Component extends DCLogic {
         this.confirm('omoUpdate', null);
       },
     });
+
+    // ── plan usage (Claude / ChatGPT) ──
+    // The header shows the first two windows and any other one that is filling up; the tooltip lists all with reset times.
+    const resetIn = (at) => {
+      const m = Math.max(0, Math.round((at - (now || Date.now())) / 60000));
+      return m < 60 ? `${m}분 후` : m < 1440 ? `${Math.floor(m / 60)}시간 ${m % 60}분 후` : `${Math.floor(m / 1440)}일 ${Math.floor((m % 1440) / 60)}시간 후`;
+    };
+    const usageAccts = (s.usage?.accounts || []).map((a) => ({
+      name: a.name, hasError: !!a.error, errShort: a.expired ? '갱신 대기' : '확인 불가',
+      title: [`${a.name}${a.plan ? ` · ${a.plan}` : ''}`, ...(a.error ? [a.error] : a.windows.map((w) => `${w.label} ${Math.round(w.percent)}%${w.resetsAt ? ` · ${resetIn(w.resetsAt)} 초기화` : ''}`))].join('\n'),
+      wins: a.windows.filter((w, i) => i < 2 || w.percent >= 70).map((w) => ({
+        label: w.label, pct: `${Math.round(w.percent)}%`, frac: String(w.percent / 100),
+        color: w.percent >= 90 ? 'var(--err)' : w.percent >= 70 ? 'var(--warn)' : 'var(--acc)',
+      })),
+    }));
+    // The chips sit in the header when they fit beside its own controls (about 880px on the board and 660px on other
+    // screens, measured at 1440px; an account takes about 76px plus 88px a window), otherwise in a row under it.
+    const usageW = usageAccts.reduce((n, a) => n + 76 + 88 * a.wins.length, 0);
+    const usageInline = !isPhone && usageAccts.length > 0 && s.w >= (s.view === 'board' ? 900 : 680) + usageW;
+    Object.assign(vals, { hasUsage: usageAccts.length > 0, usageAccts, usageInline, usageRow: !isPhone && usageAccts.length > 0 && !usageInline });
 
     // ── command palette ──
     const pal = s.pal;
