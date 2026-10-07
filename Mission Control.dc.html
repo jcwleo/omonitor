@@ -636,7 +636,7 @@ class Component extends DCLogic {
       this.info = real ? `${this.client.serverInfo ? `${this.client.serverInfo.name} ${this.client.serverInfo.version}` : 'omo app-server'} · ${this.upstream}` : 'mock 시뮬레이터 · 실제 서버 아님';
       this.checkOmoVersion();
       this.versionTick = setInterval(() => this.checkOmoVersion(), 30 * 60 * 1000);
-      // Plan usage: every minute while the page is visible and after each finished turn (the backend caches it for 30s).
+      // Plan usage: every minute while the page is visible and after each finished turn (the backend caches Claude for 3 minutes, ChatGPT for 30s).
       this.checkUsage();
       this.usageTick = setInterval(() => { if (document.visibilityState === 'visible') this.checkUsage(); }, 60 * 1000);
       this.client.on('notification', (m) => { if (m.method === 'turn/completed') this.checkUsage(); });

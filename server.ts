@@ -146,12 +146,14 @@ async function omoUpdate() {
 // so usage comes from the endpoints behind Claude Code's /usage and Codex's /status, called with omo's own tokens from
 // auth.json. Neither is a public API. Tokens are never refreshed here: a refresh rotates the refresh token and would
 // leave omo's copy dead, so an expired token shows as an error until omo refreshes it on its next request.
-// Dashboards polling at once share one upstream call per USAGE_CACHE_MS.
+// Dashboards polling at once share one upstream call per provider per USAGE_CACHE_MS.
 type UsageWindow = { label: string; percent: number; resetsAt: number | null };
 type UsageAccount = { provider: 'claude' | 'chatgpt'; name: string; plan: string | null; windows: UsageWindow[]; error?: string; expired?: boolean };
-const USAGE_CACHE_MS = 30 * 1000;
+// Anthropic's endpoint answers 429 to calls about 30s apart (anthropics/claude-code#31637), so Claude is read at most
+// every 3 minutes, and a failed read waits as long as a good one.
+const USAGE_CACHE_MS: Record<UsageAccount['provider'], number> = { claude: 3 * 60 * 1000, chatgpt: 30 * 1000 };
 class UsageExpired extends Error { constructor() { super('토큰이 만료됐습니다. omo가 다음 요청 때 갱신합니다'); } }
-let usageCache: { at: number; data: Promise<{ checkedAt: number; accounts: UsageAccount[] }> } | null = null;
+const usageCache = new Map<UsageAccount['provider'], { at: number; data: Promise<UsageAccount[]> }>();
 
 async function usageGet(url: string, headers: Record<string, string>) {
   const res = await fetch(url, { headers: { ...headers, 'user-agent': 'omonitor/0.1.0', accept: 'application/json' }, signal: AbortSignal.timeout(8000) });
@@ -182,32 +184,39 @@ async function usageOf(provider: UsageAccount['provider'], name: string, read: (
   try { return { provider, name, ...(await read()) }; }
   catch (e: any) { return { provider, name, plan: null, windows: [], error: String(e?.message || e), expired: e instanceof UsageExpired }; }
 }
-async function readUsage() {
-  const auth = JSON.parse(await readFile(join(AGENT_DIR, 'auth.json'), 'utf8').catch(() => '{}'));
+const readAuth = async () => JSON.parse(await readFile(join(AGENT_DIR, 'auth.json'), 'utf8').catch(() => '{}'));
+async function claudeUsage() {
+  const auth = await readAuth();
   const now = Date.now();
-  const jobs: Promise<UsageAccount>[] = [];
   // anthropic-subscription keeps one slot per login in accounts[]; its top-level token is a placeholder.
   const claude = auth[SUBSCRIPTION] ?? auth['claude-sdk-oauth'];
   const slots = (Array.isArray(claude?.accounts) ? claude.accounts : claude ? [claude] : []).filter((a: any) => a?.access && a.access !== 'claude-sdk-oauth-managed');
-  for (const a of slots) {
-    jobs.push(usageOf('claude', slots.length > 1 && a.name ? `Claude ${a.name}` : 'Claude', async () => {
-      if (a.expires && a.expires <= now) throw new UsageExpired();
-      return { plan: null, windows: claudeWindows(await usageGet('https://api.anthropic.com/api/oauth/usage', { authorization: `Bearer ${a.access}`, 'anthropic-beta': 'oauth-2025-04-20' })) };
-    }));
-  }
-  const gpt = auth['chatgpt-subscription'] ?? auth['openai-codex'];
-  if (gpt?.access) {
-    jobs.push(usageOf('chatgpt', 'ChatGPT', async () => {
-      if (gpt.expires && gpt.expires <= now) throw new UsageExpired();
-      const u = await usageGet('https://chatgpt.com/backend-api/wham/usage', { authorization: `Bearer ${gpt.access}`, ...(gpt.accountId ? { 'chatgpt-account-id': gpt.accountId } : {}) });
-      return { plan: typeof u?.plan_type === 'string' ? u.plan_type : null, windows: chatgptWindows(u) };
-    }));
-  }
-  return { checkedAt: now, accounts: await Promise.all(jobs) };
+  return Promise.all(slots.map((a: any) => usageOf('claude', slots.length > 1 && a.name ? `Claude ${a.name}` : 'Claude', async () => {
+    if (a.expires && a.expires <= now) throw new UsageExpired();
+    return { plan: null, windows: claudeWindows(await usageGet('https://api.anthropic.com/api/oauth/usage', { authorization: `Bearer ${a.access}`, 'anthropic-beta': 'oauth-2025-04-20' })) };
+  })));
 }
-function planUsage() {
-  if (!usageCache || Date.now() - usageCache.at >= USAGE_CACHE_MS) usageCache = { at: Date.now(), data: readUsage() };
-  return usageCache.data;
+async function chatgptUsage() {
+  const auth = await readAuth();
+  const now = Date.now();
+  const gpt = auth['chatgpt-subscription'] ?? auth['openai-codex'];
+  if (!gpt?.access) return [];
+  return [await usageOf('chatgpt', 'ChatGPT', async () => {
+    if (gpt.expires && gpt.expires <= now) throw new UsageExpired();
+    const u = await usageGet('https://chatgpt.com/backend-api/wham/usage', { authorization: `Bearer ${gpt.access}`, ...(gpt.accountId ? { 'chatgpt-account-id': gpt.accountId } : {}) });
+    return { plan: typeof u?.plan_type === 'string' ? u.plan_type : null, windows: chatgptWindows(u) };
+  })];
+}
+function cachedUsage(provider: UsageAccount['provider'], read: () => Promise<UsageAccount[]>) {
+  const hit = usageCache.get(provider);
+  if (hit && Date.now() - hit.at < USAGE_CACHE_MS[provider]) return hit.data;
+  const data = read();
+  usageCache.set(provider, { at: Date.now(), data });
+  return data;
+}
+async function planUsage() {
+  const [claude, chatgpt] = await Promise.all([cachedUsage('claude', claudeUsage), cachedUsage('chatgpt', chatgptUsage)]);
+  return { checkedAt: Date.now(), accounts: [...claude, ...chatgpt] };
 }
 
 // ── skills: builtin + SKILL.md folders (same precedence as omo) ──

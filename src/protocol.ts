@@ -123,7 +123,7 @@ export interface OmoVersion { current: string; latest: string; updateAvailable: 
 export interface UsageWindow { label: string; percent: number; resetsAt: number | null }
 /** A Claude or ChatGPT login of omo. expired: the token ran out and waits for omo to refresh it. */
 export interface UsageAccount { provider: 'claude' | 'chatgpt'; name: string; plan: string | null; windows: UsageWindow[]; error?: string; expired?: boolean }
-/** GET /api/usage: plan usage read with omo's tokens from auth.json (cached 30 seconds by the backend). */
+/** GET /api/usage: plan usage read with omo's tokens from auth.json (cached by the backend: Claude 3 minutes, ChatGPT 30 seconds). */
 export interface PlanUsage { checkedAt: number; accounts: UsageAccount[] }
 /** POST /api/omo/update: `omo update`, then `omo app-server daemon restart`. restartError means the update went in but the restart failed. */
 export interface OmoUpdateResult { update: string; restart?: string; restartError?: string }
