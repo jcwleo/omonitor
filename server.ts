@@ -440,13 +440,64 @@ async function saveUpload(req: Request) {
   return Response.json({ path, url: `/uploads/${name}` });
 }
 
+// ── git graph of a session folder: branch, upstream, uncommitted changes and the latest commits with their parents ──
+const GIT_LOG_MAX = 200;
+type GitRef = { name: string; kind: 'branch' | 'remote' | 'tag' | 'head'; current?: boolean };
+async function git(cwd: string, args: string[]) {
+  // Read-only: GIT_OPTIONAL_LOCKS=0 keeps `git status` off the index lock the agent's own git commands take, and a
+  // repo's core.fsmonitor command is not run.
+  const p = Bun.spawn(['git', '-c', 'core.fsmonitor=false', ...args], {
+    cwd, stdin: 'ignore', stdout: 'pipe', stderr: 'pipe', env: { ...process.env, GIT_OPTIONAL_LOCKS: '0', GIT_TERMINAL_PROMPT: '0' },
+  });
+  const [out, err, code] = await Promise.all([new Response(p.stdout).text(), new Response(p.stderr).text(), p.exited]);
+  return { out, err: err.trim(), code };
+}
+// `--decorate=full` names, e.g. "HEAD -> refs/heads/main, refs/remotes/origin/main, tag: refs/tags/v1".
+function gitRefs(decorations: string): GitRef[] {
+  const refs: GitRef[] = [];
+  for (const d of decorations.split(', ').filter(Boolean)) {
+    const current = d.startsWith('HEAD -> ');
+    const ref = current ? d.slice(8) : d.replace(/^tag: /, '');
+    if (ref === 'HEAD') refs.push({ name: 'HEAD', kind: 'head' });
+    else if (ref.startsWith('refs/heads/')) refs.push({ name: ref.slice(11), kind: 'branch', ...(current ? { current } : {}) });
+    else if (ref.startsWith('refs/remotes/') && !ref.endsWith('/HEAD')) refs.push({ name: ref.slice(13), kind: 'remote' });
+    else if (ref.startsWith('refs/tags/')) refs.push({ name: ref.slice(10), kind: 'tag' });
+  }
+  return refs;
+}
+async function gitGraph(cwd: string) {
+  if (!cwd) return { repo: false, reason: '작업 폴더가 없는 세션입니다' };
+  if (!(await stat(cwd).then((s) => s.isDirectory(), () => false))) return { repo: false, reason: `작업 폴더를 찾지 못했습니다: ${cwd}` };
+  const top = await git(cwd, ['rev-parse', '--show-toplevel']);
+  if (top.code !== 0) return { repo: false, reason: 'git 저장소가 아닌 폴더입니다' };
+  const status = await git(cwd, ['status', '--porcelain=v2', '--branch']);
+  if (status.code !== 0) throw new Error(status.err || 'git status에 실패했습니다');
+  const header = (key: string) => status.out.match(new RegExp(`^# branch\\.${key} (.+)$`, 'm'))?.[1];
+  const initial = header('oid') === '(initial)';
+  const ab = header('ab')?.match(/^\+(\d+) -(\d+)$/);
+  // Branches, remote branches and tags, not the stash; a repo without commits has no HEAD to name.
+  const log = await git(cwd, ['log', '--branches', '--remotes', '--tags', ...(initial ? [] : ['HEAD']), '--topo-order', `--max-count=${GIT_LOG_MAX + 1}`,
+    '--decorate=full', '--format=%H%x1f%P%x1f%D%x1f%an%x1f%at%x1f%s%x1e']);
+  if (log.code !== 0) throw new Error(log.err || 'git log에 실패했습니다');
+  const commits = log.out.split('\x1e').map((r) => r.replace(/^\n/, '')).filter(Boolean).map((r) => {
+    const [hash, parents, refs, author, at, subject] = r.split('\x1f');
+    return { hash, parents: parents ? parents.split(' ') : [], refs: gitRefs(refs), author, time: Number(at) * 1000, subject };
+  });
+  return {
+    repo: true, root: top.out.trim(), branch: header('head') === '(detached)' ? null : header('head') || null, oid: initial ? null : header('oid') || null,
+    upstream: header('upstream') || null, ahead: ab ? Number(ab[1]) : 0, behind: ab ? Number(ab[2]) : 0,
+    changes: status.out.split('\n').filter((l) => /^[12u?] /.test(l)).length,
+    commits: commits.slice(0, GIT_LOG_MAX), truncated: commits.length > GIT_LOG_MAX,
+  };
+}
+
 // ── static files (only the assets used by the dashboard) ──
 const STATIC = new Set([
   ENTRY, '/support.js', '/app/real-client.js', '/app/mock-client.js', '/app/store.js', '/app/styles.css',
   '/McSessionCard.dc.html', '/McRequestCard.dc.html', '/McItem.dc.html', '/McComposer.dc.html',
   '/manifest.webmanifest', '/app/icon-180.png', '/app/icon-512.png', '/app/icon-maskable-512.png',
   '/app/terminal.js', '/app/terminals.js', '/app/terminal-input.js', '/app/terminal-clipboard.js',
-  '/app/terminal-reports.js', '/app/terminal-keys.js', '/app/terminal.css', '/app/push.js', '/sw.js',
+  '/app/terminal-reports.js', '/app/terminal-keys.js', '/app/terminal.css', '/app/push.js', '/sw.js', '/app/git-graph.js',
 ]);
 const VENDOR = new Map([
   ['/vendor/xterm.js', join(ROOT, 'node_modules/@xterm/xterm/lib/xterm.mjs')],
@@ -527,6 +578,7 @@ const server = Bun.serve<SocketData>({
           if (url.pathname === '/api/push/request') return Response.json(await push.relay(body));
         }
         if (url.pathname === '/api/usage' && req.method === 'GET') return Response.json(await planUsage());
+        if (url.pathname === '/api/git' && req.method === 'GET') return Response.json(await gitGraph(url.searchParams.get('cwd') || ''));
         if (url.pathname === '/api/omo/version') return Response.json(await omoVersion());
         if (url.pathname === '/api/omo/update' && req.method === 'POST') return Response.json(await omoUpdate());
       } catch (e: any) { return new Response(String(e?.message || e), { status: e instanceof PushError ? e.status : 500 }); }

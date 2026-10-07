@@ -283,6 +283,7 @@ html[data-vt]::view-transition-old(root),html[data-vt]::view-transition-new(root
 </div>
 </sc-if>
 <sc-if value="{{ phonePanel }}"><div style="flex:1;overflow:auto;min-height:0;padding:7px 10px">
+<sc-if value="{{ rGit }}"><mc-git-graph cwd="{{ terminalCwd }}" style="display:block;height:100%;min-height:0"></mc-git-graph></sc-if>
 <sc-if value="{{ rTerminal }}"><mc-terminal session-id="{{ terminalSessionId }}" cwd="{{ terminalCwd }}" style="display:block;height:100%;min-height:0"></mc-terminal></sc-if>
 <sc-if value="{{ rTodo }}"><div style="display:contents">
 <sc-if value="{{ hasAsk }}"><button onClick="{{ toggleAsk }}" title="{{ askHint }}" style="all:unset;cursor:pointer;display:flex;flex-direction:column;gap:3px;width:100%;box-sizing:border-box;margin-bottom:12px;padding:9px 11px;border-radius:var(--r);background:var(--msg)"><span style="font-size:12px;font-weight:600;color:var(--fg3)">최근 요청</span><span style="font-size:13.5px;line-height:1.5;color:var(--fg);white-space:pre-wrap;word-break:break-word;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:{{ askClamp }};overflow:hidden">{{ askText }}</span></button></sc-if>
@@ -302,6 +303,7 @@ html[data-vt]::view-transition-old(root),html[data-vt]::view-transition-new(root
 <div class="pane-resizer" role="separator" tabindex="0" aria-label="보조 패널 너비 조절" aria-orientation="vertical" aria-valuemin="260" aria-valuemax="{{ rightMax }}" aria-valuenow="{{ rightSize }}" title="드래그로 너비 조절 · 더블클릭 초기화 · ← →" onPointerDown="{{ dragRight }}" onPointerMove="{{ dragPane }}" onPointerUp="{{ endPane }}" onPointerCancel="{{ endPane }}" onLostPointerCapture="{{ endPane }}" onDoubleClick="{{ resetRight }}" onKeyDown="{{ keyRight }}" style="left:-5px"><span></span></div>
 <div style="flex:none;display:flex;align-items:center;gap:1px;border-bottom:1px solid var(--line-soft);padding:6px 2px 6px 6px"><sc-for list="{{ rtabs }}" as="t"><button data-press="btn" onClick="{{ t.onTap }}" style="all:unset;cursor:pointer;flex:1 1 auto;display:flex;align-items:center;justify-content:center;gap:3px;min-height:32px;padding:0 3px;border-radius:var(--r-sm);font-size:12px;font-weight:500;white-space:nowrap;color:{{ t.fg }};background:{{ t.bg }}" style-hover="color:var(--fg)">{{ t.label }}<span style="font:11px var(--mono);color:var(--fg3)">{{ t.count }}</span></button></sc-for><button onClick="{{ toggleRight }}" title="패널 접기" style="all:unset;cursor:pointer;width:32px;height:32px;flex:none;border-radius:var(--r-sm);display:grid;place-items:center;color:var(--fg3)" style-hover="color:var(--fg);background:var(--hover)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round"><path d="m9 6 6 6-6 6"></path></svg></button></div>
 <div style="flex:1;min-height:0;overflow:auto;padding:9px 10px">
+<sc-if value="{{ rGit }}"><mc-git-graph cwd="{{ terminalCwd }}" style="display:block;height:100%;min-height:0"></mc-git-graph></sc-if>
 <sc-if value="{{ rTerminal }}"><mc-terminal session-id="{{ terminalSessionId }}" cwd="{{ terminalCwd }}" style="display:block;height:100%;min-height:0"></mc-terminal></sc-if>
 <sc-if value="{{ rTodo }}"><div style="display:contents">
 <sc-if value="{{ hasAsk }}"><button onClick="{{ toggleAsk }}" title="{{ askHint }}" style="all:unset;cursor:pointer;display:flex;flex-direction:column;gap:3px;width:100%;box-sizing:border-box;margin-bottom:12px;padding:9px 11px;border-radius:var(--r);background:var(--msg)"><span style="font-size:12px;font-weight:600;color:var(--fg3)">최근 요청</span><span style="font-size:13.5px;line-height:1.5;color:var(--fg);white-space:pre-wrap;word-break:break-word;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:{{ askClamp }};overflow:hidden">{{ askText }}</span></button></sc-if>
@@ -608,8 +610,9 @@ class Component extends DCLogic {
       if (cfg.mode !== 'real' && cfg.mode !== 'mock') throw new Error('대시보드 서버의 실행 모드를 확인할 수 없습니다.');
       const real = cfg.mode === 'real';
       this.mode = cfg.mode;
-      const [mod, S, terminal, push, TM] = await Promise.all([import(`${base}app/${real ? 'real' : 'mock'}-client.js`), import(`${base}app/store.js`), import(`${base}app/terminal.js`), import(`${base}app/push.js`), import(`${base}app/terminals.js`)]);
+      const [mod, S, terminal, push, TM, gitGraph] = await Promise.all([import(`${base}app/${real ? 'real' : 'mock'}-client.js`), import(`${base}app/store.js`), import(`${base}app/terminal.js`), import(`${base}app/push.js`), import(`${base}app/terminals.js`), import(`${base}app/git-graph.js`)]);
       terminal.defineTerminal();
+      gitGraph.defineGitGraph();
       this.TM = TM;
       this.S = S;
       this.client = real ? new mod.RealClient({ sessionKey: cfg.key }) : new mod.MockClient({ speed: 1 });
@@ -1397,7 +1400,7 @@ class Component extends DCLogic {
       // The latest user message is what the agent is working on now; the Todo panel shows it above the list.
       const ask = items.findLast((x) => x.isUser);
       const diff = S.diffFiles(T.diff || '');
-      const tabsDef = [['todo', 'Todo', sel.hasTodo ? sel.todoText : ''], ['agents', '에이전트', sel.agents.length ? String(sel.agents.length) : ''], ['goal', '목표', T.goal ? '●' : ''], ['diff', '변경', diff.length ? String(diff.length) : ''], ['terminal', '터미널', termOf.has(T.id) ? '●' : '']];
+      const tabsDef = [['todo', 'Todo', sel.hasTodo ? sel.todoText : ''], ['agents', '에이전트', sel.agents.length ? String(sel.agents.length) : ''], ['goal', '목표', T.goal ? '●' : ''], ['diff', '변경', diff.length ? String(diff.length) : ''], ['git', 'Git', ''], ['terminal', '터미널', termOf.has(T.id) ? '●' : '']];
       const rtab = s.rtab, ptab = s.ptab;
       const panel = isPhone ? ptab : rtab;
       const g = T.goal;
@@ -1416,7 +1419,7 @@ class Component extends DCLogic {
         rtabs: tabsDef.map(mkTab(rtab, 'rtab')), ptabs: [['tl', '타임라인', ''], ...tabsDef].map(mkTab(ptab, 'ptab')),
         showRight: !isPhone && !s.panels.right, showRightRail: !isPhone && s.panels.right, rightW: `${sizes.right}px`,
         showTimeline: !isPhone || ptab === 'tl', phonePanel: isPhone && ptab !== 'tl',
-        rTodo: panel === 'todo', rAgents: panel === 'agents', rGoal: panel === 'goal', rDiff: panel === 'diff', rTerminal: panel === 'terminal',
+        rTodo: panel === 'todo', rAgents: panel === 'agents', rGoal: panel === 'goal', rDiff: panel === 'diff', rGit: panel === 'git', rTerminal: panel === 'terminal',
         terminalSessionId: T.id, terminalCwd: T.cwd || '', showComposer: !isPhone || panel !== 'terminal',
         onTlScroll: (e) => {
           if (this.pinning) return;
