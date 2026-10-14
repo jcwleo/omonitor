@@ -1503,7 +1503,7 @@ class Component extends DCLogic {
             tc: t.status === 'completed' || t.status === 'abandoned' ? 'var(--fg3)' : t.status === 'in_progress' ? 'var(--fg)' : 'var(--fg2)', fw: t.status === 'in_progress' ? '500' : '400', deco: t.status === 'abandoned' ? 'line-through' : 'none' })) };
         }),
         todoRaw: todo?.raw || '', todoRawShow: !!todo?.raw, todoNone: !todo || (!todo.phases.length && !todo.raw),
-        hasAsk: !!ask, askText: ask ? ask.text || `이미지 ${ask.images.length}장` : '', askClamp: s.askOpen === T.id ? 'none' : '4',
+        hasAsk: !!ask, askText: ask ? [...ask.skills.map((k) => `/skill:${k.name}`), ask.text].filter(Boolean).join(' ') || `이미지 ${ask.images.length}장` : '', askClamp: s.askOpen === T.id ? 'none' : '4',
         askHint: s.askOpen === T.id ? '눌러서 접기' : '눌러서 전체 보기', toggleAsk: () => this.setState({ askOpen: s.askOpen === T.id ? null : T.id }),
         // Subagents sit in two cards, running and finished, each folded from its header; finished stays folded until opened.
         // A row shows only the subagent's type and task; the details open on tap.

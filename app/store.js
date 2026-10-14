@@ -315,6 +315,35 @@ export function splitImages(text = '') {
   return { text: text.slice(0, i).trim(), images: paths.map((path) => ({ path, url: path.match(UPLOAD_NAME) ? `/uploads/${path.match(UPLOAD_NAME)[1]}` : '' })) };
 }
 
+// ── skills ──
+// A `/skill:name` turn is saved with each SKILL.md expanded in front of the request (omo's skill-invocation format),
+// while live notifications carry the text as typed. Both fold to the skill names and the request.
+const SKILL_BLOCK = /^The user explicitly invoked the "([^"]+)" skill\.[^\n]*\n\n<skill-instruction name="\1" location="[^"]*">\n[\s\S]*?\n<\/skill-instruction>(?:\n\n|$)/;
+const SKILL_TOKEN = /^\/skill:([a-zA-Z][\w:-]*)(?:\s+|$)/;
+function foldSkills(text = '') {
+  const skills = [];
+  let rest = text, m;
+  while ((m = rest.match(SKILL_BLOCK))) { skills.push(m[1]); rest = rest.slice(m[0].length); }
+  if (skills.length) {
+    const req = rest.match(/^<user-request>\n([\s\S]*?)\n<\/user-request>$/);
+    return rest && !req ? { skills: [], text } : { skills, text: req ? req[1].trim() : '' };
+  }
+  const legacy = text.match(/^<skill name="([^"]+)" location="[^"]*">\n[\s\S]*?\n<\/skill>(?:\n\n([\s\S]*))?$/);
+  if (legacy) return { skills: [legacy[1]], text: (legacy[2] || '').trim() };
+  rest = text.trimStart();
+  while ((m = rest.match(SKILL_TOKEN))) { skills.push(m[1]); rest = rest.slice(m[0].length); }
+  return { skills, text: skills.length ? rest : text };
+}
+// thread/list previews start with the same expansion, cut short.
+function foldPreview(p) {
+  if (!p.startsWith('The user explicitly invoked the "')) return p;
+  const names = [...p.matchAll(/(?:^|\n\n)The user explicitly invoked the "([^"]+)" skill\./g)].map((m) => m[1]);
+  const req = p.match(/<user-request>\n([\s\S]*?)(?:\n<\/user-request>|$)/);
+  return [...names.map((n) => `/skill:${n}`), req?.[1].trim()].filter(Boolean).join(' ');
+}
+const skillOf = (path) => (typeof path === 'string' && /(^|\/)SKILL\.md$/.test(path) ? path.split('/').at(-2) || '' : '');
+const skillView = (i, names, key) => ({ key, isSkill: true, text: names.join(', '), live: i.status === 'inProgress', failed: key === i.id && i.success === false });
+
 // ── timeline items ──
 export function viewItems(T, now = Date.now()) {
   const out = [];
@@ -322,7 +351,15 @@ export function viewItems(T, now = Date.now()) {
   (T.turns || []).forEach((u, ti) => {
     const label = { inProgress: '진행 중', completed: '완료', failed: '실패', interrupted: '중단됨' }[u.status] || u.status || '';
     out.push({ key: `turn-${u.id}`, isTurn: true, text: `턴 ${ti + 1}`, meta: label, metaColor: u.status === 'failed' ? 'var(--err-fg)' : u.status === 'inProgress' ? 'var(--acc-fg)' : 'var(--fg3)' });
-    (u.items || []).filter((i) => !isEmptyReasoning(i)).forEach((i) => out.push(viewItem(i)));
+    (u.items || []).filter((i) => !isEmptyReasoning(i)).forEach((i) => {
+      // A skill load is its own row, as omo's terminal shows it: a read of a SKILL.md replaces the tool row, and the
+      // skills a tool read inside itself (eval) follow that tool's row.
+      const own = i.type === 'dynamicToolCall' && /^read$/i.test(i.tool || '') ? skillOf(i.arguments?.path || i.arguments?.file_path) : '';
+      if (own) return out.push(skillView(i, [own], i.id));
+      out.push(viewItem(i));
+      const inner = T.skillReads?.[i.id];
+      if (inner?.length) out.push(skillView(i, inner, `${i.id}:skills`));
+    });
     if (live?.turnId === u.id) out.push({ key: `live-${u.id}`, isLive: true, text: live.label, code: live.code, hasCode: !!live.code, meta: live.elapsed });
     if (u.error?.message) out.push({ key: `err-${u.id}`, isError: true, text: u.error.message });
     // A finished turn ends with the time of its last message (file history: lastAt; live: last item event).
@@ -335,8 +372,9 @@ function viewItem(i) {
   const base = { key: i.id, status: i.status || 'completed', live: i.status === 'inProgress', declined: i.status === 'declined', interrupted: i.status === 'interrupted' };
   switch (i.type) {
     case 'userMessage': {
-      const { text, images } = splitImages((i.content || []).map((c) => c.text).filter(Boolean).join('\n'));
-      return { ...base, isUser: true, text, hasText: !!text, hasImages: images.length > 0,
+      const { skills, text: asked } = foldSkills((i.content || []).map((c) => c.text).filter(Boolean).join('\n'));
+      const { text, images } = splitImages(asked);
+      return { ...base, isUser: true, text, hasText: !!text, hasSkills: skills.length > 0, skills: skills.map((name) => ({ key: name, name })), hasImages: images.length > 0,
         images: images.map((m, k) => ({ ...m, key: String(k), hasUrl: !!m.url, noUrl: !m.url, name: m.path.split('/').pop() })) };
     }
     case 'agentMessage': return { ...base, isAgent: true, text: i.text || '' };
@@ -442,6 +480,7 @@ export class Store {
     // (omo appends metadata). The backend reads the last conversation time instead; live events seen here are newer.
     const talkedAt = this.msgAt.get(t.id);
     if (talkedAt != null && 'updatedAt' in t) next.updatedAt = Math.max(talkedAt, prev.liveAt || 0);
+    if (typeof t.preview === 'string') next.preview = foldPreview(t.preview);
     next.turns = t.turns ? normTurns(t.turns) : prev.turns;
     this.s.threads.set(t.id, next);
     return next;
@@ -520,6 +559,7 @@ export class Store {
       if (!T || !m) return;
       if (m.agents?.length || !T.tasks?.length) T.tasks = parseTasks(m.agents || []);
       if (m.usage) T.usage = m.usage;
+      if (m.skills) T.skillReads = m.skills;
       this.emit();
     }).catch((e) => console.warn('[omonitor] 세션 파일에서 에이전트·컨텍스트 정보를 읽지 못했습니다:', e?.message || e));
   }
@@ -606,7 +646,9 @@ export class Store {
         u.items = i >= 0 ? u.items.map((x, k) => (k === i ? { ...x, ...item } : x)) : [...u.items, item];
         T.updatedAt = T.liveAt = u.phaseAt = u.lastAt = Date.now();
         // Subagent spawns and control calls (task, task_cancel, ...) change the agents tab.
-        if (method === 'item/completed' && item.type === 'dynamicToolCall' && /^task/.test(item.tool || '')) this.loadMeta(T.id);
+        // A tool that read SKILL.md files inside itself (eval) reports them only in the session file.
+        const innerSkills = !/^read$/i.test(item.tool || '') && JSON.stringify(item.arguments ?? '').includes('SKILL.md');
+        if (method === 'item/completed' && item.type === 'dynamicToolCall' && (/^task/.test(item.tool || '') || innerSkills)) this.loadMeta(T.id);
       } break;
       case 'item/agentMessage/delta': if (T) {
         const u = this.turnFor(T, p.turnId);

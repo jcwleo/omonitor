@@ -401,11 +401,14 @@ async function contextWindow(provider: string, model: string): Promise<number | 
 }
 async function threadMeta(threadId: string) {
   const path = await threadPath(threadId);
-  if (!path) return { agents: [], usage: null };
+  if (!path) return { agents: [], usage: null, skills: {} };
   const agents = new Map<string, any>();
+  // Skills loaded inside another tool (eval's tool.read of a SKILL.md), by that tool's call id. The app-server's item
+  // carries only the tool's text output; the session file keeps the nested calls in the result details.
+  const skills: Record<string, string[]> = {};
   let last: any = null;
   for (const line of (await readSession(path)).split('\n')) {
-    if (!line.includes('"usage"') && !line.includes('"toolName":"task"') && !line.includes('senpi-task.completion') && !line.includes('"type":"compaction"')) continue;
+    if (!line.includes('"usage"') && !line.includes('"toolName":"task"') && !line.includes('senpi-task.completion') && !line.includes('"type":"compaction"') && !line.includes('SKILL.md')) continue;
     let e: any;
     try { e = JSON.parse(line); } catch { continue; }
     const m = e.message;
@@ -413,6 +416,9 @@ async function threadMeta(threadId: string) {
     else if (m?.role === 'assistant' && m.usage) last = m;
     else if (m?.role === 'toolResult' && m.toolName === 'task' && m.details) {
       for (const d of m.details.items || [m.details]) if (d?.task_id) agents.set(d.task_id, { ...agents.get(d.task_id), ...spawnedTask(d, e.timestamp) });
+    } else if (m?.role === 'toolResult' && Array.isArray(m.details?.toolCalls)) {
+      const names = m.details.toolCalls.filter((c: any) => /^read$/i.test(c?.name || '') && c.ok !== false).map((c: any) => String(c.args?.path || c.args?.file_path || '')).filter((p: string) => /(^|\/)SKILL\.md$/.test(p)).map((p: string) => p.split('/').at(-2)).filter(Boolean);
+      if (names.length) skills[m.toolCallId] = [...new Set<string>(names)];
     } else if (e.type === 'custom_message' && Array.isArray(e.details)) {
       for (const c of e.details) if (c?.customType === 'senpi-task.completion') for (const d of c.details || []) if (d?.task_id) agents.set(d.task_id, { ...agents.get(d.task_id), ...finishedTask(d) });
     }
@@ -424,7 +430,7 @@ async function threadMeta(threadId: string) {
     const window = used ? await contextWindow(String(last.provider || ''), String(last.model || '')) : null;
     if (used && window) usage = { used, window };
   }
-  return { agents: [...agents.values()], usage };
+  return { agents: [...agents.values()], usage, skills };
 }
 
 // ── pasted images ──

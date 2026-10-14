@@ -160,6 +160,7 @@ function seed(now) {
   const pay1 = [
     user('결제 모듈을 게이트웨이별 어댑터로 분리해줘. 기존 테스트는 전부 통과해야 해. ulw'),
     think('PaymentService가 toss/stripe 분기를 직접 들고 있다.', '어댑터 인터페이스를 먼저 정의하고 게이트웨이별 구현을 옮기는 순서가 안전하다.'),
+    dyn('read', { path: '/Users/me/.bun/install/global/node_modules/omo-ai/plugin/skills/refactor/SKILL.md' }, '---\nname: refactor\n---'),
     todo({ op: 'init', list: PAY_PLAN }),
     cmd('rg -n "PaymentService" src --stats', PAY, 'src/checkout/confirm.ts:14:  const res = await PaymentService.call(gateway, body)\nsrc/payments/toss.ts:1:import { PaymentService } from \'./service\'\nsrc/payments/stripe-legacy.ts:3:import { PaymentService } from \'./service\'\nsrc/subscriptions/renew.ts:41:    await PaymentService.call(\'stripe\', payload)\n\n4 matches\n4 matched lines\n4 files contained matches', 0, 380),
     todo({ op: 'done', task: '기존 PaymentService 호출부 파악' }),
