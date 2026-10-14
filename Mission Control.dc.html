@@ -7,7 +7,9 @@
 <meta name="theme-color" content="#161618">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<!-- default, not black-translucent: iOS 27 blurs the top of a black-translucent home-screen app and nothing in the page
+     can turn that off (see .ios-status-color). iOS reads this at install, so a change shows only after re-adding the app. -->
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="omonitor">
 <link rel="manifest" href="manifest.webmanifest" crossorigin="use-credentials">
 <!-- Inline, not a URL: iOS fetches the home-screen icon outside the page's session, so behind Cloudflare Access a URL returns
@@ -103,9 +105,17 @@ html[data-vt]::view-transition-old(root),html[data-vt]::view-transition-new(root
    composer off-screen; dvh tracks the viewport actually shown. --app-h and --app-shift fit it to the visual viewport
    while an on-screen keyboard or iPadOS's floating shortcut bar covers part of the screen (see fitViewport). */
 .mc{height:100vh;height:100dvh;height:var(--app-h, 100dvh);transform:var(--app-shift, none)}
+/* iOS 27 home-screen apps: WebKit drops the blur over the top edge only while a fixed element across that edge lends the
+   status bar a color, and only when the bar is not black-translucent. It reads the element's computed background-color,
+   so background-clip:text on an empty box lends --bg without painting a band. Over 10px tall (below that WebKit does not
+   read the style color), full width, above every overlay so the top edge always samples it. -webkit-touch-callout limits
+   it to iOS, display-mode to the home-screen app. */
+.mc .ios-status-color{display:none}
+@supports (-webkit-touch-callout: none){@media (display-mode: standalone){.mc .ios-status-color{display:block;position:fixed;top:0;left:0;right:0;height:11px;z-index:2147483647;pointer-events:none;background-color:var(--bg);-webkit-background-clip:text;background-clip:text}}}
 </style>
 </helmet>
 <div class="mc" data-theme="{{ theme }}" style="display:flex;flex-direction:column;background:var(--bg);color:var(--fg);font-family:var(--font-body);overflow:hidden;position:relative;padding-top:{{ safeTop }}">
+<div class="ios-status-color" aria-hidden="true"></div>
 
 <sc-if value="{{ connBanner }}"><div style="animation:mcDrop var(--dur) var(--ease-out);flex:none;display:flex;align-items:center;gap:7px;padding:6px 10px;background:var(--warn-tint);border-bottom:1px solid var(--warn-line);font-size:12.5px;color:var(--fg)"><span style="width:7px;height:7px;border-radius:50%;background:var(--warn);animation:mcPulse 1.2s infinite"></span><span style="flex:1;min-width:0">{{ connText }}</span><button class="btn btn-secondary" onClick="{{ reconnectNow }}" style="font-size:12.5px;padding:3px 7px;min-height:32px;color:var(--fg)">지금 다시 연결</button></div></sc-if>
 
@@ -520,20 +530,27 @@ class Component extends DCLogic {
     // the app slid up under the status bar and the page could be dragged. So the app is sized to the visual viewport
     // and moved along with its pan (--app-h, --app-shift). Not while pinch-zoomed in, where the visual viewport is a
     // magnified part of the page; a zoomed-out page still has to fit, or the keyboard covers its bottom (terminal keys).
-    // A home-screen app (navigator.standalone) also reports the visual viewport, innerHeight and 100dvh shorter than the
-    // screen by the top safe area (WebKit bug 254868), which left an empty band at the bottom; there only 100vh is the
-    // full screen. So it fills 100vh (html and body too, which clip) unless the keyboard is up, told apart by the visual
-    // viewport dropping well below its tallest height at this width.
+    // A home-screen app (navigator.standalone) laid out under a black-translucent status bar also reports the visual
+    // viewport, innerHeight and 100dvh shorter than the screen by the top safe area (WebKit bug 254868), which left an
+    // empty band at the bottom; there only 100vh is the full screen. So it fills 100vh (html and body too, which clip)
+    // unless the keyboard is up, told apart by the visual viewport dropping below its tallest height at this width. Even
+    // a small drop matters: the hardware-keyboard accessory bar is shorter than a software keyboard. Allow only a pixel
+    // of rounding, not a keyboard-size threshold. With the default status bar style the page starts below the bar, those
+    // values are right, and 100vh (still the whole screen) pushed the bottom tab bar off it. A nonzero top inset, read
+    // from a probe, marks the page as under the bar; an app installed before the switch keeps black-translucent.
     const vv = window.visualViewport;
     if (vv) {
       let rest = { w: 0, h: 0 };
+      const inset = document.createElement('div');
+      inset.style.cssText = 'position:fixed;visibility:hidden;pointer-events:none;padding-top:env(safe-area-inset-top)';
+      document.body.append(inset);
       this.fitViewport = () => {
         const root = document.documentElement;
         if (vv.scale > 1.01) { for (const p of ['--app-h', '--app-shift', '--root-h']) root.style.removeProperty(p); return; }
         if (window.scrollY) window.scrollTo(0, 0);
         if (vv.width !== rest.w) rest = { w: vv.width, h: 0 };
         rest.h = Math.max(rest.h, vv.height);
-        if (navigator.standalone === true && vv.height > rest.h - 120) {
+        if (navigator.standalone === true && parseFloat(getComputedStyle(inset).paddingTop) > 0 && vv.height >= rest.h - 1) {
           root.style.setProperty('--app-h', '100vh'); root.style.setProperty('--root-h', '100vh'); root.style.removeProperty('--app-shift');
           return;
         }
@@ -1199,8 +1216,9 @@ class Component extends DCLogic {
     const base = {
       theme, isPhone, notPhone: !isPhone, fatal: s.fatal, stop: (e) => e.stopPropagation(),
       reloadPage: () => window.location.reload(),
-      // The home-screen app draws under the iOS status bar (black-translucent). Phone bars pad themselves; the wider
-      // layouts (iPad) start below it here.
+      // With the default status bar style iOS keeps the home-screen app below the bar and the top inset is 0; the insets
+      // stay for an iOS that still lays the page under it. Phone bars pad themselves; the wider layouts (iPad) start
+      // below it here.
       safeTop: isPhone ? '0px' : 'env(safe-area-inset-top)',
       toggleTheme: () => this.setStateVT({ theme: theme === 'dark' ? 'light' : 'dark' }), themeLabel: theme === 'dark' ? '다크' : '라이트',
       openPalette: () => this.setState({ pal: { q: '', idx: 0 } }), openNew: () => this.setState({ sheet: this.newSheet() }),
