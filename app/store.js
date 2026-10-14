@@ -470,6 +470,10 @@ export class Store {
     // starts its agent runtime, and omo may auto-continue a pending goal or todo list; unloaded history comes from the
     // session file through the backend instead (loadHistory).
     for (const id of loaded.data || []) if (this.T(id) && !this.T(id).archived) this.resume(id, true).catch(() => {});
+    this.loadSkills();
+  }
+  // The `/` palette: commands and skills of the installed omo, read by the backend.
+  loadSkills() {
     this.c.backend?.listSkills?.().then((sk) => { this.s.skills = sk || []; this.emit(); }).catch(() => {});
   }
   merge(t) {
@@ -512,6 +516,8 @@ export class Store {
       for (const id of loaded.data || []) if (this.T(id) && !this.T(id).archived) subs.add(id);
     } catch (e) { console.warn('[omonitor] 다시 연결한 뒤 세션 목록을 읽지 못했습니다:', e?.message || e); }
     this.emit();
+    // An omo update restarts the app-server daemon, which is one way the socket goes down; read the palette again.
+    this.loadSkills();
     await Promise.all([...subs].map((id) => this.resume(id, true, true).catch(() => {})));
   }
   // History comes from the session file through the backend: it is the complete record, and reading it has no side

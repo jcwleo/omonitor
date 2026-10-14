@@ -120,7 +120,8 @@ class Component extends DCLogic {
     el.placeholder = ph;
   }
   items(text) {
-    const q = text.slice(1).toLowerCase();
+    // Skills insert as `/skill:name`; typing that prefix still filters by name.
+    const q = text.slice(1).toLowerCase().replace(/^skill:/, '');
     const skills = this.props.c?.skills || [];
     return ['command', 'skill', 'keyword'].map((k) => ({ label: GROUP[k], items: skills.filter((s) => s.kind === k && (!q || s.name.includes(q) || (s.desc || '').toLowerCase().includes(q))) })).filter((g) => g.items.length);
   }

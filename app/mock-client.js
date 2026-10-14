@@ -17,10 +17,8 @@ const mcp = (server, tool, args, result) => ({ type: 'mcpToolCall', id: nid('it'
 
 const PAY = '/Users/me/work/payments-api';
 const SKILLS = [
-  ...[['goal', '세션 목표 설정·조회·일시정지·해제'], ['ulw-execute', 'Prometheus 계획으로 Atlas 실행 시작'], ['refactor', 'LSP·AST-grep 기반 리팩터링 + TDD 검증'], ['handoff', '새 세션으로 넘길 인계 요약 작성'], ['stop-continuation', 'todo 이어가기·목표 등 자동 진행 모두 중단'], ['remove-ai-slops', '브랜치 변경에서 AI 티 나는 코드 정리'], ['hyperplan', '팀 모드 적대적 계획 (team_mode 필요)']].map(([name, desc]) => ({ kind: 'command', name, desc, source: 'builtin' })),
-  ...[['git-master', '원자적 커밋 · 리베이스 · 이력 추적'], ['review-work', '구현 후 실제 화면 QA + 게이트 리뷰'], ['ulw-research', '출처 인용이 필요한 최대 포화 리서치'], ['frontend', 'UI/UX 구현 · 스타일링'], ['playwright', '브라우저 자동화 · 스크린샷 검증'], ['debugging', '재현 → 원인 추적 → 수정 검증'], ['security-review', '변경 사항 보안 검토'], ['init-deep', '폴더별 AGENTS.md 계층 생성']].map(([name, desc]) => ({ kind: 'skill', name, desc, source: 'builtin' })),
-  { kind: 'skill', name: 'payments-runbook', desc: '결제 장애 대응 절차 (사용자 스킬 · .claude/skills)', source: 'user' },
-  { kind: 'skill', name: 'korean-copy', desc: '한국어 UI 카피 톤 가이드 (사용자 스킬 · ~/.omo/skills)', source: 'user' },
+  ...[['goal', '세션 목표 설정·조회·일시정지·해제'], ['loop', '프롬프트를 일정 간격으로 반복 (예: /loop 5m 배포 확인)'], ['remember', '내용을 장기 메모리에 저장'], ['todo', 'todo 항목 추가·시작·완료·포기·삭제']].map(([name, desc]) => ({ kind: 'command', name, desc, source: 'builtin' })),
+  ...[['ulw-execute', 'Prometheus 계획으로 Atlas 실행 시작'], ['refactor', 'LSP·AST-grep 기반 리팩터링 + TDD 검증'], ['remove-ai-slops', '브랜치 변경에서 AI 티 나는 코드 정리'], ['hyperplan', '팀 모드 적대적 계획 (team_mode 필요)'], ['git-master', '원자적 커밋 · 리베이스 · 이력 추적'], ['review-work', '구현 후 실제 화면 QA + 게이트 리뷰'], ['ulw-research', '출처 인용이 필요한 최대 포화 리서치'], ['frontend', 'UI/UX 구현 · 스타일링'], ['playwright', '브라우저 자동화 · 스크린샷 검증'], ['debugging', '재현 → 원인 추적 → 수정 검증'], ['security-review', '변경 사항 보안 검토'], ['init-deep', '폴더별 AGENTS.md 계층 생성'], ['payments-runbook', '결제 장애 대응 절차 (사용자 스킬 · ~/.omo/agent/skills)', 'user'], ['korean-copy', '한국어 UI 카피 톤 가이드 (사용자 스킬 · ~/.omo/agent/skills)', 'user']].map(([name, desc, source = 'builtin']) => ({ kind: 'skill', name, label: `/skill:${name}`, insert: `/skill:${name} `, desc, source })),
   { kind: 'keyword', name: 'ulw', insert: 'ulw ', label: 'ultrawork · ulw', desc: '어려운 작업: 코드 파악 → 계획 → 단계별 검증', source: 'builtin' },
   { kind: 'keyword', name: 'mass ulw', insert: 'mass ulw ', label: 'mass ulw', desc: '작업을 에이전트 그래프로 나눠 병렬 실행', source: 'builtin' },
 ];

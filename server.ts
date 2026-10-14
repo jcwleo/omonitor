@@ -78,12 +78,16 @@ async function threadPath(threadId: string): Promise<string | null> {
 // catalog with the minimal level removed, taken from the pi-ai copy inside the installed omo.
 const SUBSCRIPTION = 'anthropic-subscription';
 let piAi: Promise<{ core: any; compat: any }> | null = null;
-async function loadPiAi() {
+// The installed omo-ai entry script (bin/omo.js), also when PATH's omo is omo-ai's bun launcher shim.
+async function omoEntry() {
   const bin = Bun.which('omo');
   if (!bin) throw new Error('PATH에서 omo를 찾지 못했습니다');
-  let entry = await realpath(bin);
+  const entry = await realpath(bin);
   const shim = (await readFile(entry, 'utf8')).match(/^# entry: (.+)$/m); // omo-ai's bun launcher shim
-  if (shim) entry = shim[1].trim();
+  return shim ? shim[1].trim() : entry;
+}
+async function loadPiAi() {
+  const entry = await omoEntry();
   const from = dirname(Bun.resolveSync('@code-yeongyu/senpi', dirname(entry)));
   return { core: await import(Bun.resolveSync('@earendil-works/pi-ai', from)), compat: await import(Bun.resolveSync('@earendil-works/pi-ai/compat', from)) };
 }
@@ -135,6 +139,7 @@ async function omoUpdate() {
   const update = await run(['omo', 'update']);
   piAi = null; // omo binary changed; drop cached module
   versionCache = null;
+  paletteCache = null;
   // Under bun (this server) senpi's daemon launcher falls back to a hardcoded /opt/homebrew/bin/node and fails with
   // "failed to spawn daemon process"; OMO_RUNTIME=node makes it use the node on PATH.
   try { return { update, restart: await run(['omo', 'app-server', 'daemon', 'restart'], { OMO_RUNTIME: 'node' }) }; }
@@ -219,10 +224,29 @@ async function planUsage() {
   return { checkedAt: Date.now(), accounts: [...claude, ...chatgpt] };
 }
 
-// ── skills: builtin + SKILL.md folders (same precedence as omo) ──
-const BUILTIN = [
-  ...[['goal', '세션 목표 설정·조회·일시정지·해제'], ['ulw-execute', 'Prometheus 계획으로 Atlas 실행 시작'], ['refactor', 'LSP·AST-grep 기반 리팩터링 + TDD 검증'], ['handoff', '새 세션으로 넘길 인계 요약 작성'], ['stop-continuation', 'todo 이어가기·목표 등 자동 진행 모두 중단'], ['remove-ai-slops', '브랜치 변경에서 AI 티 나는 코드 정리'], ['hyperplan', '팀 모드 적대적 계획 (team_mode 필요)']].map(([name, desc]) => ({ kind: 'command', name, desc, source: 'builtin' })),
-  ...[['git-master', '원자적 커밋 · 리베이스 · 이력 추적'], ['review-work', '구현 후 실제 화면 QA + 게이트 리뷰'], ['ulw-research', '출처 인용이 필요한 최대 포화 리서치'], ['frontend', 'UI/UX 구현 · 스타일링'], ['playwright', '브라우저 자동화 · 스크린샷 검증'], ['debugging', '재현 → 원인 추적 → 수정 검증'], ['security-review', '변경 사항 보안 검토'], ['init-deep', '폴더별 AGENTS.md 계층 생성']].map(([name, desc]) => ({ kind: 'skill', name, desc, source: 'builtin' })),
+// ── slash palette: the commands and skills omo runs for `/name` and `/skill:name` ──
+// A turn starting with a `/name` omo has not registered is refused as an unknown command, so the palette lists what the
+// installed omo registers. app-server has no command list, but `get_commands` of a short-lived
+// `omo --mode rpc --no-session` returns every registered command and loaded skill (about 1.5s, no session file). It is
+// asked again when the installed omo version changes and at most every 10 minutes, so an update or a newly added skill
+// shows up without touching this file.
+const PALETTE_TTL_MS = 10 * 60 * 1000;
+// app-server drops a command's terminal notices (its ctx.ui.notify is a no-op) and refuses custom UI, so a command that
+// only prints a notice, or opens a picker, editor, overlay or another app, does nothing when sent from the dashboard.
+const TERMINAL_ONLY = new Set([
+  'answer', 'btw', 'diff', 'history', 'ir', 'keybindings', 'llama', 'task-kill',
+  'account', 'claude-account', 'cursor-account', 'gpt-account', 'dag', 'doctor', 'facts', 'fallback', 'files', 'help', 'hooks',
+  'lookat', 'mcp', 'memfs', 'memory', 'nested-agents', 'palace', 'people', 'rules', 'search', 'sleeptime', 'tasks', 'ttsr', 'tui', 'websearch',
+]);
+// Short Korean blurbs; any other command or skill shows omo's own description.
+const COMMAND_KO: Record<string, string> = {
+  goal: '세션 목표 설정·조회·일시정지·해제', loop: '프롬프트를 일정 간격으로 반복 (예: /loop 5m 배포 확인)', todo: 'todo 항목 추가·시작·완료·포기·삭제',
+  fast: '현재 모델의 ChatGPT 구독 fast 모드 켜기·끄기', reasoning: '현재 모델의 reasoning 켜기·끄기', efforts: '현재 모델의 reasoning effort 설정',
+  'reload-rules': '이 세션의 pi-rules 다시 읽기', computer: '컴퓨터 사용(실험) 켜기·끄기', remember: '내용을 장기 메모리에 저장',
+  init: '메모리 저장소 초기화 후 초기 메모리 작성', recompile: '다음 실행 때 메모리를 시스템 프롬프트에 다시 반영',
+  'memory-repository': '메모리 저장소의 push 전용 미러 원격 설정', reflect: '지금 메모리 reflection 실행 요청', dream: '여러 대화를 묶는 메모리 dream 실행 요청',
+};
+const KEYWORDS = [
   { kind: 'keyword', name: 'ulw', insert: 'ulw ', label: 'ultrawork · ulw', desc: '어려운 작업: 코드 파악 → 계획 → 단계별 검증', source: 'builtin' },
   { kind: 'keyword', name: 'mass ulw', insert: 'mass ulw ', label: 'mass ulw', desc: '작업을 에이전트 그래프로 나눠 병렬 실행', source: 'builtin' },
 ];
@@ -232,30 +256,74 @@ function frontmatter(md: string) {
   if (m) for (const line of m[1].split('\n')) { const kv = line.match(/^(\w[\w-]*):\s*(.*)$/); if (kv) out[kv[1]] = kv[2].replace(/^['"]|['"]$/g, ''); }
   return out;
 }
-async function listSkills(cwd?: string) {
-  const H = homedir();
-  const dirs = [
-    cwd && join(cwd, '.opencode/skills'), join(H, '.config/opencode/skills'),
-    cwd && join(cwd, '.claude/skills'), join(H, '.claude/skills'),
-    cwd && join(cwd, '.agents/skills'), join(H, '.agents/skills'),
-  ].filter(Boolean) as string[];
-  const seen = new Set<string>();
-  const user: any[] = [];
-  for (const d of dirs) {
+// Short Korean blurbs for bundled skills; any other skill shows its SKILL.md description.
+const SKILL_KO: Record<string, string> = {
+  'git-master': '원자적 커밋 · 리베이스 · 이력 추적', 'review-work': '구현 후 실제 화면 QA + 게이트 리뷰', 'ulw-research': '출처 인용이 필요한 최대 포화 리서치',
+  frontend: 'UI/UX 구현 · 스타일링', debugging: '재현 → 원인 추적 → 수정 검증', 'init-deep': '폴더별 AGENTS.md 계층 생성',
+  'ulw-execute': 'Prometheus 계획으로 Atlas 실행 시작', refactor: 'LSP·AST-grep 기반 리팩터링 + TDD 검증', 'remove-ai-slops': '브랜치 변경에서 AI 티 나는 코드 정리',
+  hyperplan: '팀 모드 적대적 계획 (team_mode 필요)',
+};
+async function askOmoCommands(): Promise<any[]> {
+  // Same runtime as the app-server daemon (node): some skills exist only under one runtime (bun-1-4 needs a Bun eval
+  // kernel), and one the daemon's sessions lack is refused there.
+  const p = Bun.spawn(['omo', '--mode', 'rpc', '--no-session', '--offline'], { cwd: import.meta.dir, env: { ...process.env, OMO_RUNTIME: 'node' }, stdin: 'pipe', stdout: 'pipe', stderr: 'ignore' });
+  const timer = setTimeout(() => p.kill(), 20000);
+  try {
+    p.stdin.write(`${JSON.stringify({ id: 'palette', type: 'get_commands' })}\n`);
+    p.stdin.flush();
+    const dec = new TextDecoder();
+    let buf = '';
+    for await (const chunk of p.stdout) {
+      buf += dec.decode(chunk, { stream: true });
+      for (let i; (i = buf.indexOf('\n')) >= 0; buf = buf.slice(i + 1)) {
+        let m: any;
+        try { m = JSON.parse(buf.slice(0, i)); } catch { continue; }
+        if (m.id !== 'palette') continue;
+        if (!m.success) throw new Error(m.error || 'get_commands 실패');
+        return m.data?.commands || [];
+      }
+    }
+    throw new Error('omo가 명령 목록을 돌려주지 않고 끝났습니다');
+  } finally { clearTimeout(timer); p.kill(); }
+}
+let paletteCache: { version: string; at: number; list: Promise<any[]> } | null = null;
+async function omoCommands() {
+  const entry = await omoEntry();
+  const version = JSON.parse(await readFile(join(dirname(dirname(entry)), 'package.json'), 'utf8')).version || '';
+  if (!paletteCache || paletteCache.version !== version || Date.now() - paletteCache.at > PALETTE_TTL_MS) {
+    const list = askOmoCommands();
+    paletteCache = { version, at: Date.now(), list };
+    list.catch(() => { if (paletteCache?.list === list) paletteCache = null; });
+  }
+  return paletteCache.list;
+}
+// Used only when omo cannot be asked: the skills folders of the daemon's extensions and ~/.omo/agent/skills.
+async function folderSkills() {
+  let exts: string[] = [];
+  try { exts = JSON.parse(await readFile(join(AGENT_DIR, 'app-server-daemon/settings.json'), 'utf8')).extensions || []; } catch {}
+  const out: any[] = [];
+  for (const [dir, scope] of [...exts.map((e) => [join(e, 'skills'), 'system']), [join(AGENT_DIR, 'skills'), 'user']]) {
     let names: string[] = [];
-    try { names = await readdir(d); } catch { continue; }
+    try { names = await readdir(dir); } catch { continue; }
     for (const n of names) {
-      try {
-        const md = await readFile(join(d, n, 'SKILL.md'), 'utf8');
-        const fm = frontmatter(md);
-        const name = fm.name || n;
-        if (seen.has(name)) continue;
-        seen.add(name);
-        user.push({ kind: 'skill', name, desc: `${fm.description || ''} (${d.replace(H, '~')})`.trim(), source: 'user' });
-      } catch {}
+      try { const fm = frontmatter(await readFile(join(dir, n, 'SKILL.md'), 'utf8')); out.push({ name: fm.name || n, description: fm.description || '', scope }); } catch {}
     }
   }
-  return [...BUILTIN.filter((b) => !seen.has(b.name)), ...user];
+  return out;
+}
+async function listSkills() {
+  let found: any[] = [];
+  try { found = await omoCommands(); } catch (e: any) { console.warn('[omonitor] omo 명령 목록을 읽지 못했습니다:', e?.message || e); }
+  // project-scope entries belong to the cwd the list was read in, not to every session.
+  const usable = found.filter((c) => c.sourceInfo?.scope !== 'project');
+  const commands = usable.filter((c) => c.source !== 'skill' && !TERMINAL_ONLY.has(c.name))
+    .map((c) => ({ kind: 'command', name: c.name, desc: COMMAND_KO[c.name] || c.description || '', source: c.sourceInfo?.scope === 'user' ? 'user' : 'builtin' }));
+  let skills = usable.filter((c) => c.source === 'skill').map((c) => ({ name: String(c.name).replace(/^skill:/, ''), description: c.description, scope: c.sourceInfo?.scope }));
+  if (!skills.length) skills = await folderSkills();
+  const items = new Map<string, any>();
+  for (const s of skills) if (!items.has(s.name)) items.set(s.name, { kind: 'skill', name: s.name, label: `/skill:${s.name}`, insert: `/skill:${s.name} `, desc: SKILL_KO[s.name] || s.description || '', source: s.scope === 'system' ? 'builtin' : 'user' });
+  const order = (a: any, b: any) => (a.source === b.source ? a.name.localeCompare(b.name) : a.source === 'builtin' ? -1 : 1);
+  return [...commands.sort(order), ...[...items.values()].sort(order), ...KEYWORDS];
 }
 
 // ── history from the session JSONL (docs/session-format.md), without loading the session ──
@@ -575,7 +643,7 @@ const server = Bun.serve<SocketData>({
       }
       if (url.pathname === '/api/uploads' && req.method === 'POST') return await saveUpload(req).catch((e) => new Response(String(e?.message || e), { status: 500 }));
       try {
-        if (url.pathname === '/api/skills') return Response.json(await listSkills(url.searchParams.get('cwd') || undefined));
+        if (url.pathname === '/api/skills') return Response.json(await listSkills());
         if (url.pathname === '/api/models/extra') return Response.json(await extraModels());
         if (url.pathname === '/api/threads/activity' && req.method === 'GET') return Response.json(await activityTimes());
         const h = url.pathname.match(/^\/api\/threads\/([^/]+)\/history$/);
