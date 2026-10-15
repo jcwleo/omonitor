@@ -497,7 +497,7 @@ class Component extends DCLogic {
   state = { v: 0, now: Date.now(), w: window.innerWidth, view: 'board', selId: null, backTo: 'board', theme: null, drawer: false, drawerMounted: false,
     pal: null, sheet: null, dialog: null, menu: false, selMode: false, sel: {}, multiText: '', grouped: false, groupOpen: {}, lg: true, lgC: {}, lgOpen: {}, panels: { left: false, right: false }, colC: {}, secC: { archived: true },
     exp: {}, agentOpen: {}, doneOpen: null, runFold: false, escArmed: null, allC: false, rtab: 'todo', ptab: 'tl', q: '', lf: 'all', focus: -1, pf: null, speedIdx: 0,
-    goalDraft: '', goalBudgetDraft: '', fatal: null, nb: false, ns: false, omoVer: null, omoUpdating: false, omonitorVer: null, omonitorUpdating: false, panelWidths: {}, termLive: {}, terms: [], termPolicy: null, termErr: '', prefs: false, push: { ready: false, on: false, busy: false, why: '' } };
+    goalDraft: '', goalBudgetDraft: '', fatal: null, nb: false, ns: false, omoVer: null, omoUpdating: false, omoRestarting: false, omonitorVer: null, omonitorUpdating: false, panelWidths: {}, termLive: {}, terms: [], termPolicy: null, termErr: '', prefs: false, push: { ready: false, on: false, busy: false, why: '' } };
   tlRef = React.createRef();
   detailRef = React.createRef();
   sheetFileRef = React.createRef();
@@ -899,6 +899,14 @@ class Component extends DCLogic {
       this.checkOmoVersion();
     } catch (e) { st.toast(`업데이트 실패: ${e?.message || e}`, 'error'); }
     finally { this.setState({ omoUpdating: false }); }
+  }
+  // The new model list arrives with the reconnect that follows (store resync).
+  async runOmoRestart() {
+    const st = this.store;
+    this.setState({ omoRestarting: true });
+    try { await this.client.backend.omoRestart(); st.toast('app-server를 다시 시작했습니다. 새 모델 목록을 불러옵니다', 'info'); }
+    catch (e) { st.toast(`app-server를 다시 시작하지 못했습니다: ${e?.message || e}`, 'error'); }
+    finally { this.setState({ omoRestarting: false }); this.checkOmoVersion(); }
   }
   saveNotify(patch) {
     this.notify = { ...this.notify, ...patch };
@@ -1610,6 +1618,8 @@ class Component extends DCLogic {
       rename: ['이름 변경', this.needsTakeover(dT) ? '이 세션은 아직 app-server에 불러오지 않았습니다. 이름을 바꾸면 세션을 불러오므로, 터미널 omo에서 열려 있으면 먼저 종료하세요. 목표나 끝나지 않은 todo가 있으면 omo가 이어서 작업할 수 있습니다.' : '', '저장', 'var(--acc)', () => d.input.trim() && st.rename(d.id, d.input.trim())],
       // The daemon restart ends every session running under it (including agent sessions driven from here).
       omoUpdate: ['omo를 업데이트할까요?', `v${s.omoVer?.current || '?'} → v${s.omoVer?.latest || '?'}로 업데이트한 뒤 app-server 데몬을 재시작합니다. 재시작하면 데몬에서 돌던 세션이 모두 끊깁니다${[...st.s.threads.values()].filter((x) => x.status?.type === 'active').length ? ` (지금 작업 중인 세션 ${[...st.s.threads.values()].filter((x) => x.status?.type === 'active').length}개 포함)` : ''}. omonitor는 자동으로 다시 연결합니다.`, '업데이트하고 재시작', 'var(--acc)', () => this.runOmoUpdate()],
+      // omo updated in a terminal (or a restart that did not take): the app-server still runs the old engine and model list.
+      omoRestart: ['app-server를 다시 시작할까요?', `app-server가 omo 업데이트 전 엔진(senpi ${s.omoVer?.running || '?'})으로 실행 중이라 새 모델 목록과 기능이 반영되지 않았습니다. 다시 시작하면 설치된 omo v${s.omoVer?.current || '?'}(senpi ${s.omoVer?.engine || '?'})로 뜹니다. app-server에서 돌던 세션은 모두 끊깁니다${[...st.s.threads.values()].filter((x) => x.status?.type === 'active').length ? ` (지금 작업 중인 세션 ${[...st.s.threads.values()].filter((x) => x.status?.type === 'active').length}개 포함)` : ''}. omonitor는 자동으로 다시 연결합니다.`, '재시작', 'var(--acc)', () => this.runOmoRestart()],
       // Server code changes restart omonitor, which closes every open terminal; page and app/ changes need only a reload.
       omonitorUpdate: !monV ? null : monV.blocked
         ? ['omonitor 업데이트', `${monNews}\n\n${monV.blocked}. 직접 git pull 한 뒤 omonitor restart 하세요.`, '확인', 'var(--acc)', null]
@@ -1681,20 +1691,24 @@ class Component extends DCLogic {
 
     // ── omo update ──
     const ver = s.omoVer;
-    const omoUpdating = s.omoUpdating;
+    const omoUpdating = s.omoUpdating || s.omoRestarting;
     const hasOmoUpdate = !!ver?.updateAvailable && !omoUpdating;
+    // An update also restarts the app-server, so a pending update wins over the restart prompt.
+    const omoStale = !!ver?.stale && !hasOmoUpdate && !omoUpdating;
+    const omoLit = hasOmoUpdate || omoStale;
     Object.assign(vals, {
       showUpdateBtn: !!ver && !(s.view === 'session' && (isPhone ? s.ptab : s.rtab) === 'terminal'),
-      updateHasDot: hasOmoUpdate,
+      updateHasDot: omoLit,
       updateDot: 'var(--acc)',
       updateAnim: omoUpdating ? 'mcPulse 1.2s infinite' : 'none',
-      updateLabel: omoUpdating ? '업데이트 중…' : hasOmoUpdate ? `v${ver.latest} 업데이트` : `omo v${ver?.current || ''}`,
-      updateTitle: omoUpdating ? 'omo를 업데이트하고 있습니다' : hasOmoUpdate ? `현재 v${ver.current} → 최신 v${ver.latest}` : `omo v${ver?.current || ''} · 최신 버전입니다`,
-      updateBg: hasOmoUpdate ? 'var(--acc-tint)' : 'transparent',
-      updateBd: hasOmoUpdate ? 'var(--acc)' : 'var(--line)',
-      updateFg: hasOmoUpdate ? 'var(--acc-fg)' : 'var(--fg3)',
+      updateLabel: s.omoRestarting ? 'app-server 재시작 중…' : omoUpdating ? '업데이트 중…' : hasOmoUpdate ? `v${ver.latest} 업데이트` : omoStale ? 'app-server 재시작 필요' : `omo v${ver?.current || ''}`,
+      updateTitle: s.omoRestarting ? 'app-server를 다시 시작하고 있습니다' : omoUpdating ? 'omo를 업데이트하고 있습니다' : hasOmoUpdate ? `현재 v${ver.current} → 최신 v${ver.latest}` : omoStale ? `app-server가 이전 엔진(senpi ${ver.running})으로 실행 중 · 설치된 omo v${ver.current}(senpi ${ver.engine})` : `omo v${ver?.current || ''} · 최신 버전입니다`,
+      updateBg: omoLit ? 'var(--acc-tint)' : 'transparent',
+      updateBd: omoLit ? 'var(--acc)' : 'var(--line)',
+      updateFg: omoLit ? 'var(--acc-fg)' : 'var(--fg3)',
       onUpdateBtn: async () => {
         if (omoUpdating) return;
+        if (omoStale) { this.confirm('omoRestart', null); return; }
         if (!hasOmoUpdate) { st.toast('최신 버전입니다', 'info'); this.checkOmoVersion(); return; }
         this.confirm('omoUpdate', null);
       },

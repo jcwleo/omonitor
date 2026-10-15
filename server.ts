@@ -9,7 +9,7 @@ import { PushError, PushService, watchSessions } from './push.ts';
 import { TerminalError, TerminalManager } from './terminal.ts';
 import type { SocketData } from './terminal.ts';
 import { applySelf, checkSelf, isServiceProcess } from './update.ts';
-import type { OmonitorUpdateResult, OmonitorVersion } from './src/protocol.ts';
+import type { OmonitorUpdateResult, OmonitorVersion, OmoVersion } from './src/protocol.ts';
 
 const MOCK = process.argv.includes('--mock');
 const PORT = Number(process.env.PORT || 4800);
@@ -29,7 +29,7 @@ const keyOk = (req: Request, url: URL) => (url.searchParams.get('key') || req.he
 const readToken = async () => (await readFile(TOKEN_FILE, 'utf8')).trim();
 
 // ── short-lived app-server connection (thread lookups for the history endpoints) ──
-async function withRpc<T>(fn: (call: (method: string, params: unknown) => Promise<any>) => Promise<T>): Promise<T> {
+async function withRpc<T>(fn: (call: (method: string, params: unknown) => Promise<any>, init: any) => Promise<T>): Promise<T> {
   const token = await readToken();
   const ws = new WebSocket(UPSTREAM, { headers: { Authorization: `Bearer ${token}` } } as any);
   const pending = new Map<number, { res: (v: any) => void; rej: (e: Error) => void }>();
@@ -51,8 +51,8 @@ async function withRpc<T>(fn: (call: (method: string, params: unknown) => Promis
   });
   try {
     await opened;
-    await call('initialize', { clientInfo: { name: 'omonitor-backend', version: '0.1.0' }, capabilities: { experimentalApi: true } });
-    return await fn(call);
+    const init = await call('initialize', { clientInfo: { name: 'omonitor-backend', version: '0.1.0' }, capabilities: { experimentalApi: true } });
+    return await fn(call, init);
   } finally { ws.close(); }
 }
 
@@ -79,7 +79,6 @@ async function threadPath(threadId: string): Promise<string | null> {
 // thread/settings/update accepts them. They are rebuilt here the way the extension builds them: the pi-ai anthropic
 // catalog with the minimal level removed, taken from the pi-ai copy inside the installed omo.
 const SUBSCRIPTION = 'anthropic-subscription';
-let piAi: Promise<{ core: any; compat: any }> | null = null;
 // The installed omo-ai entry script (bin/omo.js), also when PATH's omo is omo-ai's bun launcher shim.
 async function omoEntry() {
   const bin = Bun.which('omo');
@@ -88,24 +87,43 @@ async function omoEntry() {
   const shim = (await readFile(entry, 'utf8')).match(/^# entry: (.+)$/m); // omo-ai's bun launcher shim
   return shim ? shim[1].trim() : entry;
 }
-async function loadPiAi() {
-  const entry = await omoEntry();
-  const from = dirname(Bun.resolveSync('@code-yeongyu/senpi', dirname(entry)));
-  return { core: await import(Bun.resolveSync('@earendil-works/pi-ai', from)), compat: await import(Bun.resolveSync('@earendil-works/pi-ai/compat', from)) };
+// The pi-ai catalog is read in a child bun process: a module imported here stays cached for this process's lifetime
+// even after an omo update rewrites its files, so the new models would show only after omonitor restarts. Read again
+// whenever the installed pi-ai file changes.
+type PiCatalog = { contextWindows: Record<string, Record<string, number>>; subscription: { id: string; name: string; levels: string[] }[] };
+const CATALOG_SCRIPT = `
+const core = await import(process.env.PI_CORE), compat = await import(process.env.PI_COMPAT);
+const contextWindows = {};
+for (const p of compat.getProviders()) { try { contextWindows[p] = Object.fromEntries(compat.getModels(p).map((m) => [m.id, m.contextWindow || 0])); } catch {} }
+const subscription = compat.getModels('anthropic').map((m) => {
+  const model = { ...m, provider: '${SUBSCRIPTION}', thinkingLevelMap: { ...m.thinkingLevelMap, minimal: null } };
+  return { id: m.id, name: m.name ?? m.id, levels: m.reasoning ? core.getSupportedThinkingLevels(model).filter((l) => l !== 'off') : [] };
+});
+console.log(JSON.stringify({ contextWindows, subscription }));
+`;
+let catalog: { key: string; data: Promise<PiCatalog> } | null = null;
+async function piCatalog(): Promise<PiCatalog> {
+  const from = dirname(Bun.resolveSync('@code-yeongyu/senpi', dirname(await omoEntry())));
+  const core = Bun.resolveSync('@earendil-works/pi-ai', from), compat = Bun.resolveSync('@earendil-works/pi-ai/compat', from);
+  const key = `${core}@${(await stat(core)).mtimeMs}`;
+  if (catalog?.key !== key) {
+    const data = exec([process.execPath, '-e', CATALOG_SCRIPT], { PI_CORE: core, PI_COMPAT: compat }).then((out) => JSON.parse(out) as PiCatalog);
+    catalog = { key, data };
+    data.catch(() => { if (catalog?.data === data) catalog = null; });
+  }
+  return catalog.data;
 }
 async function extraModels() {
   const auth = JSON.parse(await readFile(join(AGENT_DIR, 'auth.json'), 'utf8').catch(() => '{}'));
   if (!auth[SUBSCRIPTION] && !auth['claude-sdk-oauth']) return []; // claude-sdk-oauth: the provider's earlier auth key
-  const { core, compat } = await (piAi ??= loadPiAi().catch((e) => { piAi = null; throw e; }));
-  return compat.getModels('anthropic').map((m: any) => {
-    const model = { ...m, provider: SUBSCRIPTION, thinkingLevelMap: { ...m.thinkingLevelMap, minimal: null } };
-    const levels: string[] = m.reasoning ? core.getSupportedThinkingLevels(model).filter((l: string) => l !== 'off') : [];
-    return { id: `${SUBSCRIPTION}/${m.id}`, model: m.id, displayName: m.name ?? m.id, hidden: false, supportedReasoningEfforts: levels.map((reasoningEffort) => ({ reasoningEffort, description: '' })), defaultReasoningEffort: 'medium', isDefault: false };
-  });
+  return (await piCatalog()).subscription.map((m) => ({
+    id: `${SUBSCRIPTION}/${m.id}`, model: m.id, displayName: m.name, hidden: false,
+    supportedReasoningEfforts: m.levels.map((reasoningEffort) => ({ reasoningEffort, description: '' })), defaultReasoningEffort: 'medium', isDefault: false,
+  }));
 }
 
 // ── omo version check and update ──
-let versionCache: { current: string; latest: string; updateAvailable: boolean; checkedAt: number } | null = null;
+let versionCache: OmoVersion | null = null;
 const VERSION_CACHE_MS = 10 * 60 * 1000; // 10 minutes
 
 function semverGt(a: string, b: string): boolean {
@@ -114,38 +132,67 @@ function semverGt(a: string, b: string): boolean {
   return false;
 }
 
+// "omonitor-backend/2026.10.12 (Darwin 25.6.0; arm64) senpi_app_server": the engine version the app-server runs.
+const appServerVersion = () => withRpc(async (_call, init) => String(init?.userAgent || '').match(/^[^/]+\/(\S+)/)?.[1] || null);
+const installedEngine = async () => (await exec(['omo', '--version'])).match(/engine: senpi ([^\s)]+)/)?.[1] || '';
+
 async function omoVersion() {
   if (versionCache && Date.now() - versionCache.checkedAt < VERSION_CACHE_MS) return versionCache;
-  const proc = Bun.spawn(['omo', '--version'], { stdout: 'pipe', stderr: 'pipe' });
-  const current = (await new Response(proc.stdout).text()).match(/omo (\d+\.\d+\.\d+)/)?.[1] || '';
-  await proc.exited;
+  const text = await exec(['omo', '--version']);
+  const current = text.match(/omo (\d+\.\d+\.\d+)/)?.[1] || '';
+  const engine = text.match(/engine: senpi ([^\s)]+)/)?.[1] || '';
+  // An app-server started before an omo update keeps the old engine, model list included, until it restarts.
+  const running = await appServerVersion().catch(() => null);
+  const stale = !!(engine && running && running !== engine);
   let latest = '';
   try {
     const res = await fetch('https://registry.npmjs.org/omo-ai/latest', { signal: AbortSignal.timeout(5000) });
     if (res.ok) latest = (await res.json()).version || '';
   } catch {}
   const updateAvailable = !!(current && latest && latest !== current && semverGt(latest, current));
-  versionCache = { current, latest, updateAvailable, checkedAt: Date.now() };
+  versionCache = { current, latest, updateAvailable, engine, running, stale, checkedAt: Date.now() };
   return versionCache;
 }
 
-async function omoUpdate() {
-  const run = async (cmd: string[], env: Record<string, string> = {}) => {
-    const p = Bun.spawn(cmd, { stdout: 'pipe', stderr: 'pipe', env: { ...process.env, ...env } });
-    const out = await new Response(p.stdout).text();
-    const err = await new Response(p.stderr).text();
-    const code = await p.exited;
-    if (code !== 0) throw new Error((err || out).trim() || `exit ${code}`);
-    return (out + '\n' + err).trim();
-  };
-  const update = await run(['omo', 'update']);
-  piAi = null; // omo binary changed; drop cached module
-  versionCache = null;
-  paletteCache = null;
+async function exec(cmd: string[], env: Record<string, string> = {}) {
+  const p = Bun.spawn(cmd, { stdout: 'pipe', stderr: 'pipe', env: { ...process.env, ...env } });
+  const [out, err, code] = await Promise.all([new Response(p.stdout).text(), new Response(p.stderr).text(), p.exited]);
+  if (code !== 0) throw new Error((err || out).trim() || `exit ${code}`);
+  return (out + '\n' + err).trim();
+}
+
+// `omo app-server daemon restart` only restarts a daemon it started itself (one with a pid file). An app-server run by a
+// LaunchAgent (dev.omo.app-server, for starting at login) has none: the stop finds nothing to stop and the start reports
+// already-running, leaving the old engine up. launchd restarts that one. Either way the restart counts only once the
+// app-server answers with the installed engine's version.
+const APP_SERVER_JOB = 'dev.omo.app-server';
+async function restartAppServer() {
+  const job = `gui/${process.getuid?.() ?? 0}/${APP_SERVER_JOB}`;
+  const launchd = process.platform === 'darwin' && Bun.spawnSync(['launchctl', 'print', job], { stdout: 'ignore', stderr: 'ignore' }).exitCode === 0;
   // Under bun (this server) senpi's daemon launcher falls back to a hardcoded /opt/homebrew/bin/node and fails with
   // "failed to spawn daemon process"; OMO_RUNTIME=node makes it use the node on PATH.
-  try { return { update, restart: await run(['omo', 'app-server', 'daemon', 'restart'], { OMO_RUNTIME: 'node' }) }; }
+  await (launchd ? exec(['launchctl', 'kickstart', '-k', job]) : exec(['omo', 'app-server', 'daemon', 'restart'], { OMO_RUNTIME: 'node' }));
+  const want = await installedEngine();
+  let running: string | null = null;
+  for (const end = Date.now() + 30_000; Date.now() < end; await Bun.sleep(500)) {
+    running = await appServerVersion().catch(() => null);
+    if (running && (!want || running === want)) return `app-server ${running}${launchd ? ` (launchd ${APP_SERVER_JOB})` : ''}`;
+  }
+  throw new Error(running ? `app-server가 아직 이전 버전(${running})으로 실행 중입니다. 설치된 omo는 ${want}입니다` : 'app-server가 30초 안에 다시 응답하지 않았습니다');
+}
+
+async function omoRestart() {
+  try { return { restart: await restartAppServer() }; }
+  finally { versionCache = null; }
+}
+
+async function omoUpdate() {
+  const update = await exec(['omo', 'update']);
+  versionCache = null;
+  paletteCache = null;
+  try { return { update, restart: await restartAppServer() }; }
   catch (e: any) { return { update, restartError: String(e?.message || e) }; }
+  finally { versionCache = null; }
 }
 
 // ── omonitor's own update (update.ts) ──
@@ -486,10 +533,9 @@ function finishedTask(d: any) {
 }
 async function contextWindow(provider: string, model: string): Promise<number | null> {
   try {
-    const { compat } = await (piAi ??= loadPiAi().catch((e) => { piAi = null; throw e; }));
-    const find = (p: string) => { try { return compat.getModels(p).find((m: any) => m.id === model); } catch { return undefined; } };
-    const hit = find(provider) || find(provider.replace(/-subscription$/, '')) || compat.getProviders().map(find).find(Boolean);
-    return hit?.contextWindow || null;
+    const { contextWindows } = await piCatalog();
+    const find = (p: string) => contextWindows[p]?.[model];
+    return find(provider) || find(provider.replace(/-subscription$/, '')) || Object.keys(contextWindows).map(find).find(Boolean) || null;
   } catch { return null; }
 }
 async function threadMeta(threadId: string) {
@@ -689,6 +735,7 @@ const server = Bun.serve<SocketData>({
         if (url.pathname === '/api/git' && req.method === 'GET') return Response.json(await gitGraph(url.searchParams.get('cwd') || ''));
         if (url.pathname === '/api/omo/version') return Response.json(await omoVersion());
         if (url.pathname === '/api/omo/update' && req.method === 'POST') return Response.json(await omoUpdate());
+        if (url.pathname === '/api/omo/restart' && req.method === 'POST') return Response.json(await omoRestart());
         if (url.pathname === '/api/omonitor/version') return Response.json(await omonitorVersion());
         if (url.pathname === '/api/omonitor/update' && req.method === 'POST') return Response.json(await omonitorUpdate());
       } catch (e: any) { return new Response(String(e?.message || e), { status: e instanceof PushError ? e.status : 500 }); }

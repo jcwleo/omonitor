@@ -78,6 +78,12 @@ export class RealClient {
         if (!r.ok) throw new Error(await r.text());
         return r.json();
       },
+      // Restarts the app-server so it runs the installed omo (new model list included) → { restart }.
+      omoRestart: async () => {
+        const r = await fetch(api('api/omo/restart'), { method: 'POST', headers: hdr() });
+        if (!r.ok) throw new Error(await r.text());
+        return r.json();
+      },
       // omonitor's own clone against its upstream branch (update.ts) → { current, latest, behind, commits, blocked, restartNeeded, ... } or null.
       omonitorVersion: async () => {
         const r = await fetch(api('api/omonitor/version'), { headers: hdr() });

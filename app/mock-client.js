@@ -272,9 +272,16 @@ export class MockClient {
           { provider: 'chatgpt', name: 'ChatGPT', plan: 'pro', windows: [{ label: '5시간', percent: 9, resetsAt: at(4.1) }, { label: '주간', percent: 93, resetsAt: at(30) }] },
         ] };
       },
+      // sessionStorage mc.mockOmo='stale' plays an omo updated in a terminal while the app-server kept the old engine.
       omoVersion: async () => {
         await sleep(300);
-        return { current: '5.1.5', latest: '5.2.0', updateAvailable: true, checkedAt: Date.now() };
+        if (sessionStorage.getItem('mc.mockOmo') === 'stale') return { current: '5.2.0', latest: '5.2.0', updateAvailable: false, engine: '2026.10.12', running: '2026.10.10-3', stale: true, checkedAt: Date.now() };
+        return { current: '5.1.5', latest: '5.2.0', updateAvailable: true, engine: '2026.10.10-3', running: '2026.10.10-3', stale: false, checkedAt: Date.now() };
+      },
+      omoRestart: async () => {
+        await sleep(1500);
+        sessionStorage.removeItem('mc.mockOmo');
+        return { restart: 'app-server 2026.10.12' };
       },
       omoUpdate: async () => {
         await sleep(3000);

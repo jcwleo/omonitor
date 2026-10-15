@@ -1,6 +1,6 @@
 // SessionClient — the only thing the UI talks to. MockClient (app/mock-client.js) and RealClient
 // below implement the same contract, so swapping them needs no UI change.
-import type { RequestId, RpcNotification, ServerRequest, Skill, Item, InitializeParams, Turn, Model, OmoVersion, OmoUpdateResult, OmonitorVersion, OmonitorUpdateResult, PlanUsage } from './protocol';
+import type { RequestId, RpcNotification, ServerRequest, Skill, Item, InitializeParams, Turn, Model, OmoVersion, OmoUpdateResult, OmoRestartResult, OmonitorVersion, OmonitorUpdateResult, PlanUsage } from './protocol';
 
 export type ConnectionState = 'connecting' | 'open' | 'reconnecting' | 'closed';
 export interface ConnectionEvent { state: ConnectionState; attempt?: number; retryInMs?: number; reconnected?: boolean }
@@ -35,6 +35,8 @@ export interface SessionClient {
     omoVersion(): Promise<OmoVersion>;
     /** Updates omo and restarts the app-server daemon, which ends every session running under it. */
     omoUpdate(): Promise<OmoUpdateResult>;
+    /** Restarts the app-server so it runs the installed omo; ends every session running under it. */
+    omoRestart(): Promise<OmoRestartResult>;
     /** omonitor's own clone against its upstream branch; null when it does not run from a git clone. */
     omonitorVersion(): Promise<OmonitorVersion | null>;
     /** Fast-forwards omonitor; when server code changed, the service restarts it and every open terminal closes. */
@@ -112,6 +114,11 @@ export class RealClient implements SessionClient {
     },
     omoUpdate: async (): Promise<OmoUpdateResult> => {
       const r = await fetch('/api/omo/update', { method: 'POST', headers: this.hdr() });
+      if (!r.ok) throw new Error(await r.text());
+      return r.json();
+    },
+    omoRestart: async (): Promise<OmoRestartResult> => {
+      const r = await fetch('/api/omo/restart', { method: 'POST', headers: this.hdr() });
       if (!r.ok) throw new Error(await r.text());
       return r.json();
     },

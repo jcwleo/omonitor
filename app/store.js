@@ -459,11 +459,7 @@ export class Store {
     this.msgAt = new Map(Object.entries(msgAt || {}));
     for (const t of [...active, ...archived.map((t) => ({ ...t, archived: true }))]) this.merge(t);
     this.s.models = models.data || [];
-    this.c.backend?.extraModels?.().then((xs) => {
-      const have = new Set(this.s.models.map((m) => m.id));
-      this.s.models = [...this.s.models, ...(xs || []).filter((m) => !have.has(m.id))];
-      this.emit();
-    }).catch((e) => console.warn('[omonitor] Claude 구독 모델 목록을 읽지 못했습니다:', e?.message || e));
+    this.addExtraModels();
     this.s.loading = false;
     this.emit();
     // Subscribe only to threads the app-server already has loaded. Loading a saved thread (thread/resume or thread/read)
@@ -502,6 +498,14 @@ export class Store {
   }
   // Notifications sent while the socket was down are lost, and resume keeps the turns already on screen, so a reconnect
   // re-reads what a page load reads: the thread list, then subscriptions and history for subscribed and loaded threads.
+  // Claude subscription models, which model/list leaves out, appended from the backend.
+  addExtraModels() {
+    this.c.backend?.extraModels?.().then((xs) => {
+      const have = new Set(this.s.models.map((m) => m.id));
+      this.s.models = [...this.s.models, ...(xs || []).filter((m) => !have.has(m.id))];
+      this.emit();
+    }).catch((e) => console.warn('[omonitor] Claude 구독 모델 목록을 읽지 못했습니다:', e?.message || e));
+  }
   async resync() {
     const subs = new Set();
     for (const T of this.s.threads.values()) {
@@ -516,8 +520,10 @@ export class Store {
       for (const id of loaded.data || []) if (this.T(id) && !this.T(id).archived) subs.add(id);
     } catch (e) { console.warn('[omonitor] 다시 연결한 뒤 세션 목록을 읽지 못했습니다:', e?.message || e); }
     this.emit();
-    // An omo update restarts the app-server daemon, which is one way the socket goes down; read the palette again.
+    // An omo update restarts the app-server daemon, which is one way the socket goes down; read the palette and the
+    // model list again, since the new omo may offer other models.
     this.loadSkills();
+    this.c.request('model/list').then((r) => { this.s.models = r.data || []; this.addExtraModels(); this.emit(); }).catch((e) => console.warn('[omonitor] 다시 연결한 뒤 모델 목록을 읽지 못했습니다:', e?.message || e));
     await Promise.all([...subs].map((id) => this.resume(id, true, true).catch(() => {})));
   }
   // History comes from the session file through the backend: it is the complete record, and reading it has no side
