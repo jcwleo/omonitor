@@ -280,6 +280,23 @@ export class MockClient {
         await sleep(3000);
         return { update: 'omo-ai@5.2.0 설치 완료', restart: 'app-server 데몬을 재시작했습니다' };
       },
+      // A pretend omonitor update; the flag outlives the page reload that follows an update, like the real new version would.
+      omonitorVersion: async () => {
+        await sleep(300);
+        const base = { upstream: 'origin/main', ahead: 0, blocked: null, fetchError: null, checkedAt: Date.now() };
+        if (sessionStorage.getItem('mc.mockOmonitorUpdated')) return { ...base, current: '9c1e2d4', latest: '9c1e2d4', behind: 0, commits: [], updateAvailable: false, restartNeeded: false };
+        const ago = (h) => Date.now() - h * 3600 * 1000;
+        return { ...base, current: '38a3f12', latest: '9c1e2d4', behind: 3, updateAvailable: true, restartNeeded: true, commits: [
+          { sha: '9c1e2d4', subject: 'Show omonitor updates beside the omo version', at: ago(2) },
+          { sha: '71b0a3e', subject: 'Keep the session list order while a turn streams', at: ago(20) },
+          { sha: '5d2f8c1', subject: 'Tighten the session list spacing on phones', at: ago(30) },
+        ] };
+      },
+      omonitorUpdate: async () => {
+        await sleep(1500);
+        sessionStorage.setItem('mc.mockOmonitorUpdated', '1');
+        return { from: '38a3f12', to: '9c1e2d4', installed: false, restartNeeded: false, restarting: false };
+      },
     };
   }
   _usage(t, add = 0) {

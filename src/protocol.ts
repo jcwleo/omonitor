@@ -127,3 +127,12 @@ export interface UsageAccount { provider: 'claude' | 'chatgpt'; name: string; pl
 export interface PlanUsage { checkedAt: number; accounts: UsageAccount[] }
 /** POST /api/omo/update: `omo update`, then `omo app-server daemon restart`. restartError means the update went in but the restart failed. */
 export interface OmoUpdateResult { update: string; restart?: string; restartError?: string }
+/** A commit on omonitor's upstream branch that this clone lacks; at is the commit time in ms. */
+export interface OmonitorCommit { sha: string; subject: string; at: number }
+/** GET /api/omonitor/version (update.ts): this clone against its upstream branch after a git fetch (cached 10 minutes by
+ * the backend), null when omonitor does not run from a git clone with an upstream. blocked: why a one-click update would
+ * not run (local commits or edits). restartNeeded: the update changes server code; static files need only a reload. */
+export interface OmonitorVersion { current: string; latest: string; upstream: string; behind: number; ahead: number; commits: OmonitorCommit[]; updateAvailable: boolean; blocked: string | null; restartNeeded: boolean; fetchError: string | null; checkedAt: number }
+/** POST /api/omonitor/update: fast-forward, then bun install when the lockfile moved. restarting: the server exits now and
+ * its service starts the new code; restartNeeded without restarting: it runs outside the service and needs a manual restart. */
+export interface OmonitorUpdateResult { from: string; to: string; installed: boolean; restartNeeded: boolean; restarting: boolean }

@@ -78,6 +78,18 @@ export class RealClient {
         if (!r.ok) throw new Error(await r.text());
         return r.json();
       },
+      // omonitor's own clone against its upstream branch (update.ts) → { current, latest, behind, commits, blocked, restartNeeded, ... } or null.
+      omonitorVersion: async () => {
+        const r = await fetch(api('api/omonitor/version'), { headers: hdr() });
+        if (!r.ok) throw new Error(await r.text());
+        return r.json();
+      },
+      // → { from, to, installed, restartNeeded, restarting }; restarting: the server exits and its service starts the new code.
+      omonitorUpdate: async () => {
+        const r = await fetch(api('api/omonitor/update'), { method: 'POST', headers: hdr() });
+        if (!r.ok) throw new Error(await r.text());
+        return r.json();
+      },
     };
   }
   on(ev, cb) { this.ls[ev].add(cb); return () => this.ls[ev].delete(cb); }

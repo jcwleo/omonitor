@@ -464,7 +464,7 @@ html[data-vt]::view-transition-old(root),html[data-vt]::view-transition-new(root
 <div class="dialog-backdrop" data-exit="pop" onClick="{{ dlgCancel }}" style="animation:mcFade var(--dur-fast) ease-out;position:absolute;z-index:60;background:rgba(0,0,0,.5);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)">
 <div class="dialog" data-surface="1" onClick="{{ stop }}" style="animation:mcPop var(--dur) var(--ease-out);background:var(--bg2);color:var(--fg);border:1px solid var(--line2);box-shadow:var(--shadow-lg)">
 <div class="dialog-title">{{ dlgTitle }}</div>
-<div class="dialog-body" style="line-height:1.55">{{ dlgBody }}</div>
+<div class="dialog-body" style="line-height:1.55;white-space:pre-line">{{ dlgBody }}</div>
 <sc-if value="{{ dlgHasInput }}"><input class="input" data-dlg-input="1" autofocus="{{ true }}" value="{{ dlgInput }}" onChange="{{ onDlgInput }}" onKeyDown="{{ dlgKey }}" style="min-height:44px;font-size:14.5px;color:var(--fg)"></sc-if>
 <div class="dialog-actions"><button class="btn btn-secondary" onClick="{{ dlgCancel }}" style="min-height:40px;color:var(--fg)">취소</button><button class="btn btn-primary" onClick="{{ dlgOk }}" style="min-height:40px;background:{{ dlgOkBg }};border-color:{{ dlgOkBg }}">{{ dlgConfirm }}</button></div>
 </div>
@@ -473,6 +473,7 @@ html[data-vt]::view-transition-old(root),html[data-vt]::view-transition-new(root
 
 <div style="position:absolute;z-index:70;right:14px;left:{{ toastLeft }};bottom:{{ toastBottom }};display:flex;flex-direction:column;gap:4px;align-items:flex-end;pointer-events:none">
 <sc-for list="{{ toasts }}" as="t"><sc-if value="{{ t.show }}"><div style="animation:{{ t.anim }};pointer-events:auto;max-width:420px;background:var(--bg2);border:1px solid var(--line2);border-radius:var(--r);box-shadow:var(--shadow-lg);padding:9px 12px;font-size:13px;display:flex;gap:8px;align-items:flex-start"><span style="width:7px;height:7px;margin-top:5px;flex:none;border-radius:50%;background:{{ t.bd }}"></span>{{ t.text }}</div></sc-if></sc-for>
+<sc-if value="{{ showOmonitorBtn }}"><button onClick="{{ onOmonitorBtn }}" title="{{ omonitorTitle }}" style="all:unset;pointer-events:auto;cursor:pointer;display:flex;align-items:center;gap:6px;padding:5px 12px;border-radius:999px;background:{{ omonitorBg }};border:1px solid {{ omonitorBd }};font:12px var(--mono);color:{{ omonitorFg }};animation:{{ omonitorAnim }}" style-hover="background:var(--hover)"><sc-if value="{{ omonitorHasDot }}"><span style="width:6px;height:6px;border-radius:50%;background:var(--acc);flex:none"></span></sc-if>{{ omonitorLabel }}</button></sc-if>
 <sc-if value="{{ showUpdateBtn }}"><button onClick="{{ onUpdateBtn }}" title="{{ updateTitle }}" style="all:unset;pointer-events:auto;cursor:pointer;display:flex;align-items:center;gap:6px;padding:5px 12px;border-radius:999px;background:{{ updateBg }};border:1px solid {{ updateBd }};font:12px var(--mono);color:{{ updateFg }};animation:{{ updateAnim }}" style-hover="background:var(--hover)"><sc-if value="{{ updateHasDot }}"><span style="width:6px;height:6px;border-radius:50%;background:{{ updateDot }};flex:none"></span></sc-if>{{ updateLabel }}</button></sc-if>
 </div>
 
@@ -496,7 +497,7 @@ class Component extends DCLogic {
   state = { v: 0, now: Date.now(), w: window.innerWidth, view: 'board', selId: null, backTo: 'board', theme: null, drawer: false, drawerMounted: false,
     pal: null, sheet: null, dialog: null, menu: false, selMode: false, sel: {}, multiText: '', grouped: false, groupOpen: {}, lg: true, lgC: {}, lgOpen: {}, panels: { left: false, right: false }, colC: {}, secC: { archived: true },
     exp: {}, agentOpen: {}, doneOpen: null, runFold: false, escArmed: null, allC: false, rtab: 'todo', ptab: 'tl', q: '', lf: 'all', focus: -1, pf: null, speedIdx: 0,
-    goalDraft: '', goalBudgetDraft: '', fatal: null, nb: false, ns: false, omoVer: null, omoUpdating: false, panelWidths: {}, termLive: {}, terms: [], termPolicy: null, termErr: '', prefs: false, push: { ready: false, on: false, busy: false, why: '' } };
+    goalDraft: '', goalBudgetDraft: '', fatal: null, nb: false, ns: false, omoVer: null, omoUpdating: false, omonitorVer: null, omonitorUpdating: false, panelWidths: {}, termLive: {}, terms: [], termPolicy: null, termErr: '', prefs: false, push: { ready: false, on: false, busy: false, why: '' } };
   tlRef = React.createRef();
   detailRef = React.createRef();
   sheetFileRef = React.createRef();
@@ -659,7 +660,8 @@ class Component extends DCLogic {
       if (opened) { history.replaceState(null, '', location.pathname + location.search); this.openSession(decodeURIComponent(opened[1])); }
       this.info = real ? `${this.client.serverInfo ? `${this.client.serverInfo.name} ${this.client.serverInfo.version}` : 'omo app-server'} · ${this.upstream}` : 'mock 시뮬레이터 · 실제 서버 아님';
       this.checkOmoVersion();
-      this.versionTick = setInterval(() => this.checkOmoVersion(), 30 * 60 * 1000);
+      this.checkOmonitorVersion();
+      this.versionTick = setInterval(() => { this.checkOmoVersion(); this.checkOmonitorVersion(); }, 30 * 60 * 1000);
       // Plan usage: every minute while the page is visible and after each finished turn (the backend caches Claude for 3 minutes, ChatGPT for 30s).
       this.checkUsage();
       this.usageTick = setInterval(() => { if (document.visibilityState === 'visible') this.checkUsage(); }, 60 * 1000);
@@ -857,6 +859,32 @@ class Component extends DCLogic {
     this.setState({ push: { ready: true, on: !!sub, busy: false, why: sup.why } });
   }
   async checkOmoVersion() { try { const ver = await this.client?.backend?.omoVersion?.(); if (ver) this.setState({ omoVer: ver }); } catch {} }
+  async checkOmonitorVersion() { try { this.setState({ omonitorVer: (await this.client?.backend?.omonitorVersion?.()) || null }); } catch {} }
+  // Pages and app/ files are read from disk per request, so a reload shows them. New server code comes with a restart the
+  // service does after the server exits (update.ts); the restarted server hands out a new key, which is when to reload.
+  async runOmonitorUpdate() {
+    const st = this.store;
+    this.setState({ omonitorUpdating: true });
+    try {
+      const r = await this.client.backend.omonitorUpdate();
+      if (r.restartNeeded && !r.restarting) {
+        st.toast(`${r.to}(으)로 받았습니다. 서버 코드가 바뀌어 omonitor를 다시 시작해야 적용됩니다 (omonitor restart)`, 'info');
+        this.setState({ omonitorUpdating: false });
+        return this.checkOmonitorVersion();
+      }
+      if (r.restarting) {
+        st.toast('omonitor를 다시 시작하고 있습니다…', 'info');
+        const key = this.client.opts?.sessionKey;
+        for (const until = Date.now() + 60 * 1000; Date.now() < until;) {
+          await new Promise((res) => setTimeout(res, 1000));
+          const cfg = await fetch(new URL('api/config', location.href), { cache: 'no-store' }).then((x) => x.json()).catch(() => null);
+          if (cfg?.key && cfg.key !== key) return location.reload();
+        }
+        throw new Error('60초 안에 다시 시작되지 않았습니다. omonitor status로 확인하세요');
+      }
+      location.reload();
+    } catch (e) { st.toast(`omonitor 업데이트 실패: ${e?.message || e}`, 'error'); this.setState({ omonitorUpdating: false }); this.checkOmonitorVersion(); }
+  }
   async checkUsage() {
     try { const usage = await this.client?.backend?.usage?.(); if (usage) this.setState({ usage }); }
     catch (e) { console.warn('[omonitor] 요금제 사용량을 읽지 못했습니다:', e?.message || e); }
@@ -1567,6 +1595,9 @@ class Component extends DCLogic {
     const dT = d ? st.T(d.id) : null;
     const dTerm = d?.kind === 'termClose' ? terms.find((t) => t.id === d.id) : null;
     const dTermProgs = dTerm ? progsOf(dTerm) : [];
+    const monV = s.omonitorVer;
+    const monNews = monV ? `${monV.current} → ${monV.latest} · 새 커밋 ${monV.behind}개\n${monV.commits.map((c) => `• ${c.subject}`).join('\n')}${monV.behind > monV.commits.length ? `\n• 외 ${monV.behind - monV.commits.length}개` : ''}` : '';
+    const monOpenTerms = terms.filter((t) => t.status === 'running').length;
     const DLG = {
       delete: ['세션을 삭제할까요?', `“${dT?.name || ''}” 세션과 기록이 모두 지워집니다.${termOf.has(d?.id) ? ' 이 세션의 터미널도 함께 종료됩니다.' : ''} 되돌릴 수 없습니다.`, '삭제', 'var(--err)', async () => { await st.remove(d.id); this.setState({ selId: null, view: s.view === 'session' ? (isPhone ? 'board' : 'session') : s.view }); this.termAction(() => this.TM.closeSessionTerminal(d.id), '세션 터미널을 종료하지 못했습니다'); }],
       termClose: dTerm ? ['터미널을 종료할까요?', `“${termName(dTerm)}” 세션의 셸을 종료합니다.${dTermProgs.length ? ` 실행 중인 ${dTermProgs.join(', ')}도 함께 종료됩니다.` : ''} 화면 기록도 사라집니다.`, '종료', 'var(--err)', () => this.termAction(() => this.TM.closeTerminal(dTerm.id), '터미널을 종료하지 못했습니다')] : null,
@@ -1579,6 +1610,10 @@ class Component extends DCLogic {
       rename: ['이름 변경', this.needsTakeover(dT) ? '이 세션은 아직 app-server에 불러오지 않았습니다. 이름을 바꾸면 세션을 불러오므로, 터미널 omo에서 열려 있으면 먼저 종료하세요. 목표나 끝나지 않은 todo가 있으면 omo가 이어서 작업할 수 있습니다.' : '', '저장', 'var(--acc)', () => d.input.trim() && st.rename(d.id, d.input.trim())],
       // The daemon restart ends every session running under it (including agent sessions driven from here).
       omoUpdate: ['omo를 업데이트할까요?', `v${s.omoVer?.current || '?'} → v${s.omoVer?.latest || '?'}로 업데이트한 뒤 app-server 데몬을 재시작합니다. 재시작하면 데몬에서 돌던 세션이 모두 끊깁니다${[...st.s.threads.values()].filter((x) => x.status?.type === 'active').length ? ` (지금 작업 중인 세션 ${[...st.s.threads.values()].filter((x) => x.status?.type === 'active').length}개 포함)` : ''}. omonitor는 자동으로 다시 연결합니다.`, '업데이트하고 재시작', 'var(--acc)', () => this.runOmoUpdate()],
+      // Server code changes restart omonitor, which closes every open terminal; page and app/ changes need only a reload.
+      omonitorUpdate: !monV ? null : monV.blocked
+        ? ['omonitor 업데이트', `${monNews}\n\n${monV.blocked}. 직접 git pull 한 뒤 omonitor restart 하세요.`, '확인', 'var(--acc)', null]
+        : ['omonitor를 업데이트할까요?', `${monNews}\n\n${monV.restartNeeded ? `서버 코드가 바뀌어서 받은 뒤 omonitor를 다시 시작합니다${monOpenTerms ? `. 대시보드에 열린 터미널 ${monOpenTerms}개가 닫힙니다` : ''}. 다시 시작되면 화면을 자동으로 새로고침합니다.` : '화면 파일만 바뀌어 재시작 없이 새로고침합니다. 열린 터미널은 그대로 둠니다.'}`, monV.restartNeeded ? '업데이트하고 재시작' : '업데이트', 'var(--acc)', () => this.runOmonitorUpdate()],
     }[d?.kind] || null;
     const ok = async () => { const fn = DLG?.[4]; this.setState({ dialog: null }); try { await fn?.(); } catch {} };
     Object.assign(vals, {
@@ -1663,6 +1698,22 @@ class Component extends DCLogic {
         if (!hasOmoUpdate) { st.toast('최신 버전입니다', 'info'); this.checkOmoVersion(); return; }
         this.confirm('omoUpdate', null);
       },
+    });
+
+    // ── omonitor update: shown only while its upstream branch has commits this clone lacks ──
+    const monUpdating = s.omonitorUpdating;
+    const monReady = !!monV?.updateAvailable && !monV.blocked && !monUpdating;
+    Object.assign(vals, {
+      showOmonitorBtn: (!!monV?.updateAvailable || monUpdating) && !(s.view === 'session' && (isPhone ? s.ptab : s.rtab) === 'terminal'),
+      omonitorHasDot: monReady,
+      omonitorAnim: monUpdating ? 'mcPulse 1.2s infinite' : 'none',
+      omonitorLabel: monUpdating ? 'omonitor 업데이트 중…' : `omonitor 업데이트 (${monV?.behind || 0})`,
+      omonitorTitle: monUpdating ? 'omonitor를 업데이트하고 있습니다' : monV ? `${monV.current} → ${monV.latest} · 새 커밋 ${monV.behind}개${monV.blocked ? ` · ${monV.blocked}` : ''}` : '',
+      // Opaque: on phones the chip floats over the board, and a see-through tint lets card text show through it.
+      omonitorBg: monReady ? 'linear-gradient(var(--acc-tint), var(--acc-tint)), var(--bg2)' : 'var(--bg2)',
+      omonitorBd: monReady ? 'var(--acc)' : 'var(--line)',
+      omonitorFg: monReady ? 'var(--acc-fg)' : 'var(--fg3)',
+      onOmonitorBtn: () => { if (monUpdating) return; this.refreshTerms(); this.confirm('omonitorUpdate', null); },
     });
 
     // ── plan usage (Claude / ChatGPT) ──

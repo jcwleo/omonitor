@@ -15,14 +15,17 @@ omonitor start    # 백그라운드 서비스로 실행하고, 로그인할 때�
 omonitor open     # 브라우저에서 http://127.0.0.1:4800 을 엽니다
 ```
 
-`omonitor start`는 사용자 서비스를 등록합니다. macOS에서는 LaunchAgent(`~/Library/LaunchAgents/dev.omonitor.plist`), Linux에서는 systemd 사용자 서비스(`~/.config/systemd/user/omonitor.service`)입니다. 서비스는 시작할 때 omo app-server가 꺼져 있으면 `omo app-server daemon start`로 함께 켜고, 대시보드가 비정상 종료되면 약 10초 뒤 다시 띄웁니다. 서비스는 내려받은 폴더에서 실행되므로 폴더를 옮기거나 지우지 마세요. 업데이트는 `git pull` 후 `omonitor restart`입니다.
+`omonitor start`는 사용자 서비스를 등록합니다. macOS에서는 LaunchAgent(`~/Library/LaunchAgents/dev.omonitor.plist`), Linux에서는 systemd 사용자 서비스(`~/.config/systemd/user/omonitor.service`)입니다. 서비스는 시작할 때 omo app-server가 꺼져 있으면 `omo app-server daemon start`로 함께 켜고, 대시보드가 비정상 종료되면 약 10초 뒤 다시 띄웁니다. 서비스는 내려받은 폴더에서 실행되므로 폴더를 옮기거나 지우지 마세요.
+
+업데이트는 `omonitor update`입니다. 새 커밋을 fast-forward로 받고, `package.json`이나 `bun.lock`이 바뀌었으면 `bun install`을, 서버 코드(`.ts`)가 바뀌었으면 서비스 재시작까지 합니다. 화면 파일만 바뀐 업데이트는 재시작 없이 새로고침만 하면 됩니다. 대시보드는 30분마다 새 버전을 확인해, 있으면 오른쪽 아래 omo 버전 위에 **omonitor 업데이트 (커밋 수)** 를 띄웁니다. 누르면 새 커밋 목록을 보여 주고 바로 업데이트합니다. 재시작하면 대시보드에 열린 터미널이 모두 닫히므로, 확인창과 `omonitor update`가 먼저 알려 줍니다. 직접 고친 파일이나 로컬 커밋이 있으면 자동으로 합치지 않으니 `git pull` 후 `omonitor restart` 하세요.
 
 | 명령 | 하는 일 |
 | --- | --- |
 | `omonitor start` | 서비스를 등록·시작하고 로그인 시 자동 시작을 켭니다. 이미 실행 중이면 설정을 다시 적용합니다 |
 | `omonitor stop` | 서비스를 멈추고 자동 시작을 끕니다. omo app-server는 그대로 둡니다 (`omo app-server daemon stop`으로 따로 끕니다) |
+| `omonitor update` | 새 버전을 받아 적용합니다 (필요하면 `bun install`과 서비스 재시작) |
 | `omonitor restart` | 서비스를 다시 시작합니다 |
-| `omonitor status` | 서비스, 대시보드 응답, omo app-server 상태를 보여 줍니다 |
+| `omonitor status` | 서비스, 대시보드 응답, omo app-server 상태, omonitor 새 버전 여부를 보여 줍니다 |
 | `omonitor open` / `logs` | 브라우저로 열기 / 서버 로그(`~/.omonitor/server.log`) 따라 보기 |
 | `omonitor run` | 서비스 없이 터미널에서 직접 실행합니다 (Ctrl-C로 종료, `--mock`은 시뮬레이터) |
 

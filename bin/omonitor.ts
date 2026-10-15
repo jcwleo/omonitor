@@ -5,15 +5,16 @@ import { existsSync } from 'node:fs';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { homedir, platform } from 'node:os';
 import { dirname, join } from 'node:path';
+import { applySelf, checkSelf, SERVICE_LABEL, SERVICE_UNIT } from '../update.ts';
 
 const ROOT = dirname(import.meta.dir);
 const HOME = homedir();
 const LOG = join(HOME, '.omonitor/server.log');
 const MAC = platform() === 'darwin';
 const LINUX = platform() === 'linux';
-const LABEL = 'dev.omonitor';
+const LABEL = SERVICE_LABEL;
 const DOMAIN = `gui/${process.getuid?.() ?? 0}`;
-const UNIT_NAME = 'omonitor.service';
+const UNIT_NAME = SERVICE_UNIT;
 const SERVICE_FILE = MAC
   ? join(HOME, 'Library/LaunchAgents', `${LABEL}.plist`)
   : join(process.env.XDG_CONFIG_HOME || join(HOME, '.config'), 'systemd/user', UNIT_NAME);
@@ -145,6 +146,37 @@ async function restart() {
   console.log(`다시 시작했습니다 → ${urlOf(port)}`);
 }
 
+// Shells open in the running dashboard; a restart ends them.
+async function openTerminals(port: number) {
+  try {
+    const { key } = await (await fetch(`${urlOf(port)}/api/config`, { signal: AbortSignal.timeout(1500) })).json();
+    const r = await (await fetch(`${urlOf(port)}/api/terminals`, { headers: { 'x-mc-key': key }, signal: AbortSignal.timeout(1500) })).json();
+    return (r.terminals as { status: string }[]).filter((t) => t.status === 'running').length;
+  } catch { return 0; }
+}
+
+async function update() {
+  const v = await checkSelf(ROOT);
+  if (!v) fail('git으로 받은 폴더(업스트림이 있는 브랜치)에서만 업데이트할 수 있습니다.');
+  if (v.fetchError) fail(`최신 버전을 받지 못했습니다: ${v.fetchError}`);
+  if (!v.behind) return console.log(`최신 버전입니다 (${v.current})`);
+  const more = v.behind > v.commits.length ? `\n  • 외 ${v.behind - v.commits.length}개` : '';
+  console.log(`${v.current} → ${v.latest} · 새 커밋 ${v.behind}개\n${v.commits.map((c) => `  • ${c.subject}`).join('\n')}${more}`);
+  if (v.blocked) fail(`${v.blocked}. 직접 git pull 한 뒤 omonitor restart 하세요.`);
+  // The service runs the clone it was installed from; updating another clone must not restart it.
+  const entry = join(ROOT, 'bin/omonitor.ts');
+  const service = existsSync(SERVICE_FILE) && loaded() && (await readFile(SERVICE_FILE, 'utf8')).includes(MAC ? xml(entry) : entry);
+  if (v.restartNeeded && service && process.stdin.isTTY) {
+    const open = await openTerminals(await portOf());
+    if (open && !confirm(`다시 시작하면 대시보드에 열린 터미널 ${open}개가 닫힙니다. 계속할까요?`)) return console.log('업데이트하지 않았습니다.');
+  }
+  const r = await applySelf(ROOT).catch((e: Error) => fail(`업데이트하지 못했습니다: ${e.message}`));
+  console.log(`${r.from} → ${r.to}(으)로 업데이트했습니다${r.installed ? ' (의존성 설치 포함)' : ''}.`);
+  if (!r.restartNeeded) return console.log('화면 파일만 바뀌었습니다. 대시보드를 새로고침하세요.');
+  if (service) return restart();
+  console.log('서버 코드가 바뀌었습니다. 실행 중인 omonitor를 다시 시작하세요.');
+}
+
 async function status() {
   const port = await portOf();
   const svc = existsSync(SERVICE_FILE) ? (loaded() ? '실행 중 (로그인 시 자동 시작)' : '설치됨, 멈춤') : '설치 안 됨';
@@ -152,7 +184,12 @@ async function status() {
   const omo = Bun.which('omo') ? sh(['omo', 'app-server', 'daemon', 'status']) : null;
   let app = 'omo 명령을 찾지 못했습니다';
   if (omo) { try { const j = JSON.parse(omo.out); app = `${j.status}${j.listen ? ` (${j.listen})` : ''}`; } catch { app = omo.err || omo.out; } }
-  console.log(`서비스      ${svc}\n대시보드    ${web === 'omonitor' ? `응답함 → ${urlOf(port)}` : web === 'other' ? `포트 ${port}을 다른 프로세스가 사용 중` : '응답 없음'}\napp-server  ${app}\n로그        ${LOG}`);
+  const self = await checkSelf(ROOT).catch((e: Error) => e);
+  const upd = self instanceof Error ? `확인하지 못함: ${self.message}`
+    : !self ? 'git 폴더가 아니라 확인하지 않음'
+    : self.behind ? `새 커밋 ${self.behind}개 (${self.current} → ${self.latest}) — omonitor update${self.blocked ? ` 불가: ${self.blocked}` : ''}`
+    : `최신 (${self.current})${self.fetchError ? ` · 원격을 확인하지 못함: ${self.fetchError}` : ''}`;
+  console.log(`서비스      ${svc}\n대시보드    ${web === 'omonitor' ? `응답함 → ${urlOf(port)}` : web === 'other' ? `포트 ${port}을 다른 프로세스가 사용 중` : '응답 없음'}\napp-server  ${app}\n업데이트    ${upd}\n로그        ${LOG}`);
 }
 
 // Started by the service at login, so bring the omo app-server up first; `daemon start` is a no-op when it already runs.
@@ -173,7 +210,8 @@ const HELP = `omonitor — omo 세션 대시보드
 
   omonitor start     백그라운드 서비스로 실행하고 로그인할 때마다 자동으로 시작합니다
   omonitor stop      서비스를 멈추고 자동 시작을 끕니다
-  omonitor restart   서비스를 다시 시작합니다 (업데이트 후)
+  omonitor update    최신 버전을 받고, 서버 코드가 바뀌었으면 서비스를 다시 시작합니다
+  omonitor restart   서비스를 다시 시작합니다
   omonitor status    서비스·대시보드·omo app-server 상태
   omonitor open      브라우저에서 대시보드를 엽니다
   omonitor logs      서버 로그를 따라 봅니다
@@ -185,6 +223,7 @@ const cmd = process.argv[2];
 switch (cmd) {
   case 'start': await start(); break;
   case 'stop': await stop(); break;
+  case 'update': await update(); break;
   case 'restart': await restart(); break;
   case 'status': await status(); break;
   case 'open': { const r = sh([MAC ? 'open' : 'xdg-open', urlOf(await portOf())]); if (!r.ok) fail(r.err || r.out); break; }

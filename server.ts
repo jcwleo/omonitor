@@ -8,6 +8,8 @@ import { dirname, join } from 'node:path';
 import { PushError, PushService, watchSessions } from './push.ts';
 import { TerminalError, TerminalManager } from './terminal.ts';
 import type { SocketData } from './terminal.ts';
+import { applySelf, checkSelf, isServiceProcess } from './update.ts';
+import type { OmonitorUpdateResult, OmonitorVersion } from './src/protocol.ts';
 
 const MOCK = process.argv.includes('--mock');
 const PORT = Number(process.env.PORT || 4800);
@@ -145,6 +147,29 @@ async function omoUpdate() {
   try { return { update, restart: await run(['omo', 'app-server', 'daemon', 'restart'], { OMO_RUNTIME: 'node' }) }; }
   catch (e: any) { return { update, restartError: String(e?.message || e) }; }
 }
+
+// ── omonitor's own update (update.ts) ──
+// The check runs git fetch, so every open dashboard shares one cached result and one in-flight check or update.
+let selfCache: { at: number; v: Promise<OmonitorVersion | null> } | null = null;
+let selfUpdating: Promise<OmonitorUpdateResult> | null = null;
+function omonitorVersion() {
+  if (!selfCache || Date.now() - selfCache.at > VERSION_CACHE_MS) {
+    const v = checkSelf(ROOT);
+    selfCache = { at: Date.now(), v };
+    v.catch(() => { if (selfCache?.v === v) selfCache = null; });
+  }
+  return selfCache.v;
+}
+async function updateOmonitor(): Promise<OmonitorUpdateResult> {
+  try {
+    const r = await applySelf(ROOT);
+    const restarting = r.restartNeeded && isServiceProcess();
+    // An error exit after the response is out: the service manager starts the pulled server code (update.ts).
+    if (restarting) setTimeout(() => void terminals.shutdown().finally(() => process.exit(75)), 300);
+    return { ...r, restarting };
+  } finally { selfCache = null; }
+}
+const omonitorUpdate = () => (selfUpdating ??= updateOmonitor().finally(() => { selfUpdating = null; }));
 
 // ── plan usage of the Claude and ChatGPT subscriptions omo signs in with ──
 // app-server's account/rateLimits/read always fails (it serves only a Codex login) and omo keeps no rate-limit headers,
@@ -664,6 +689,8 @@ const server = Bun.serve<SocketData>({
         if (url.pathname === '/api/git' && req.method === 'GET') return Response.json(await gitGraph(url.searchParams.get('cwd') || ''));
         if (url.pathname === '/api/omo/version') return Response.json(await omoVersion());
         if (url.pathname === '/api/omo/update' && req.method === 'POST') return Response.json(await omoUpdate());
+        if (url.pathname === '/api/omonitor/version') return Response.json(await omonitorVersion());
+        if (url.pathname === '/api/omonitor/update' && req.method === 'POST') return Response.json(await omonitorUpdate());
       } catch (e: any) { return new Response(String(e?.message || e), { status: e instanceof PushError ? e.status : 500 }); }
       return new Response('not found', { status: 404 });
     }
