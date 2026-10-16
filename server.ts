@@ -766,19 +766,20 @@ function lastMention(text: string, forms: PathForm[]) {
 }
 // Session files only grow, so each is read once and then from where the last read ended. The state starts over when the
 // repo's worktrees change, since the paths to look for change with them.
-type SessionScan = { key: string; offset: number; added: Map<string, string | null>; last: string | null };
+// mainAfter: the main checkout was named after `last`.
+type SessionScan = { key: string; offset: number; added: Map<string, string | null>; last: string | null; mainAfter: boolean };
 const scans = new Map<string, SessionScan>();
 const scanLocks = new Map<string, Promise<unknown>>();
-function scanSession(file: string, cwd: string, repo: CwdRepo, existing: string[]) {
+function scanSession(file: string, cwd: string, repo: CwdRepo, main: string, existing: string[]) {
   const run = async () => {
-    const key = [cwd, repo.top, ...existing].join('\n');
+    const key = [cwd, repo.top, main, ...existing].join('\n');
     const size = (await stat(file)).size;
     let s = scans.get(file);
-    if (!s || s.key !== key || size < s.offset) scans.set(file, (s = { key, offset: 0, added: new Map(), last: null }));
+    if (!s || s.key !== key || size < s.offset) scans.set(file, (s = { key, offset: 0, added: new Map(), last: null, mainAfter: false }));
     if (size > s.offset) {
       const buf = new Uint8Array(await Bun.file(file).slice(s.offset, size).arrayBuffer());
       const end = buf.lastIndexOf(10) + 1; // complete lines only; the rest is read once it ends
-      if (end) { s.offset += end; scanLines(s, new TextDecoder().decode(buf.subarray(0, end)), cwd, repo, existing); }
+      if (end) { s.offset += end; scanLines(s, new TextDecoder().decode(buf.subarray(0, end)), cwd, repo, main, existing); }
     }
     return s;
   };
@@ -786,7 +787,7 @@ function scanSession(file: string, cwd: string, repo: CwdRepo, existing: string[
   scanLocks.set(file, p.catch(() => {}));
   return p;
 }
-function scanLines(s: SessionScan, text: string, cwd: string, repo: CwdRepo, existing: string[]) {
+function scanLines(s: SessionScan, text: string, cwd: string, repo: CwdRepo, main: string, existing: string[]) {
   // A cwd that is a symlink to the top (macOS /tmp) also names paths through itself.
   const alias = repo.atTop && cwd !== repo.top ? cwd : null;
   const toTop = (p: string) => (alias && p.startsWith(`${alias}/`) ? repo.top + p.slice(alias.length) : p);
@@ -800,7 +801,11 @@ function scanLines(s: SessionScan, text: string, cwd: string, repo: CwdRepo, exi
     }
     return out;
   });
-  let forms = formsOf();
+  // The main checkout counts only by an absolute (or ~) path: a relative one is relative to the session's own folder.
+  const mainForms: PathForm[] = [{ s: main, path: main, rel: false }];
+  if (main.startsWith(`${HOME}/`)) mainForms.push({ s: `~${main.slice(HOME.length)}`, path: main, rel: false });
+  if (alias && main === repo.top) mainForms.push({ s: alias, path: main, rel: false });
+  let forms = [...formsOf(), ...mainForms];
   for (const line of text.split('\n')) {
     if (!line.includes('"toolCall"') && !line.includes('"bashExecution"')) continue;
     if (!line.includes('worktree') && !forms.some((f) => line.includes(f.s))) continue;
@@ -813,10 +818,22 @@ function scanLines(s: SessionScan, text: string, cwd: string, repo: CwdRepo, exi
     for (const t of texts) {
       const adds = worktreeAdds(t, repo.atTop ? repo.top : cwd);
       for (const [p, branch] of adds) s.added.set(toTop(p), branch);
-      if (adds.length) forms = formsOf();
-      s.last = lastMention(t, forms) ?? s.last;
+      if (adds.length) forms = [...formsOf(), ...mainForms];
+      const at = lastMention(t, forms);
+      if (at === main) s.mainAfter = !!s.last;
+      else if (at) { s.last = at; s.mainAfter = false; }
     }
   }
+}
+// Where a session works: the worktree its tool calls named last. While that worktree exists, a mention of the main
+// checkout does not move the session back (agents read files there in passing); once it is gone, a later mention of the
+// main checkout means the session went back to it. With neither, the session's own folder.
+function placeOf(trees: GitWorktree[], own: GitWorktree, main: GitWorktree, scan: SessionScan | null) {
+  const last = scan?.last && scan.last !== own.path ? scan.last : null;
+  const hit = last ? trees.find((w) => w.path === last) : null;
+  if (last && !hit && !scan!.mainAfter) return { worktree: last, branch: scan!.added.get(last) ?? null, head: null, removed: true, inferred: true };
+  const w = hit || (last ? main : own);
+  return { worktree: w.path, branch: w.branch, head: w.head, removed: w.missing, inferred: !!hit };
 }
 async function gitSummary(threads: { id: string; cwd: string; path?: unknown }[]): Promise<GitSummary> {
   const repos: Record<string, GitRepo> = {};
@@ -831,11 +848,8 @@ async function gitSummary(threads: { id: string; cwd: string; path?: unknown }[]
       repos[repo.common] ??= { root: main.path, name: basename(main.path), worktrees: trees };
       const own = trees.find((w) => w.path === repo.top) || main;
       const file = sessionFile(t.path);
-      const scan = file ? await scanSession(file, t.cwd, repo, trees.filter((w) => !w.main).map((w) => w.path)).catch(() => null) : null;
-      const last = scan?.last && scan.last !== own.path ? scan.last : null;
-      const hit = last ? trees.find((w) => w.path === last) : null;
-      if (last && !hit) out[t.id] = { repo: repo.common, worktree: last, branch: scan!.added.get(last) ?? null, head: null, removed: true, inferred: true };
-      else { const w = hit || own; out[t.id] = { repo: repo.common, worktree: w.path, branch: w.branch, head: w.head, removed: w.missing, inferred: !!hit }; }
+      const scan = file ? await scanSession(file, t.cwd, repo, main.path, trees.filter((w) => !w.main).map((w) => w.path)).catch(() => null) : null;
+      out[t.id] = { repo: repo.common, ...placeOf(trees, own, main, scan) };
     } catch (e: any) { console.warn(`[git] ${t.cwd}: ${e?.message || e}`); }
   }));
   return { checkedAt: Date.now(), repos, threads: out };

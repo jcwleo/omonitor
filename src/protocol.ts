@@ -143,7 +143,8 @@ export interface GitWorktree { path: string; branch: string | null; head: string
 /** A repo by its common git dir: root is the main worktree's folder, name its folder name. */
 export interface GitRepo { root: string; name: string; worktrees: GitWorktree[] }
 /** Where a session works. worktree: its cwd's worktree, or the last worktree its tool calls named (inferred). removed:
- * that worktree is gone; branch then comes from the session's own `git worktree add`. */
+ * that worktree is gone; branch then comes from the session's own `git worktree add`. A session that
+ * names the main checkout after that worktree is gone is back in the main checkout. */
 export interface ThreadGit { repo: string; worktree: string; branch: string | null; head: string | null; removed: boolean; inferred: boolean }
 /** POST /api/git/summary { threads: [{ id, cwd, path }] }: repos keyed by common git dir, sessions by thread id. */
 export interface GitSummary { checkedAt: number; repos: Record<string, GitRepo>; threads: Record<string, ThreadGit> }
