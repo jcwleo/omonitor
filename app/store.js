@@ -29,6 +29,9 @@ export function clock(ms, now) {
 }
 export const proj = (cwd = '') => cwd.split('/').filter(Boolean).pop() || cwd;
 export const shortPath = (p = '') => p.replace(/^\/Users\/[^/]+/, '~');
+// A session's project is its repo, so sessions started inside a worktree folder join the repo's other sessions; a folder
+// outside git is a project of its own.
+export const projOf = (T) => T.git?.repoName || proj(T.cwd);
 const textOf = (it) => (it.contentItems || []).map((c) => c.text).filter(Boolean).join('\n');
 
 // ── wire normalization (omo app-server) ──
@@ -227,6 +230,41 @@ export const REQ_KIND = {
   'item/tool/requestUserInput': '질문',
 };
 
+// ── branch and worktree (T.git, from the backend's git summary) ──
+// One neutral pill for every kind, so it never competes with the status pill; the icon tells a worktree (accent folder)
+// from the main checkout's branch.
+const GIT_TONE = {
+  wt: { fg: 'var(--fg)', icon: 'var(--acc-fg)', bg: 'var(--sel)', bd: 'transparent' },
+  main: { fg: 'var(--fg2)', icon: 'var(--fg3)', bg: 'var(--sel)', bd: 'transparent' },
+  detached: { fg: 'var(--fg2)', icon: 'var(--warn)', bg: 'var(--sel)', bd: 'transparent' },
+  removed: { fg: 'var(--fg3)', icon: 'var(--fg3)', bg: 'transparent', bd: 'var(--line2)' },
+};
+const lastSeg = (p = '') => p.split('/').filter(Boolean).pop() || p;
+export const worktreeLabel = (w, root) => (w.main ? '기본 체크아웃' : root && w.path.startsWith(`${root}/`) ? w.path.slice(root.length + 1) : shortPath(w.path));
+export function gitView(T) {
+  const g = T.git;
+  if (!g) return { hasGit: false, noGit: true, gitLabel: '', gitTitle: '', gitAB: '', hasGitAB: false, gitCh: '', hasGitCh: false, gitWt: false, gitBr: false, gitFg: '', gitIcon: '', gitBg: '', gitBd: '', ...repoView(null) };
+  const w = g.wt, removed = g.removed || !!w?.missing, main = !removed && !!w?.main;
+  const kind = removed ? 'removed' : !g.branch ? 'detached' : main ? 'main' : 'wt';
+  const name = g.branch || (removed ? lastSeg(g.worktree) : `HEAD 분리됨${g.head ? ` · ${g.head.slice(0, 7)}` : ''}`);
+  const live = w && !removed;
+  const ab = live ? [w.ahead && `↑${w.ahead}`, w.behind && `↓${w.behind}`].filter(Boolean).join(' ') : '';
+  const where = main ? `기본 체크아웃 ${shortPath(g.worktree)}` : `워크트리 ${shortPath(g.worktree)}${removed ? ' (정리됨)' : ''}`;
+  const title = [g.branch ? `브랜치 ${g.branch}` : name, where,
+    live && w.upstream && `${w.upstream} 기준 올리지 않은 커밋 ${w.ahead}개 · 받지 않은 커밋 ${w.behind}개`,
+    live && (w.changes ? `커밋하지 않은 변경 ${w.changes}개` : '변경 없음'),
+    g.inferred && '세션이 도구 호출에서 마지막으로 다룬 워크트리입니다'].filter(Boolean).join('\n');
+  const tone = GIT_TONE[kind];
+  return { hasGit: true, noGit: false, gitKind: kind, gitLabel: removed ? `${name} · 정리됨` : name, gitTitle: title, gitWt: kind === 'wt' || kind === 'removed', gitBr: kind === 'main' || kind === 'detached',
+    gitFg: tone.fg, gitIcon: tone.icon, gitBg: tone.bg, gitBd: tone.bd, gitAB: ab, hasGitAB: !!ab, gitCh: live && w.changes ? `변경 ${w.changes}` : '', hasGitCh: !!(live && w.changes), ...repoView(g) };
+}
+// The project head: the main checkout's branch and the repo's other worktrees.
+function repoView(g) {
+  const trees = (g?.worktrees || []).filter((w) => !w.missing), main = trees.find((w) => w.main), others = trees.filter((w) => !w.main);
+  return { repoBranch: main ? main.branch || 'HEAD 분리됨' : '', hasRepoBranch: !!main, repoWtN: others.length ? `워크트리 ${others.length}` : '', hasRepoWt: others.length > 0,
+    repoTitle: trees.map((w) => `${w.branch || 'HEAD 분리됨'} · ${worktreeLabel(w, g.root)}`).join('\n') };
+}
+
 export function viewSession(T, reqs, now) {
   const col = columnOf(T, reqs);
   const c = COL[col];
@@ -236,7 +274,7 @@ export function viewSession(T, reqs, now) {
   const failed = col === 'error';
   const lastErr = T.lastError || (T.turns || []).at(-1)?.error?.message || '';
   const o = {
-    id: T.id, name: T.name || T.preview?.slice(0, 30) || '이름 없는 세션', cwd: shortPath(T.cwd), projectName: proj(T.cwd),
+    id: T.id, name: T.name || T.preview?.slice(0, 30) || '이름 없는 세션', cwd: shortPath(T.cwd), projectName: projOf(T),
     model: (T.settings?.model || '').replace(/^.*\//, ''), col, statusColor: c.color, statusLabel: col === 'idle' && T.status?.type && !['idle', 'notLoaded'].includes(T.status.type) ? T.status.type : c.label,
     elapsed: dur(now - (T.createdAt || now)), updatedAgo: ago(now - (T.updatedAt || now)), actLabel, actCode,
     // A collapsed card shows one time. Columns are ordered by last activity, so resting sessions show that; running and
@@ -245,7 +283,7 @@ export function viewSession(T, reqs, now) {
       ? { headTime: dur(now - (T.createdAt || now)), headTitle: '만든 뒤 지난 시간' }
       : { headTime: ago(now - (T.updatedAt || now)), headTitle: '마지막 활동' }),
     terminal: isTerminal(T), lost: historyLost(T) && !todo, hasError: failed && !!lastErr, error: lastErr,
-    subscribed: !!T.subscribed, archived: !!T.archived,
+    subscribed: !!T.subscribed, archived: !!T.archived, ...gitView(T),
   };
   if (sum) {
     const failedTurn = failed;
@@ -467,6 +505,29 @@ export class Store {
     // session file through the backend instead (loadHistory).
     for (const id of loaded.data || []) if (this.T(id) && !this.T(id).archived) this.resume(id, true).catch(() => {});
     this.loadSkills();
+  }
+  // Branch and worktree of each session and the worktrees of their repos (T.git), from the backend. Unchanged answers
+  // are not drawn again.
+  async refreshGit() {
+    const read = this.c.backend?.gitSummary;
+    if (!read || this.gitBusy) return;
+    this.gitBusy = true;
+    try {
+      const list = [...this.s.threads.values()].filter((T) => !T.archived && T.cwd);
+      const g = await read(list.map((T) => ({ id: T.id, cwd: T.cwd, path: T.path || '' })));
+      const sig = JSON.stringify([g.repos, g.threads]);
+      if (sig === this.gitSig) return;
+      this.gitSig = sig;
+      // A thread merged while the request ran (thread/resume, thread/list) is a new object, so write to the current one.
+      for (const { id } of list) {
+        const T = this.T(id);
+        if (!T) continue;
+        const tg = g.threads?.[id], repo = tg && g.repos?.[tg.repo];
+        T.git = repo ? { ...tg, repoName: repo.name, root: repo.root, worktrees: repo.worktrees, wt: repo.worktrees.find((w) => w.path === tg.worktree) || null } : null;
+      }
+      this.emit();
+    } catch (e) { console.warn('[omonitor] 브랜치·워크트리 정보를 읽지 못했습니다:', e?.message || e); }
+    finally { this.gitBusy = false; }
   }
   // The `/` palette: commands and skills of the installed omo, read by the backend.
   loadSkills() {

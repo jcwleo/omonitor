@@ -1,6 +1,7 @@
 // mc-git-graph: the Git tab of a session's side panel. The header shows the folder's branch, its upstream and uncommitted
 // changes; below are the latest commits of every branch, remote branch and tag, drawn in lanes like `git log --graph`.
-// A tap on a commit shows its details. It reads GET /api/git every 10s while the page is visible.
+// A tap on a commit shows its details. A repo with more than one worktree lists them above the graph, and branches
+// checked out in another worktree get an outline. It reads GET /api/git every 10s while the page is visible.
 const base = new URL('../', import.meta.url);
 const url = (path) => new URL(path, base);
 const POLL_MS = 10_000;
@@ -64,7 +65,13 @@ function rowSvg(c, r, w, isHead) {
   return `<svg width="${w}" height="${ROW}" viewBox="0 0 ${w} ${ROW}" aria-hidden="true">${paths.map(([d, i]) => `<path d="${d}" style="stroke:${color(i)}"/>`).join('')}${ring}${dot}</svg>`;
 }
 
-const refPill = (ref) => `<span class="ref ${ref.current ? 'current' : ref.kind}" title="${esc(ref.name)}">${esc(ref.name)}</span>`;
+// other: branches checked out in another worktree of the repo.
+const refPill = (ref, other) => {
+  const elsewhere = !ref.current && ref.kind === 'branch' && !!other?.has(ref.name);
+  return `<span class="ref ${ref.current ? 'current' : ref.kind}${elsewhere ? ' wtb' : ''}" title="${esc(elsewhere ? `${ref.name} · 다른 워크트리에서 체크아웃됨` : ref.name)}">${esc(ref.name)}</span>`;
+};
+const ICON_BRANCH = '<svg class="m" width="12" height="12" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3v12"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>';
+const ICON_WORKTREE = '<svg class="w" width="12" height="12" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 19a5 5 0 0 1-5-5v8"/><path d="M9 20H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H20a2 2 0 0 1 2 2v5"/><circle cx="13" cy="12" r="2"/><circle cx="20" cy="19" r="2"/></svg>';
 
 // The key changes on every server start, so a 401 fetches it again once.
 let key = null;
@@ -119,6 +126,20 @@ header{flex:none;display:flex;flex-wrap:wrap;align-items:center;gap:5px;min-widt
 .ref.remote{background:var(--sel);color:var(--fg2)}
 .ref.tag{background:color-mix(in oklab,var(--warn) 15%,transparent);color:color-mix(in oklab,var(--warn) 70%,var(--fg))}
 .ref.head{background:var(--warn-tint);color:color-mix(in oklab,var(--warn) 70%,var(--fg))}
+.ref.wtb{box-shadow:inset 0 0 0 1px color-mix(in oklab,var(--acc) 60%,transparent)}
+.trees{flex:none;display:flex;flex-direction:column;gap:1px;padding:3px;border-radius:var(--r,10px);background:var(--tint)}
+.trees-head{display:flex;align-items:center;gap:5px;padding:2px 6px 3px;font-size:12px;font-weight:600;color:var(--fg3)}
+.trees-head .n{font:500 11px var(--mono);color:var(--fg2);background:var(--sel);border-radius:999px;padding:0 6px}
+.tree{display:flex;align-items:center;gap:6px;min-width:0;min-height:26px;padding:0 6px;border-radius:var(--r-sm,6px);font-size:12px}
+.tree.here{background:var(--sel)}
+.tree svg{flex:none;fill:none;stroke:currentColor;stroke-width:2.1;stroke-linecap:round;stroke-linejoin:round}
+.tree svg.m{color:var(--fg3)}.tree svg.w{color:var(--acc-fg)}
+.tree .b{flex:0 1 auto;min-width:0;font:12px var(--mono);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tree .p{flex:1 1 0;min-width:2em;font:11.5px var(--mono);color:var(--fg3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tree .p.ui{font-family:var(--font-ui,inherit)}
+.tree .ahead{flex:none;font:11.5px var(--mono);color:var(--acc-fg)}.tree .behind{flex:none;font:11.5px var(--mono);color:color-mix(in oklab,var(--warn) 70%,var(--fg))}
+.tree .c{flex:none;font-size:11.5px;color:var(--fg3);white-space:nowrap}
+.tree .tag{flex:none;font-size:11px;font-weight:500;color:var(--acc-fg);background:var(--acc-tint);border-radius:999px;padding:0 6px;white-space:nowrap}
 .subj{flex:1 1 0;min-width:3em;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .when{flex:none;font-size:11.5px;color:var(--fg3)}
 .msg{font-size:13px;line-height:1.5;color:var(--fg3);padding:6px 0}
@@ -139,6 +160,7 @@ class McGitGraph extends HTMLElement {
         <header hidden><span class="pill branch"></span><span class="sync"></span><span class="status"></span>
           <button type="button" class="refresh" aria-label="새로 고침" title="새로 고침"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg></button></header>
         <div class="root" hidden></div>
+        <div class="trees" role="list" aria-label="워크트리" hidden></div>
         <div class="error" role="alert" hidden></div>
         <div class="detail" hidden></div>
         <div class="list" role="list" aria-label="커밋 그래프"></div>
@@ -168,6 +190,7 @@ class McGitGraph extends HTMLElement {
     this.selected = null;
     this.el('header').hidden = true;
     this.el('.root').hidden = true;
+    this.el('.trees').hidden = true;
     this.el('.detail').hidden = true;
     this.el('.error').hidden = true;
     this.el('.list').replaceChildren();
@@ -200,6 +223,7 @@ class McGitGraph extends HTMLElement {
     const focused = this.shadowRoot.activeElement?.dataset?.hash;
     this.el('header').hidden = !d.repo;
     this.el('.root').hidden = !d.repo;
+    this.el('.trees').hidden = true;
     if (!d.repo) {
       this.el('.list').replaceChildren();
       this.el('.detail').hidden = true;
@@ -219,18 +243,36 @@ class McGitGraph extends HTMLElement {
     status.title = d.changes ? '커밋하지 않은 변경 파일 수' : '';
     this.el('.root').textContent = d.root;
     this.el('.root').title = d.root;
+    this.renderTrees(d);
     const { rows, width } = layoutGraph(d.commits);
     const w = PAD * 2 + (width - 1) * LANE;
     if (!d.commits.some((c) => c.hash === this.selected)) this.selected = null;
     this.el('.list').innerHTML = d.commits.map((c, i) => {
       const title = `${c.hash.slice(0, 7)} · ${c.author} · ${new Date(c.time).toLocaleString('ko-KR')}\n${c.subject}`;
       return `<button type="button" class="row" role="listitem" data-hash="${c.hash}" aria-pressed="${c.hash === this.selected}" title="${esc(title)}">`
-        + `${rowSvg(c, rows[i], w, c.hash === d.oid)}<span class="refs">${c.refs.map(refPill).join('')}</span>`
+        + `${rowSvg(c, rows[i], w, c.hash === d.oid)}<span class="refs">${c.refs.map((r) => refPill(r, this.otherTrees)).join('')}</span>`
         + `<span class="subj">${esc(c.subject)}</span><span class="when">${ago(c.time)}</span></button>`;
     }).join('') + (d.truncated ? `<div class="more">최근 커밋 ${d.commits.length}개까지 보여 줍니다</div>` : '');
     this.el('.msg').textContent = d.commits.length ? '' : '아직 커밋이 없습니다.';
     if (focused) this.shadowRoot.querySelector(`.row[data-hash="${focused}"]`)?.focus();
     this.renderDetail(false);
+  }
+  // Every worktree of the repo: branch, ahead/behind and uncommitted changes; a worktree's folder is in its row's tooltip
+  // (the header above names the one shown, the session's, which is marked). A repo with a single checkout shows no list.
+  renderTrees(d) {
+    const trees = (d.worktrees || []).filter((t) => !t.missing);
+    this.otherTrees = new Set(trees.filter((t) => t.path !== d.root && t.branch).map((t) => t.branch));
+    const box = this.el('.trees');
+    box.hidden = trees.length < 2;
+    if (box.hidden) return;
+    box.innerHTML = `<div class="trees-head">워크트리<span class="n">${trees.length}</span></div>` + trees.map((t) => {
+      const here = t.path === d.root;
+      const where = t.main ? '기본 체크아웃' : '';
+      const name = t.branch || `HEAD 분리됨${t.head ? ` · ${t.head.slice(0, 7)}` : ''}`;
+      return `<div class="tree${here ? ' here' : ''}" role="listitem" title="${esc(t.path)}">${t.main ? ICON_BRANCH : ICON_WORKTREE}<span class="b">${esc(name)}</span>`
+        + `<span class="p${t.main ? ' ui' : ''}">${esc(where)}</span>${t.ahead ? `<span class="ahead" title="올리지 않은 커밋 ${t.ahead}개">↑${t.ahead}</span>` : ''}`
+        + `${t.behind ? `<span class="behind" title="받지 않은 커밋 ${t.behind}개">↓${t.behind}</span>` : ''}${t.changes ? `<span class="c">변경 ${t.changes}</span>` : ''}${here ? '<span class="tag">이 세션</span>' : ''}</div>`;
+    }).join('');
   }
   renderDetail(fresh) {
     const box = this.el('.detail');
@@ -239,7 +281,7 @@ class McGitGraph extends HTMLElement {
     if (!c) return;
     if (fresh) { box.style.animation = 'none'; void box.offsetWidth; box.style.animation = ''; }
     const parents = c.parents.length > 1 ? ` · 병합 (부모 ${c.parents.length}개)` : c.parents.length ? '' : ' · 첫 커밋';
-    box.innerHTML = `<div class="s">${esc(c.subject)}</div>${c.refs.length ? `<div class="refs">${c.refs.map(refPill).join('')}</div>` : ''}`
+    box.innerHTML = `<div class="s">${esc(c.subject)}</div>${c.refs.length ? `<div class="refs">${c.refs.map((r) => refPill(r, this.otherTrees)).join('')}</div>` : ''}`
       + `<div class="h">${c.hash}</div><div class="a">${esc(c.author)} · ${esc(new Date(c.time).toLocaleString('ko-KR'))}${parents}</div>`;
   }
 }

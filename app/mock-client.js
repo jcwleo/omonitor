@@ -234,6 +234,33 @@ function seed(now) {
   return threads;
 }
 
+// Branches and worktrees of the seeded sessions: payments-api runs two tasks in worktrees beside its main checkout,
+// docs' worktree has already been cleaned up, and omo-dashboard sits on a detached HEAD.
+function mockGit(threads) {
+  const W = '/Users/me/work';
+  const tree = (path, branch, o = {}) => ({ path, branch, head: o.head || null, main: !!o.main, locked: false, missing: false, upstream: o.upstream || null, ahead: o.ahead || 0, behind: o.behind || 0, changes: o.changes || 0 });
+  const repo = (root, trees) => [`${root}/.git`, { root, name: root.split('/').pop(), worktrees: trees }];
+  const repos = Object.fromEntries([
+    repo(PAY, [tree(PAY, 'main', { main: true, upstream: 'origin/main', behind: 2 }), tree(`${PAY}/.worktree/payment-adapters`, 'refactor/payment-adapters', { changes: 4 }),
+      tree(`${PAY}/.worktree/partition-orders`, 'feat/partition-orders', { upstream: 'origin/feat/partition-orders', ahead: 2, changes: 1 })]),
+    repo(`${W}/infra`, [tree(`${W}/infra`, 'chore/ci-cleanup', { main: true, upstream: 'origin/chore/ci-cleanup', ahead: 3 })]),
+    repo(`${W}/web-app`, [tree(`${W}/web-app`, 'main', { main: true, upstream: 'origin/main', changes: 1 })]),
+    repo(`${W}/docs`, [tree(`${W}/docs`, 'main', { main: true, upstream: 'origin/main' })]),
+    repo(`${W}/omo-dashboard`, [tree(`${W}/omo-dashboard`, null, { main: true, head: '4f2c9a1e7b0d5c3a9e8f1b2c4d6e8f0a1b3c5d7e' })]),
+  ]);
+  const at = (root, path, o = {}) => {
+    const id = `${root}/.git`, w = repos[id].worktrees.find((x) => x.path === path);
+    return { repo: id, worktree: path, branch: o.branch ?? w?.branch ?? null, head: w?.head ?? null, removed: !w, inferred: path !== root };
+  };
+  const all = {
+    th_pay: at(PAY, `${PAY}/.worktree/payment-adapters`), th_oracle: at(PAY, `${PAY}/.worktree/payment-adapters`), th_mig: at(PAY, `${PAY}/.worktree/partition-orders`),
+    th_ci: at(`${W}/infra`, `${W}/infra`), th_copy: at(`${W}/web-app`, `${W}/web-app`), th_term: at(`${W}/omo-dashboard`, `${W}/omo-dashboard`),
+    th_docs: at(`${W}/docs`, `${W}/docs/.worktree/sidebar-order`, { branch: 'docs/sidebar-order' }),
+  };
+  const ids = new Set(threads.map((t) => t.id));
+  return { checkedAt: Date.now(), repos, threads: Object.fromEntries(Object.entries(all).filter(([id]) => ids.has(id))) };
+}
+
 export class MockClient {
   constructor(opts = {}) {
     this.speed = opts.speed ?? 1;
@@ -272,6 +299,7 @@ export class MockClient {
           { provider: 'chatgpt', name: 'ChatGPT', plan: 'pro', windows: [{ label: '5시간', percent: 9, resetsAt: at(4.1) }, { label: '주간', percent: 93, resetsAt: at(30) }] },
         ] };
       },
+      gitSummary: async (threads) => { await sleep(250); return mockGit(threads); },
       // sessionStorage mc.mockOmo='stale' plays an omo updated in a terminal while the app-server kept the old engine.
       omoVersion: async () => {
         await sleep(300);

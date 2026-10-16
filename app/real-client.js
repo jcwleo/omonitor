@@ -62,6 +62,13 @@ export class RealClient {
         if (!r.ok) throw new Error(await r.text());
         return r.json();
       },
+      // Branch and worktree of each session and the worktrees of their repos → GitSummary (src/protocol.ts). The list names
+      // each session's folder and session file; the backend reads only files under omo's sessions folder.
+      gitSummary: async (threads) => {
+        const r = await fetch(api('api/git/summary'), { method: 'POST', headers: { ...hdr(), 'content-type': 'application/json' }, body: JSON.stringify({ threads }) });
+        if (!r.ok) throw new Error(await r.text());
+        return r.json();
+      },
       // Plan usage of the Claude and ChatGPT logins omo uses → { checkedAt, accounts: [{ provider, name, plan, windows, error? }] }.
       usage: async () => {
         const r = await fetch(api('api/usage'), { headers: hdr() });

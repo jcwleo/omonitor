@@ -137,6 +137,16 @@ export interface OmonitorCommit { sha: string; subject: string; at: number }
  * the backend), null when omonitor does not run from a git clone with an upstream. blocked: why a one-click update would
  * not run (local commits or edits). restartNeeded: the update changes server code; static files need only a reload. */
 export interface OmonitorVersion { current: string; latest: string; upstream: string; behind: number; ahead: number; commits: OmonitorCommit[]; updateAvailable: boolean; blocked: string | null; restartNeeded: boolean; fetchError: string | null; checkedAt: number }
+/** A worktree of a repo (`git worktree list`). branch is null on a detached HEAD; missing: its folder is gone (prunable).
+ * ahead/behind count against upstream; changes: files with uncommitted changes, untracked ones included. */
+export interface GitWorktree { path: string; branch: string | null; head: string | null; main: boolean; locked: boolean; missing: boolean; upstream: string | null; ahead: number; behind: number; changes: number }
+/** A repo by its common git dir: root is the main worktree's folder, name its folder name. */
+export interface GitRepo { root: string; name: string; worktrees: GitWorktree[] }
+/** Where a session works. worktree: its cwd's worktree, or the last worktree its tool calls named (inferred). removed:
+ * that worktree is gone; branch then comes from the session's own `git worktree add`. */
+export interface ThreadGit { repo: string; worktree: string; branch: string | null; head: string | null; removed: boolean; inferred: boolean }
+/** POST /api/git/summary { threads: [{ id, cwd, path }] }: repos keyed by common git dir, sessions by thread id. */
+export interface GitSummary { checkedAt: number; repos: Record<string, GitRepo>; threads: Record<string, ThreadGit> }
 /** POST /api/omonitor/update: fast-forward, then bun install when the lockfile moved. restarting: the server exits now and
  * its service starts the new code; restartNeeded without restarting: it runs outside the service and needs a manual restart. */
 export interface OmonitorUpdateResult { from: string; to: string; installed: boolean; restartNeeded: boolean; restarting: boolean }

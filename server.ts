@@ -4,12 +4,12 @@
 // Env: PORT (4800), OMO_APP_SERVER_URL, OMO_WS_TOKEN_FILE, OMONITOR_ORIGINS
 import { mkdir, readFile, readdir, realpath, stat } from 'node:fs/promises';
 import { homedir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { basename, dirname, join, resolve } from 'node:path';
 import { PushError, PushService, watchSessions } from './push.ts';
 import { TerminalError, TerminalManager } from './terminal.ts';
 import type { SocketData } from './terminal.ts';
 import { applySelf, checkSelf, isServiceProcess } from './update.ts';
-import type { OmonitorUpdateResult, OmonitorVersion, OmoVersion } from './src/protocol.ts';
+import type { GitRepo, GitSummary, GitWorktree, OmonitorUpdateResult, OmonitorVersion, OmoVersion, ThreadGit } from './src/protocol.ts';
 
 const MOCK = process.argv.includes('--mock');
 const PORT = Number(process.env.PORT || 4800);
@@ -619,6 +619,17 @@ function gitRefs(decorations: string): GitRef[] {
   }
   return refs;
 }
+// `git status --porcelain=v2 --branch`: the branch (null on a detached HEAD), upstream, ahead/behind and changed files.
+function statusFacts(out: string) {
+  const header = (key: string) => out.match(new RegExp(`^# branch\\.${key} (.+)$`, 'm'))?.[1];
+  const oid = header('oid');
+  const ab = header('ab')?.match(/^\+(\d+) -(\d+)$/);
+  return {
+    branch: header('head') === '(detached)' ? null : header('head') || null, initial: oid === '(initial)', oid: oid && oid !== '(initial)' ? oid : null,
+    upstream: header('upstream') || null, ahead: ab ? Number(ab[1]) : 0, behind: ab ? Number(ab[2]) : 0,
+    changes: out.split('\n').filter((l) => /^[12u?] /.test(l)).length,
+  };
+}
 async function gitGraph(cwd: string) {
   if (!cwd) return { repo: false, reason: '작업 폴더가 없는 세션입니다' };
   if (!(await stat(cwd).then((s) => s.isDirectory(), () => false))) return { repo: false, reason: `작업 폴더를 찾지 못했습니다: ${cwd}` };
@@ -626,9 +637,8 @@ async function gitGraph(cwd: string) {
   if (top.code !== 0) return { repo: false, reason: 'git 저장소가 아닌 폴더입니다' };
   const status = await git(cwd, ['status', '--porcelain=v2', '--branch']);
   if (status.code !== 0) throw new Error(status.err || 'git status에 실패했습니다');
-  const header = (key: string) => status.out.match(new RegExp(`^# branch\\.${key} (.+)$`, 'm'))?.[1];
-  const initial = header('oid') === '(initial)';
-  const ab = header('ab')?.match(/^\+(\d+) -(\d+)$/);
+  const st = statusFacts(status.out);
+  const initial = st.initial;
   // Branches, remote branches and tags, not the stash; a repo without commits has no HEAD to name.
   const log = await git(cwd, ['log', '--branches', '--remotes', '--tags', ...(initial ? [] : ['HEAD']), '--topo-order', `--max-count=${GIT_LOG_MAX + 1}`,
     '--decorate=full', '--format=%H%x1f%P%x1f%D%x1f%an%x1f%at%x1f%s%x1e']);
@@ -637,12 +647,198 @@ async function gitGraph(cwd: string) {
     const [hash, parents, refs, author, at, subject] = r.split('\x1f');
     return { hash, parents: parents ? parents.split(' ') : [], refs: gitRefs(refs), author, time: Number(at) * 1000, subject };
   });
+  const repo = await cwdRepo(cwd);
   return {
-    repo: true, root: top.out.trim(), branch: header('head') === '(detached)' ? null : header('head') || null, oid: initial ? null : header('oid') || null,
-    upstream: header('upstream') || null, ahead: ab ? Number(ab[1]) : 0, behind: ab ? Number(ab[2]) : 0,
-    changes: status.out.split('\n').filter((l) => /^[12u?] /.test(l)).length,
+    repo: true, root: top.out.trim(), branch: st.branch, oid: st.oid, upstream: st.upstream, ahead: st.ahead, behind: st.behind, changes: st.changes,
     commits: commits.slice(0, GIT_LOG_MAX), truncated: commits.length > GIT_LOG_MAX,
+    worktrees: repo ? await repoWorktrees(repo.common, repo.top).catch(() => []) : [],
   };
+}
+
+// ── branch and worktree of every session (board cards, session list, session header) ──
+// A session's cwd stays where it started, while an agent that follows a worktree workflow works in another folder of the
+// same repo (<repo>/.worktree/<task>). So the worktree a session works in is read from its session file: the last tool
+// call that names a worktree of the repo, or one the session added itself with `git worktree add`.
+const SESSIONS_DIR = join(AGENT_DIR, 'sessions');
+const HOME = homedir();
+// A summary covers every session folder and each worktree of their repos, so at most 8 git processes run at once.
+let gitSlots = 8;
+const gitQueue: (() => void)[] = [];
+async function gitLimited(cwd: string, args: string[]) {
+  if (gitSlots > 0) gitSlots--; else await new Promise<void>((r) => gitQueue.push(r));
+  try { return await git(cwd, args); } finally { const next = gitQueue.shift(); if (next) next(); else gitSlots++; }
+}
+// A folder's repo: its worktree's top folder and the common git dir all worktrees share. atTop: the folder is that top
+// (perhaps through a symlink), so paths relative to it are relative to the worktree. Cached for a minute.
+type CwdRepo = { top: string; common: string; atTop: boolean };
+const cwdRepos = new Map<string, { at: number; v: Promise<CwdRepo | null> }>();
+function cwdRepo(cwd: string) {
+  const hit = cwdRepos.get(cwd);
+  if (hit && Date.now() - hit.at < 60_000) return hit.v;
+  const v = (async () => {
+    const real = await realpath(cwd).catch(() => null);
+    if (!real || !(await stat(real).then((s) => s.isDirectory(), () => false))) return null;
+    const r = await gitLimited(real, ['rev-parse', '--path-format=absolute', '--show-toplevel', '--git-common-dir']);
+    const [top, common] = r.out.trim().split('\n');
+    return r.code === 0 && top && common ? { top, common, atTop: real === top } : null;
+  })();
+  cwdRepos.set(cwd, { at: Date.now(), v });
+  return v;
+}
+// Every worktree of a repo (the main one first) with its branch, upstream and uncommitted changes. Cached for 8 seconds.
+const repoTrees = new Map<string, { at: number; v: Promise<GitWorktree[]> }>();
+function repoWorktrees(common: string, anyCwd: string) {
+  const hit = repoTrees.get(common);
+  if (hit && Date.now() - hit.at < 8_000) return hit.v;
+  const v = (async () => {
+    const list = await gitLimited(anyCwd, ['worktree', 'list', '--porcelain']);
+    if (list.code !== 0) throw new Error(list.err || 'git worktree list에 실패했습니다');
+    // Blocks of `key value` lines; `bare`, `detached`, `locked` and `prunable` may stand alone.
+    const trees = list.out.trim().split('\n\n').map((block, i) => {
+      const kv = new Map(block.split('\n').map((l) => { const sp = l.indexOf(' '); return sp < 0 ? [l, ''] : [l.slice(0, sp), l.slice(sp + 1)]; }));
+      return { path: kv.get('worktree') || '', head: kv.get('HEAD') || null, branch: kv.get('branch')?.replace(/^refs\/heads\//, '') || null, main: i === 0,
+        bare: kv.has('bare'), locked: kv.has('locked'), missing: kv.has('prunable') };
+    }).filter((w) => w.path && !w.bare);
+    return Promise.all(trees.map(async ({ bare, ...w }): Promise<GitWorktree> => {
+      const base = { ...w, upstream: null, ahead: 0, behind: 0, changes: 0 };
+      if (w.missing) return base;
+      const st = await gitLimited(w.path, ['status', '--porcelain=v2', '--branch']).catch(() => null);
+      if (!st || st.code !== 0) return { ...base, missing: !(await stat(w.path).then((s) => s.isDirectory(), () => false)) };
+      const f = statusFacts(st.out);
+      return { ...base, upstream: f.upstream, ahead: f.ahead, behind: f.behind, changes: f.changes };
+    }));
+  })();
+  repoTrees.set(common, { at: Date.now(), v });
+  v.catch(() => repoTrees.delete(common));
+  return v;
+}
+// Only session files under omo's sessions folder are read; the client names them.
+function sessionFile(path: unknown) {
+  if (typeof path !== 'string' || !path) return null;
+  const f = resolve(path.replace(/^~(?=\/)/, HOME));
+  return f.startsWith(`${SESSIONS_DIR}/`) && f.endsWith('.jsonl') ? f : null;
+}
+const stringsOf = (v: unknown, out: string[] = [], depth = 0): string[] => {
+  if (typeof v === 'string') out.push(v);
+  else if (v && typeof v === 'object' && depth < 6) for (const x of Object.values(v)) stringsOf(x, out, depth + 1);
+  return out;
+};
+const unquote = (t: string) => t.replace(/^['"`(]+|['"`),;]+$/g, '');
+const absPath = (p: string, base: string) => resolve(base, p.replace(/^~(?=\/|$)/, HOME)).replace(/(.)\/+$/, '$1');
+// `git [-C dir] worktree add [options] <path> [<commit-ish>]` → [path, branch]. -b/-B name the new branch; without them
+// git checks out <commit-ish>, or creates a branch named after the folder.
+const WT_ADD = /git\s+(?:-C\s+(\S+)\s+)?worktree\s+add\s+([^\n;&|]*)/g;
+function worktreeAdds(text: string, base: string): [string, string | null][] {
+  const out: [string, string | null][] = [];
+  for (const m of text.matchAll(WT_ADD)) {
+    const dir = m[1] ? absPath(unquote(m[1]), base) : base;
+    const toks = m[2].split(/\s+/).map(unquote).filter(Boolean);
+    let branch: string | null = null;
+    const pos: string[] = [];
+    for (let i = 0; i < toks.length; i++) {
+      const t = toks[i];
+      if (/[<>]/.test(t)) break; // a redirection ends the command
+      if (t === '-b' || t === '-B') branch = toks[++i] ?? null;
+      else if (t === '--reason') i++;
+      else if (!t.startsWith('-')) pos.push(t);
+    }
+    if (!pos[0] || /[$*{}]/.test(pos[0])) continue; // a shell or script variable, not a path
+    const path = absPath(pos[0], dir);
+    out.push([path, branch ?? (pos[1] && !/^(HEAD|[0-9a-f]{7,40})$|[~^$]/.test(pos[1]) ? pos[1] : pos[1] ? null : basename(path))]);
+  }
+  return out;
+}
+// The worktree a text names last. An absolute, ~ or (from the worktree's top) relative path counts when it is a whole
+// path or a prefix ending at a /: .worktree/a matches .worktree/a/x.ts but not .worktree/ab.
+type PathForm = { s: string; path: string; rel: boolean };
+function lastMention(text: string, forms: PathForm[]) {
+  let best: { i: number; len: number; path: string } | null = null;
+  for (const f of forms) {
+    for (let i = text.lastIndexOf(f.s); i >= 0; i = i > 0 ? text.lastIndexOf(f.s, i - 1) : -1) {
+      const before = i ? text[i - 1] : '', after = text[i + f.s.length] ?? '';
+      if (after && /[\w.~-]/.test(after)) continue;
+      if (f.rel ? before && (/[\w.~-]/.test(before) || (before === '/' && text.slice(i - 2, i) !== './')) : before && /[\w.~/-]/.test(before)) continue;
+      if (!best || i > best.i || (i === best.i && f.s.length > best.len)) best = { i, len: f.s.length, path: f.path };
+      break;
+    }
+  }
+  return best?.path ?? null;
+}
+// Session files only grow, so each is read once and then from where the last read ended. The state starts over when the
+// repo's worktrees change, since the paths to look for change with them.
+type SessionScan = { key: string; offset: number; added: Map<string, string | null>; last: string | null };
+const scans = new Map<string, SessionScan>();
+const scanLocks = new Map<string, Promise<unknown>>();
+function scanSession(file: string, cwd: string, repo: CwdRepo, existing: string[]) {
+  const run = async () => {
+    const key = [cwd, repo.top, ...existing].join('\n');
+    const size = (await stat(file)).size;
+    let s = scans.get(file);
+    if (!s || s.key !== key || size < s.offset) scans.set(file, (s = { key, offset: 0, added: new Map(), last: null }));
+    if (size > s.offset) {
+      const buf = new Uint8Array(await Bun.file(file).slice(s.offset, size).arrayBuffer());
+      const end = buf.lastIndexOf(10) + 1; // complete lines only; the rest is read once it ends
+      if (end) { s.offset += end; scanLines(s, new TextDecoder().decode(buf.subarray(0, end)), cwd, repo, existing); }
+    }
+    return s;
+  };
+  const p = (scanLocks.get(file) || Promise.resolve()).then(run);
+  scanLocks.set(file, p.catch(() => {}));
+  return p;
+}
+function scanLines(s: SessionScan, text: string, cwd: string, repo: CwdRepo, existing: string[]) {
+  // A cwd that is a symlink to the top (macOS /tmp) also names paths through itself.
+  const alias = repo.atTop && cwd !== repo.top ? cwd : null;
+  const toTop = (p: string) => (alias && p.startsWith(`${alias}/`) ? repo.top + p.slice(alias.length) : p);
+  const formsOf = () => [...new Set([...existing, ...s.added.keys()])].flatMap((p) => {
+    const out: PathForm[] = [{ s: p, path: p, rel: false }];
+    if (p.startsWith(`${HOME}/`)) out.push({ s: `~${p.slice(HOME.length)}`, path: p, rel: false });
+    if (p.startsWith(`${repo.top}/`)) {
+      const rest = p.slice(repo.top.length + 1);
+      if (alias) out.push({ s: `${alias}/${rest}`, path: p, rel: false });
+      if (repo.atTop) out.push({ s: rest, path: p, rel: true });
+    }
+    return out;
+  });
+  let forms = formsOf();
+  for (const line of text.split('\n')) {
+    if (!line.includes('"toolCall"') && !line.includes('"bashExecution"')) continue;
+    if (!line.includes('worktree') && !forms.some((f) => line.includes(f.s))) continue;
+    let e: any;
+    try { e = JSON.parse(line); } catch { continue; }
+    const m = e?.message;
+    // What the agent ran (tool call arguments) and the user's own ! commands; tool output would name every worktree.
+    const texts: string[] = m?.role === 'assistant' ? (m.content || []).filter((b: any) => b?.type === 'toolCall').map((b: any) => stringsOf(b.arguments).join('\n'))
+      : m?.role === 'bashExecution' ? [String(m.command || '')] : [];
+    for (const t of texts) {
+      const adds = worktreeAdds(t, repo.atTop ? repo.top : cwd);
+      for (const [p, branch] of adds) s.added.set(toTop(p), branch);
+      if (adds.length) forms = formsOf();
+      s.last = lastMention(t, forms) ?? s.last;
+    }
+  }
+}
+async function gitSummary(threads: { id: string; cwd: string; path?: unknown }[]): Promise<GitSummary> {
+  const repos: Record<string, GitRepo> = {};
+  const out: Record<string, ThreadGit> = {};
+  await Promise.all(threads.map(async (t) => {
+    try {
+      const repo = await cwdRepo(t.cwd);
+      if (!repo) return;
+      const trees = await repoWorktrees(repo.common, repo.top);
+      const main = trees.find((w) => w.main);
+      if (!main) return;
+      repos[repo.common] ??= { root: main.path, name: basename(main.path), worktrees: trees };
+      const own = trees.find((w) => w.path === repo.top) || main;
+      const file = sessionFile(t.path);
+      const scan = file ? await scanSession(file, t.cwd, repo, trees.filter((w) => !w.main).map((w) => w.path)).catch(() => null) : null;
+      const last = scan?.last && scan.last !== own.path ? scan.last : null;
+      const hit = last ? trees.find((w) => w.path === last) : null;
+      if (last && !hit) out[t.id] = { repo: repo.common, worktree: last, branch: scan!.added.get(last) ?? null, head: null, removed: true, inferred: true };
+      else { const w = hit || own; out[t.id] = { repo: repo.common, worktree: w.path, branch: w.branch, head: w.head, removed: w.missing, inferred: !!hit }; }
+    } catch (e: any) { console.warn(`[git] ${t.cwd}: ${e?.message || e}`); }
+  }));
+  return { checkedAt: Date.now(), repos, threads: out };
 }
 
 // ── static files (only the assets used by the dashboard) ──
@@ -733,6 +929,12 @@ const server = Bun.serve<SocketData>({
         }
         if (url.pathname === '/api/usage' && req.method === 'GET') return Response.json(await planUsage());
         if (url.pathname === '/api/git' && req.method === 'GET') return Response.json(await gitGraph(url.searchParams.get('cwd') || ''));
+        if (url.pathname === '/api/git/summary' && req.method === 'POST') {
+          const body = await req.json().catch(() => null);
+          if (!Array.isArray(body?.threads)) return new Response('threads 배열이 필요합니다', { status: 400 });
+          const threads = body.threads.slice(0, 2000).filter((t: any) => typeof t?.id === 'string' && typeof t.cwd === 'string' && t.cwd.startsWith('/'));
+          return Response.json(await gitSummary(threads));
+        }
         if (url.pathname === '/api/omo/version') return Response.json(await omoVersion());
         if (url.pathname === '/api/omo/update' && req.method === 'POST') return Response.json(await omoUpdate());
         if (url.pathname === '/api/omo/restart' && req.method === 'POST') return Response.json(await omoRestart());
