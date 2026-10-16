@@ -742,9 +742,12 @@ function worktreeAdds(text: string, base: string): [string, string | null][] {
       else if (t === '--reason') i++;
       else if (!t.startsWith('-')) pos.push(t);
     }
-    if (!pos[0] || /[$*{}]/.test(pos[0])) continue; // a shell or script variable, not a path
+    // Plain names only: a token with quotes, braces or $ belongs to the code around the command, or is a variable.
+    const plain = (x?: string | null) => (x && /^[\w./~-]+$/.test(x) ? x : null);
+    if (!plain(pos[0])) continue;
     const path = absPath(pos[0], dir);
-    out.push([path, branch ?? (pos[1] && !/^(HEAD|[0-9a-f]{7,40})$|[~^$]/.test(pos[1]) ? pos[1] : pos[1] ? null : basename(path))]);
+    const guess = pos[1] ? (plain(pos[1]) && !/^(HEAD|[0-9a-f]{7,40})$|~/.test(pos[1]) ? pos[1] : null) : basename(path);
+    out.push([path, branch != null ? plain(branch) : guess]);
   }
   return out;
 }
@@ -762,7 +765,7 @@ function lastMention(text: string, forms: PathForm[]) {
       break;
     }
   }
-  return best?.path ?? null;
+  return best;
 }
 // Session files only grow, so each is read once and then from where the last read ended. The state starts over when the
 // repo's worktrees change, since the paths to look for change with them.
@@ -805,10 +808,10 @@ function scanLines(s: SessionScan, text: string, cwd: string, repo: CwdRepo, mai
   const mainForms: PathForm[] = [{ s: main, path: main, rel: false }];
   if (main.startsWith(`${HOME}/`)) mainForms.push({ s: `~${main.slice(HOME.length)}`, path: main, rel: false });
   if (alias && main === repo.top) mainForms.push({ s: alias, path: main, rel: false });
-  let forms = [...formsOf(), ...mainForms];
+  let forms = formsOf();
   for (const line of text.split('\n')) {
     if (!line.includes('"toolCall"') && !line.includes('"bashExecution"')) continue;
-    if (!line.includes('worktree') && !forms.some((f) => line.includes(f.s))) continue;
+    if (!line.includes('worktree') && ![...forms, ...mainForms].some((f) => line.includes(f.s))) continue;
     let e: any;
     try { e = JSON.parse(line); } catch { continue; }
     const m = e?.message;
@@ -818,10 +821,11 @@ function scanLines(s: SessionScan, text: string, cwd: string, repo: CwdRepo, mai
     for (const t of texts) {
       const adds = worktreeAdds(t, repo.atTop ? repo.top : cwd);
       for (const [p, branch] of adds) s.added.set(toTop(p), branch);
-      if (adds.length) forms = [...formsOf(), ...mainForms];
-      const at = lastMention(t, forms);
-      if (at === main) s.mainAfter = !!s.last;
-      else if (at) { s.last = at; s.mainAfter = false; }
+      if (adds.length) forms = formsOf();
+      // A call that names a worktree works there, even when it names the main checkout later on (reading a file there).
+      const wt = lastMention(t, forms), m = lastMention(t, mainForms);
+      if (wt) { s.last = wt.path; s.mainAfter = !!m && m.i > wt.i; }
+      else if (m && s.last) s.mainAfter = true;
     }
   }
 }
