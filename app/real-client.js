@@ -1,4 +1,4 @@
-// RealClient — browser ⇄ local Bun backend (/ws) ⇄ omo app-server. Same contract as MockClient.
+// RealClient — browser ⇄ local Bun backend (/ws) ⇄ omo host. Same contract as MockClient.
 // JS twin of src/session-client.ts so the prototype runs without a build step.
 export class RealClient {
   constructor(opts = {}) {
@@ -85,7 +85,7 @@ export class RealClient {
         if (!r.ok) throw new Error(await r.text());
         return r.json();
       },
-      // Restarts the app-server so it runs the installed omo (new model list included) → { restart }.
+      // Restarts the omo host on the installed omo (new model list included) → { restart }.
       omoRestart: async () => {
         const r = await fetch(api('api/omo/restart'), { method: 'POST', headers: hdr() });
         if (!r.ok) throw new Error(await r.text());
@@ -172,7 +172,7 @@ export class RealClient {
   }
   request(method, params) {
     const ws = this.ws;
-    if (!ws || ws.readyState !== WebSocket.OPEN) return Promise.reject({ code: -32000, message: 'app-server에 연결되어 있지 않습니다' });
+    if (!ws || ws.readyState !== WebSocket.OPEN) return Promise.reject({ code: -32000, message: 'omo host에 연결되어 있지 않습니다' });
     const id = ++this.seq;
     return new Promise((resolve, reject) => {
       this.pending.set(id, { resolve, reject, method });

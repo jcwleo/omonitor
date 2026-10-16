@@ -2,7 +2,7 @@
   "name": "omonitor",
   "version": "0.1.0",
   "private": true,
-  "description": "omo app-server 세션 관제 대시보드 (로컬 전용)",
+  "description": "omo 세션 관제 대시보드 (로컬 전용)",
   "bin": {
     "omonitor": "bin/omonitor.ts"
   },

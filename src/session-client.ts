@@ -35,9 +35,9 @@ export interface SessionClient {
     /** Branch and worktree of each session (its folder, or the worktree its tool calls named) and the worktrees of their repos. */
     gitSummary(threads: { id: string; cwd: string; path: string }[]): Promise<GitSummary>;
     omoVersion(): Promise<OmoVersion>;
-    /** Updates omo and restarts the app-server daemon, which ends every session running under it. */
+    /** Updates omo and hands the omo host over to the new engine; running sessions finish their turn first. */
     omoUpdate(): Promise<OmoUpdateResult>;
-    /** Restarts the app-server so it runs the installed omo; ends every session running under it. */
+    /** Hands the omo host over to the installed omo; running sessions finish their turn first. */
     omoRestart(): Promise<OmoRestartResult>;
     /** omonitor's own clone against its upstream branch; null when it does not run from a git clone. */
     omonitorVersion(): Promise<OmonitorVersion | null>;
@@ -47,7 +47,7 @@ export interface SessionClient {
 }
 
 export interface RealClientOptions {
-  /** Browser ⇄ Bun backend socket. The backend holds the app-server token. */
+  /** Browser ⇄ Bun backend socket. The backend holds the omo host connection. */
   url?: string;
   /** Per-launch secret the backend injects into index.html; guards the local socket from other pages. */
   sessionKey?: string;
@@ -209,7 +209,7 @@ export class RealClient implements SessionClient {
   }
   request<R = unknown>(method: string, params?: unknown): Promise<R> {
     const ws = this.ws;
-    if (!ws || ws.readyState !== WebSocket.OPEN) return Promise.reject({ code: -32000, message: 'app-server에 연결되어 있지 않습니다' });
+    if (!ws || ws.readyState !== WebSocket.OPEN) return Promise.reject({ code: -32000, message: 'omo host에 연결되어 있지 않습니다' });
     const id = ++this.seq;
     return new Promise<R>((resolve, reject) => {
       this.pending.set(id, { resolve: resolve as (v: unknown) => void, reject, method });

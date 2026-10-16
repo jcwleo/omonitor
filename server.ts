@@ -1,11 +1,13 @@
-// omonitor local backend — static files + WS relay to `omo app-server`, bound to 127.0.0.1 only.
-//   bun server.ts          # real mode: relays to ws://127.0.0.1:18800 with the token file
-//   bun server.ts --mock   # UI runs on the in-browser simulator (no app-server needed)
-// Env: PORT (4800), OMO_APP_SERVER_URL, OMO_WS_TOKEN_FILE, OMONITOR_ORIGINS
+// omonitor local backend — static files + the dashboard's session protocol bridged to `omo host`, bound to 127.0.0.1 only.
+//   bun server.ts          # real mode: drives the shared omo host (~/.omo/agent/rpc/rpc.sock), starting it when needed
+//   bun server.ts --mock   # UI runs on the in-browser simulator (no omo host needed)
+// Env: PORT (4800), OMO_HOST_SOCKET, OMONITOR_ORIGINS
 import { mkdir, readFile, readdir, realpath, stat } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
+import { engineOf, ensureHost, HOST_SOCKET, HostBridge, probeHost } from './host.ts';
 import { PushError, PushService, watchSessions } from './push.ts';
+import { ArchiveStore, SessionIndex } from './sessions.ts';
 import { TerminalError, TerminalManager } from './terminal.ts';
 import type { SocketData } from './terminal.ts';
 import { applySelf, checkSelf, isServiceProcess } from './update.ts';
@@ -14,9 +16,8 @@ import type { GitRepo, GitSummary, GitWorktree, OmonitorUpdateResult, OmonitorVe
 const MOCK = process.argv.includes('--mock');
 const PORT = Number(process.env.PORT || 4800);
 const HOST = '127.0.0.1';
-const UPSTREAM = process.env.OMO_APP_SERVER_URL || 'ws://127.0.0.1:18800';
 const AGENT_DIR = join(homedir(), '.omo/agent');
-const TOKEN_FILE = process.env.OMO_WS_TOKEN_FILE || join(AGENT_DIR, 'app-server/ws-token');
+const SESSIONS_DIR = join(AGENT_DIR, 'sessions');
 const ROOT = import.meta.dir;
 const ENTRY = '/Mission Control.dc.html';
 const KEY = crypto.randomUUID();
@@ -26,58 +27,24 @@ const ORIGINS = new Set([`http://${HOST}:${PORT}`, `http://localhost:${PORT}`, .
 
 const originOk = (req: Request) => { const o = req.headers.get('origin'); return !o || ORIGINS.has(o); };
 const keyOk = (req: Request, url: URL) => (url.searchParams.get('key') || req.headers.get('x-mc-key')) === KEY;
-const readToken = async () => (await readFile(TOKEN_FILE, 'utf8')).trim();
+// WebSocket close reasons are limited to 123 bytes, and Korean text takes three bytes a character.
+const wsReason = (s: string) => {
+  const enc = new TextEncoder();
+  if (enc.encode(s).length <= 123) return s;
+  let t = s;
+  while (enc.encode(t).length > 120) t = t.slice(0, -1);
+  return `${t}…`;
+};
 
-// ── short-lived app-server connection (thread lookups for the history endpoints) ──
-async function withRpc<T>(fn: (call: (method: string, params: unknown) => Promise<any>, init: any) => Promise<T>): Promise<T> {
-  const token = await readToken();
-  const ws = new WebSocket(UPSTREAM, { headers: { Authorization: `Bearer ${token}` } } as any);
-  const pending = new Map<number, { res: (v: any) => void; rej: (e: Error) => void }>();
-  let seq = 0;
-  const opened = new Promise<void>((res, rej) => { ws.onopen = () => res(); ws.onerror = () => rej(new Error('app-server에 연결하지 못했습니다')); });
-  ws.onmessage = (e) => {
-    const m = JSON.parse(String(e.data));
-    const p = m.id != null ? pending.get(m.id) : undefined;
-    if (!p || !('result' in m || 'error' in m)) return;
-    pending.delete(m.id);
-    m.error ? p.rej(new Error(m.error.message)) : p.res(m.result);
-  };
-  ws.onclose = () => { for (const p of pending.values()) p.rej(new Error('app-server 연결이 끊겼습니다')); pending.clear(); };
-  const call = (method: string, params: unknown) => new Promise<any>((res, rej) => {
-    const id = ++seq;
-    const t = setTimeout(() => { pending.delete(id); rej(new Error('app-server 응답 시간 초과')); }, 8000);
-    pending.set(id, { res: (v) => { clearTimeout(t); res(v); }, rej: (e) => { clearTimeout(t); rej(e); } });
-    ws.send(JSON.stringify({ id, method, params }));
-  });
-  try {
-    await opened;
-    const init = await call('initialize', { clientInfo: { name: 'omonitor-backend', version: '0.1.0' }, capabilities: { experimentalApi: true } });
-    return await fn(call, init);
-  } finally { ws.close(); }
-}
+// ── saved sessions, read from their files without loading them into the omo host ──
+const sessions = new SessionIndex(SESSIONS_DIR);
+const threadPath = (threadId: string) => sessions.pathOf(threadId);
 
-// thread/read and thread/resume load the session into the app-server, where omo may auto-continue a pending goal or
-// todo list. thread/list only reads the session index, so the file path is looked up there.
-async function threadPath(threadId: string): Promise<string | null> {
-  return withRpc(async (call) => {
-    for (const archived of [false, true]) {
-      let cursor: string | null = null;
-      do {
-        const r = await call('thread/list', { archived, cursor, limit: 100 });
-        const hit = (r?.data || []).find((t: any) => t.id === threadId);
-        if (hit) return hit.path || null;
-        cursor = r?.nextCursor ?? null;
-      } while (cursor);
-    }
-    return null;
-  });
-}
-
-// ── models that app-server's model/list leaves out ──
-// model/list reads the process-wide model registry, which never sees providers registered by builtin extensions.
-// anthropic-subscription (Claude subscription login) is the one such provider, so its models are missing even though
-// thread/settings/update accepts them. They are rebuilt here the way the extension builds them: the pi-ai anthropic
-// catalog with the minimal level removed, taken from the pi-ai copy inside the installed omo.
+// ── Claude subscription models, for a model list that leaves them out ──
+// app-server's model/list never saw providers registered by builtin extensions, such as anthropic-subscription (Claude
+// subscription login). The omo host's get_available_models lists them, and the dashboard drops repeated ids, so this
+// stays a fallback. They are rebuilt the way the extension builds them: the pi-ai anthropic catalog with the minimal
+// level removed, taken from the pi-ai copy inside the installed omo.
 const SUBSCRIPTION = 'anthropic-subscription';
 // The installed omo-ai entry script (bin/omo.js), also when PATH's omo is omo-ai's bun launcher shim.
 async function omoEntry() {
@@ -132,8 +99,8 @@ function semverGt(a: string, b: string): boolean {
   return false;
 }
 
-// "omonitor-backend/2026.10.12 (Darwin 25.6.0; arm64) senpi_app_server": the engine version the app-server runs.
-const appServerVersion = () => withRpc(async (_call, init) => String(init?.userAgent || '').match(/^[^/]+\/(\S+)/)?.[1] || null);
+// The engine of the host now serving the socket ("2026.10.16"; a build suffix after + is dropped).
+const hostEngine = async () => engineOf((await probeHost(HOST_SOCKET)).engineVersion) || null;
 const installedEngine = async () => (await exec(['omo', '--version'])).match(/engine: senpi ([^\s)]+)/)?.[1] || '';
 
 async function omoVersion() {
@@ -141,8 +108,8 @@ async function omoVersion() {
   const text = await exec(['omo', '--version']);
   const current = text.match(/omo (\d+\.\d+\.\d+)/)?.[1] || '';
   const engine = text.match(/engine: senpi ([^\s)]+)/)?.[1] || '';
-  // An app-server started before an omo update keeps the old engine, model list included, until it restarts.
-  const running = await appServerVersion().catch(() => null);
+  // A host started before an omo update keeps the old engine, model list included, until it hands over to the new one.
+  const running = await hostEngine().catch(() => null);
   const stale = !!(engine && running && running !== engine);
   let latest = '';
   try {
@@ -161,28 +128,22 @@ async function exec(cmd: string[], env: Record<string, string> = {}) {
   return (out + '\n' + err).trim();
 }
 
-// `omo app-server daemon restart` only restarts a daemon it started itself (one with a pid file). An app-server run by a
-// LaunchAgent (dev.omo.app-server, for starting at login) has none: the stop finds nothing to stop and the start reports
-// already-running, leaving the old engine up. launchd restarts that one. Either way the restart counts only once the
-// app-server answers with the installed engine's version.
-const APP_SERVER_JOB = 'dev.omo.app-server';
-async function restartAppServer() {
-  const job = `gui/${process.getuid?.() ?? 0}/${APP_SERVER_JOB}`;
-  const launchd = process.platform === 'darwin' && Bun.spawnSync(['launchctl', 'print', job], { stdout: 'ignore', stderr: 'ignore' }).exitCode === 0;
-  // Under bun (this server) senpi's daemon launcher falls back to a hardcoded /opt/homebrew/bin/node and fails with
-  // "failed to spawn daemon process"; OMO_RUNTIME=node makes it use the node on PATH.
-  await (launchd ? exec(['launchctl', 'kickstart', '-k', job]) : exec(['omo', 'app-server', 'daemon', 'restart'], { OMO_RUNTIME: 'node' }));
+// `omo host ensure` hands the socket from a host of an older engine to the installed one: sessions mid-turn finish on the
+// old generation and park, then reopen on the new one, so no turn is cut short. The restart counts once the host serving
+// the socket answers with the installed engine.
+async function restartHost() {
+  const r = await ensureHost(HOST_SOCKET);
   const want = await installedEngine();
   let running: string | null = null;
   for (const end = Date.now() + 30_000; Date.now() < end; await Bun.sleep(500)) {
-    running = await appServerVersion().catch(() => null);
-    if (running && (!want || running === want)) return `app-server ${running}${launchd ? ` (launchd ${APP_SERVER_JOB})` : ''}`;
+    running = await hostEngine().catch(() => null);
+    if (running && (!want || running === want)) return `omo host ${running}${r.action === 'handoff' ? ' (새 엔진으로 넘김)' : r.action === 'start' ? ' (새로 시작)' : ''}`;
   }
-  throw new Error(running ? `app-server가 아직 이전 버전(${running})으로 실행 중입니다. 설치된 omo는 ${want}입니다` : 'app-server가 30초 안에 다시 응답하지 않았습니다');
+  throw new Error(running ? `omo host가 아직 이전 엔진(${running})으로 실행 중입니다. 설치된 omo는 ${want}입니다` : 'omo host가 30초 안에 응답하지 않았습니다');
 }
 
 async function omoRestart() {
-  try { return { restart: await restartAppServer() }; }
+  try { return { restart: await restartHost() }; }
   finally { versionCache = null; }
 }
 
@@ -190,7 +151,7 @@ async function omoUpdate() {
   const update = await exec(['omo', 'update']);
   versionCache = null;
   paletteCache = null;
-  try { return { update, restart: await restartAppServer() }; }
+  try { return { update, restart: await restartHost() }; }
   catch (e: any) { return { update, restartError: String(e?.message || e) }; }
   finally { versionCache = null; }
 }
@@ -298,13 +259,13 @@ async function planUsage() {
 
 // ── slash palette: the commands and skills omo runs for `/name` and `/skill:name` ──
 // A turn starting with a `/name` omo has not registered is refused as an unknown command, so the palette lists what the
-// installed omo registers. app-server has no command list, but `get_commands` of a short-lived
+// installed omo registers. `get_commands` of a short-lived
 // `omo --mode rpc --no-session` returns every registered command and loaded skill (about 1.5s, no session file). It is
 // asked again when the installed omo version changes and at most every 10 minutes, so an update or a newly added skill
 // shows up without touching this file.
 const PALETTE_TTL_MS = 10 * 60 * 1000;
-// app-server drops a command's terminal notices (its ctx.ui.notify is a no-op) and refuses custom UI, so a command that
-// only prints a notice, or opens a picker, editor, overlay or another app, does nothing when sent from the dashboard.
+// The dashboard does not show a command's terminal notices (ctx.ui.notify) and the omo host refuses custom UI, so a command
+// that only prints a notice, or opens a picker, editor, overlay or another app, does nothing when sent from the dashboard.
 const TERMINAL_ONLY = new Set([
   'answer', 'btw', 'diff', 'history', 'ir', 'keybindings', 'llama', 'task-kill',
   'account', 'claude-account', 'cursor-account', 'gpt-account', 'dag', 'doctor', 'facts', 'fallback', 'files', 'help', 'hooks',
@@ -335,13 +296,13 @@ const SKILL_KO: Record<string, string> = {
   'ulw-execute': 'Prometheus 계획으로 Atlas 실행 시작', refactor: 'LSP·AST-grep 기반 리팩터링 + TDD 검증', 'remove-ai-slops': '브랜치 변경에서 AI 티 나는 코드 정리',
   hyperplan: '팀 모드 적대적 계획 (team_mode 필요)',
 };
-async function askOmoCommands(): Promise<any[]> {
-  // Same runtime as the app-server daemon (node): some skills exist only under one runtime (bun-1-4 needs a Bun eval
-  // kernel), and one the daemon's sessions lack is refused there.
-  const p = Bun.spawn(['omo', '--mode', 'rpc', '--no-session', '--offline'], { cwd: import.meta.dir, env: { ...process.env, OMO_RUNTIME: 'node' }, stdin: 'pipe', stdout: 'pipe', stderr: 'ignore' });
+// One command of a short-lived `omo --mode rpc --no-session`, under omo's default runtime like the omo host: some skills
+// exist only under one runtime (bun-1-4 needs a Bun eval kernel), and one the host's sessions lack is refused there.
+async function askOmo(type: string): Promise<any> {
+  const p = Bun.spawn(['omo', '--mode', 'rpc', '--no-session', '--offline'], { cwd: import.meta.dir, stdin: 'pipe', stdout: 'pipe', stderr: 'ignore' });
   const timer = setTimeout(() => p.kill(), 20000);
   try {
-    p.stdin.write(`${JSON.stringify({ id: 'palette', type: 'get_commands' })}\n`);
+    p.stdin.write(`${JSON.stringify({ id: 'ask', type })}\n`);
     p.stdin.flush();
     const dec = new TextDecoder();
     let buf = '';
@@ -350,14 +311,15 @@ async function askOmoCommands(): Promise<any[]> {
       for (let i; (i = buf.indexOf('\n')) >= 0; buf = buf.slice(i + 1)) {
         let m: any;
         try { m = JSON.parse(buf.slice(0, i)); } catch { continue; }
-        if (m.id !== 'palette') continue;
-        if (!m.success) throw new Error(m.error || 'get_commands 실패');
-        return m.data?.commands || [];
+        if (m.id !== 'ask') continue;
+        if (!m.success) throw new Error(m.error || `${type} 실패`);
+        return m.data;
       }
     }
-    throw new Error('omo가 명령 목록을 돌려주지 않고 끝났습니다');
+    throw new Error(`omo가 ${type}에 답하지 않고 끝났습니다`);
   } finally { clearTimeout(timer); p.kill(); }
 }
+const askOmoCommands = async (): Promise<any[]> => (await askOmo('get_commands'))?.commands || [];
 let paletteCache: { version: string; at: number; list: Promise<any[]> } | null = null;
 async function omoCommands() {
   const entry = await omoEntry();
@@ -471,41 +433,11 @@ async function restoreTodos(threadId: string) {
   return turns.flatMap((u) => u.items).filter((i) => i.type === 'dynamicToolCall' && i.tool === 'todo' && typeof i.arguments?.op === 'string').map((i) => ({ ...i, id: `restored-${i.id}` }));
 }
 
-// Last conversation time per session. app-server's updatedAt follows the file's last entry, and loading a session
-// appends metadata (e.g. a pi-rules.scan entry), so every session loaded at once shows the same "updated" time.
-// Only message and compaction entries count; the tail is read first and widened when it holds none.
-const ACTIVITY_TAIL = 256 * 1024;
-async function lastTalkAt(path: string): Promise<number | null> {
-  const f = Bun.file(path);
-  const size = f.size;
-  for (let n = ACTIVITY_TAIL; ; n *= 4) {
-    const start = Math.max(0, size - n);
-    const lines = (await f.slice(start, size).text()).split('\n');
-    if (start > 0) lines.shift(); // cut mid-line
-    for (let i = lines.length - 1; i >= 0; i--) {
-      if (!lines[i].includes('"type":"message"') && !lines[i].includes('"type":"compaction"')) continue;
-      try {
-        const e = JSON.parse(lines[i]);
-        const at = (e.type === 'message' || e.type === 'compaction') && Date.parse(e.timestamp);
-        if (at) return at;
-      } catch {}
-    }
-    if (start === 0) return null;
-  }
-}
+// Last conversation time per session. A file's last entry also moves when a session is merely loaded (omo appends
+// metadata such as a pi-rules.scan entry), so only message and compaction entries count (SessionIndex.talkedAt).
 async function activityTimes() {
-  const threads = await withRpc(async (call) => {
-    const out: any[] = [];
-    for (const archived of [false, true]) {
-      let cursor: string | null = null;
-      do { const r = await call('thread/list', { archived, cursor, limit: 100 }); out.push(...(r?.data || [])); cursor = r?.nextCursor ?? null; } while (cursor);
-    }
-    return out;
-  });
   const times: Record<string, number> = {};
-  await Promise.all(threads.filter((t) => t.path).map(async (t) => {
-    try { const at = await lastTalkAt(t.path); if (at) times[t.id] = at; } catch (e: any) { console.warn(`[activity] ${t.path}: ${e?.message || e}`); }
-  }));
+  for (const m of await sessions.list()) if (m.talkedAt) times[m.id] = m.talkedAt;
   return times;
 }
 
@@ -659,7 +591,6 @@ async function gitGraph(cwd: string) {
 // A session's cwd stays where it started, while an agent that follows a worktree workflow works in another folder of the
 // same repo (<repo>/.worktree/<task>). So the worktree a session works in is read from its session file: the last tool
 // call that names a worktree of the repo, or one the session added itself with `git worktree add`.
-const SESSIONS_DIR = join(AGENT_DIR, 'sessions');
 const HOME = homedir();
 // A summary covers every session folder and each worktree of their repos, so at most 8 git processes run at once.
 let gitSlots = 8;
@@ -882,6 +813,10 @@ async function serveStatic(pathname: string) {
 }
 
 const terminals = new TerminalManager();
+const bridge = new HostBridge({
+  socket: HOST_SOCKET, index: sessions, archive: new ArchiveStore(join(homedir(), '.omonitor/archived.json')), trashDir: join(homedir(), '.omonitor/trash'),
+  fallbackModels: async () => (await askOmo('get_available_models'))?.models || [],
+});
 const push = new PushService(join(homedir(), '.omonitor/push.json'), 'https://github.com/jcwleo/omonitor');
 const server = Bun.serve<SocketData>({
   hostname: HOST,
@@ -892,12 +827,12 @@ const server = Bun.serve<SocketData>({
     if (url.pathname === '/') return Response.redirect(encodeURI(ENTRY), 302);
     if (url.pathname === '/api/config') {
       if (req.headers.get('sec-fetch-site') === 'cross-site') return new Response('forbidden', { status: 403 });
-      return Response.json({ mode: MOCK ? 'mock' : 'real', key: KEY, upstream: UPSTREAM });
+      return Response.json({ mode: MOCK ? 'mock' : 'real', key: KEY, upstream: HOST_SOCKET });
     }
     if (url.pathname === '/ws') {
       if (MOCK) return new Response('mock mode', { status: 404 });
       if (!keyOk(req, url)) return new Response('bad key', { status: 401 });
-      return server.upgrade(req, { data: { kind: 'relay', queue: [] } }) ? undefined : new Response('upgrade failed', { status: 400 });
+      return server.upgrade(req, { data: { kind: 'relay' } }) ? undefined : new Response('upgrade failed', { status: 400 });
     }
     if (url.pathname === '/terminal-ws') {
       if (!keyOk(req, url)) return new Response('bad key', { status: 401 });
@@ -966,26 +901,18 @@ const server = Bun.serve<SocketData>({
   websocket: {
     async open(ws) {
       if (ws.data.kind === 'terminal') { terminals.open(ws); return; }
-      const relay = ws.data;
-      let token = '';
-      try { token = await readToken(); } catch { ws.close(1011, `토큰 파일을 읽지 못했습니다: ${TOKEN_FILE}`); return; }
-      // Bun's client WebSocket can send headers and sends no Origin — both required by app-server.
-      const up = new WebSocket(UPSTREAM, { headers: { Authorization: `Bearer ${token}` } } as any);
-      ws.data.up = up;
-      up.onopen = () => { for (const m of relay.queue.splice(0)) up.send(m); };
-      up.onmessage = (e) => ws.send(String(e.data));
-      up.onclose = (e) => ws.close(1011, `app-server 연결 종료 (${e.code})`);
-      up.onerror = () => ws.close(1011, 'app-server에 연결하지 못했습니다');
+      ws.data.client = bridge.addClient({
+        send: (data) => { ws.send(data); },
+        close: (code, reason) => { try { ws.close(code, wsReason(reason)); } catch {} },
+      });
     },
     message(ws, msg) {
       if (ws.data.kind === 'terminal') { terminals.message(ws, msg); return; }
-      const up = ws.data.up;
-      if (up && up.readyState === WebSocket.OPEN) up.send(String(msg));
-      else ws.data.queue.push(String(msg));
+      if (ws.data.client) void bridge.message(ws.data.client, String(msg));
     },
     close(ws) {
       if (ws.data.kind === 'terminal') { terminals.close(ws); return; }
-      try { ws.data.up?.close(); } catch {}
+      if (ws.data.client) bridge.removeClient(ws.data.client);
     },
   },
 });
@@ -1004,6 +931,13 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const) {
 }
 process.once('exit', () => { void terminals.shutdown(); });
 
-if (!MOCK) watchSessions({ upstream: UPSTREAM, token: readToken, enabled: () => push.hasDevices(), notify: (m) => push.send(m) });
+if (!MOCK) {
+  bridge.start();
+  watchSessions({
+    bridge, enabled: () => push.hasDevices(), notify: (m) => push.send(m), relay: (body) => push.relay(body),
+    lastTurn: async (id) => { const path = await threadPath(id); return path ? (await parseHistory(path)).at(-1) || null : null; },
+    nameOf: async (id) => { const m = (await sessions.list()).find((x) => x.id === id); return bridge.nameOf(id) || m?.name || m?.preview.slice(0, 40) || '이름 없는 세션'; },
+  });
+}
 
-console.log(`omonitor → http://${HOST}:${PORT}  (${MOCK ? 'mock 시뮬레이터' : `app-server ${UPSTREAM}`})`);
+console.log(`omonitor → http://${HOST}:${PORT}  (${MOCK ? 'mock 시뮬레이터' : `omo host ${HOST_SOCKET}`})`);

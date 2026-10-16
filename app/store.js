@@ -786,13 +786,15 @@ export class Store {
     if (cur) await this.guard(this.c.request('turn/interrupt', { threadId: id, turnId: cur.id }), '중단 실패');
   }
   async startThread(cwd, text, settings = {}) {
-    const r = await this.guard(this.c.request('thread/start', { cwd }), '세션을 만들지 못했습니다');
+    const patch = Object.fromEntries(Object.entries(settings).filter(([, v]) => v));
+    const r = await this.guard(this.c.request('thread/start', { cwd, ...patch }), '세션을 만들지 못했습니다');
     const T = this.merge({ ...r.thread, subscribed: true, settings: { model: modelRef(r.model, r.modelProvider), effort: r.reasoningEffort } });
     this.emit();
-    // Chosen model and effort go through thread/settings/update like the composer's picker (thread/start takes no effort),
-    // before the first message so its turn already runs with them. A failure is toasted and the session still opens.
-    const patch = Object.fromEntries(Object.entries(settings).filter(([, v]) => v));
-    if (Object.keys(patch).length) await this.setSettings(T.id, patch).catch(() => {});
+    // The backend opens the session with the chosen model and effort. Whatever it did not apply (the simulator applies
+    // neither) goes through thread/settings/update before the first message, so its turn already runs with them. A failure
+    // is toasted and the session still opens.
+    const missed = Object.fromEntries(Object.entries(patch).filter(([k, v]) => (k === 'model' ? T.settings.model : T.settings.effort) !== v));
+    if (Object.keys(missed).length) await this.setSettings(T.id, missed).catch(() => {});
     if (text) await this.send(T.id, text);
     return T.id;
   }

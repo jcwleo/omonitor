@@ -1,7 +1,7 @@
 {
   "name": "omonitor",
   "short_name": "omonitor",
-  "description": "omo app-server 세션 관제 대시보드",
+  "description": "omo 세션 관제 대시보드",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

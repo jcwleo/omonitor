@@ -1,4 +1,5 @@
-// omo app-server protocol (Codex app-server compatible JSON-RPC over WebSocket, no `jsonrpc` field).
+// The dashboard's session protocol: Codex app-server compatible JSON-RPC over WebSocket, no `jsonrpc` field. omo removed
+// its app-server; the backend (host.ts) now serves this protocol on top of `omo host`.
 // Only the surface listed in the brief is modelled. Every server payload is treated as partial.
 
 export type RequestId = number | string;
@@ -118,10 +119,10 @@ export interface UserInputAnsweredParams { answers: Record<string, { answers: st
 // ── Bun backend extras (not app-server) ──
 export interface Skill { kind: 'command' | 'skill' | 'keyword'; name: string; desc: string; source: 'builtin' | 'user'; insert?: string; label?: string }
 /** GET /api/omo/version: the installed omo against the npm `latest` tag (cached 10 minutes by the backend). engine: the
- * installed senpi engine; running: the engine the app-server answers with; stale: it still runs an engine from before an
+ * installed senpi engine; running: the engine the omo host answers with; stale: it still runs an engine from before an
  * omo update (old model list included) and needs a restart. */
 export interface OmoVersion { current: string; latest: string; updateAvailable: boolean; engine: string; running: string | null; stale: boolean; checkedAt: number }
-/** POST /api/omo/restart: restarts the app-server (through launchd when a LaunchAgent runs it) and waits for the installed engine. */
+/** POST /api/omo/restart: `omo host ensure` hands the host over to the installed engine, then waits until it serves the socket. */
 export interface OmoRestartResult { restart: string }
 /** One limit window of a subscription plan; percent is 0-100 and resetsAt is in ms. */
 export interface UsageWindow { label: string; percent: number; resetsAt: number | null }
@@ -129,7 +130,7 @@ export interface UsageWindow { label: string; percent: number; resetsAt: number 
 export interface UsageAccount { provider: 'claude' | 'chatgpt'; name: string; plan: string | null; windows: UsageWindow[]; error?: string; expired?: boolean }
 /** GET /api/usage: plan usage read with omo's tokens from auth.json (cached by the backend: Claude 3 minutes, ChatGPT 30 seconds). */
 export interface PlanUsage { checkedAt: number; accounts: UsageAccount[] }
-/** POST /api/omo/update: `omo update`, then `omo app-server daemon restart`. restartError means the update went in but the restart failed. */
+/** POST /api/omo/update: `omo update`, then the omo host restart above. restartError means the update went in but the restart failed. */
 export interface OmoUpdateResult { update: string; restart?: string; restartError?: string }
 /** A commit on omonitor's upstream branch that this clone lacks; at is the commit time in ms. */
 export interface OmonitorCommit { sha: string; subject: string; at: number }

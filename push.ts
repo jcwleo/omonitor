@@ -92,8 +92,8 @@ export class PushService {
     return r;
   }
 
-  // Questions and approvals reach only the app-server connections subscribed to the session, so the dashboard that
-  // receives one relays it here. With several dashboards open the same request arrives more than once.
+  // Questions and approvals reach only the omo host connections attached to the session: the backend's own connection
+  // relays the ones it sees and every dashboard relays the ones it receives, so the same request arrives more than once.
   async relay(body: unknown) {
     const parsed = relayRequest.safeParse(body);
     if (!parsed.success) throw new PushError('알림 요청이 올바르지 않습니다');
@@ -145,49 +145,33 @@ const clip = (s: string, n = 140) => {
   const t = skipLeadingQuote(s).replace(/```[\s\S]*?```/g, ' ').replace(/^\s*\|?[\s:|-]*-{3,}[\s:|-]*$/gm, ' ').replace(/\|/g, ' ').replace(/[*_`#>]+/g, '').replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').replace(/\s+/g, ' ').trim();
   return t.length > n ? `${t.slice(0, n - 1)}…` : t;
 };
-const nameOf = (t: { name?: string | null; preview?: string } | undefined) => t?.name || (t?.preview || '').slice(0, 40) || '이름 없는 세션';
-
-// app-server broadcasts thread/status/changed to every connection, so this one connection, which never subscribes to a
-// session, sees each session leave "active". The end of the turn is then confirmed by reading the session back, because
-// a client subscribing to a busy session also makes app-server broadcast "idle" while the turn keeps running.
+// The omo host announces the end of every session's run (agent_settled) to every connection, so the backend's bridge
+// sees each one, attached or not. A goal or todo continuation starts the next run right away, so an alert waits a moment
+// and is dropped when the session runs again; the outcome is then read back from the session file, which reading does
+// not load.
 export function watchSessions(opts: {
-  upstream: string;
-  token: () => Promise<string>;
+  bridge: {
+    on(event: 'settled', fn: (threadId: string) => void): unknown;
+    on(event: 'question', fn: (q: { threadId: string; requestId: string; kind: 'question' | 'approval'; text: string }) => void): unknown;
+    isRunning(threadId: string): boolean;
+  };
   enabled: () => Promise<boolean>;
   notify: (message: PushMessage) => Promise<unknown>;
+  relay: (body: unknown) => Promise<unknown>;
+  lastTurn: (threadId: string) => Promise<any | null>;
+  nameOf: (threadId: string) => Promise<string>;
   settleMs?: number;
 }) {
   const settleMs = opts.settleMs ?? 2500;
-  const names = new Map<string, string>();
-  const status = new Map<string, string>();
   const timers = new Map<string, ReturnType<typeof setTimeout>>();
-  const pending = new Map<number, { res: (v: any) => void; rej: (e: Error) => void }>();
-  let ws: WebSocket | null = null;
-  let seq = 0;
-  let retryMs = 1000;
-  let stopped = false;
-
-  const call = (method: string, params: unknown) => new Promise<any>((res, rej) => {
-    const sock = ws;
-    if (!sock || sock.readyState !== WebSocket.OPEN) { rej(new Error('app-server에 연결되어 있지 않습니다')); return; }
-    const id = ++seq;
-    const t = setTimeout(() => { pending.delete(id); rej(new Error('app-server 응답 시간 초과')); }, 10_000);
-    pending.set(id, { res: (v) => { clearTimeout(t); res(v); }, rej: (e) => { clearTimeout(t); rej(e); } });
-    sock.send(JSON.stringify({ id, method, params }));
-  });
 
   async function settle(id: string) {
     timers.delete(id);
-    if (status.get(id) === 'active' || !(await opts.enabled())) return;
-    // thread/read loads a session that is not loaded, and omo may then auto-continue its goal or todo list. A session
-    // that just left "active" is loaded and stays so through app-server's 30-minute idle unload; the list confirms it.
-    const loaded: string[] = (await call('thread/loaded/list', {}))?.data || [];
-    if (!loaded.includes(id)) return;
-    const thread = (await call('thread/read', { threadId: id, includeTurns: true }))?.thread;
-    if (!thread || thread.status?.type === 'active') return;
-    const title = names.get(id) || nameOf(thread);
-    const turn = (thread.turns || []).at(-1);
-    if (thread.status?.type === 'systemError' || turn?.status === 'failed') {
+    if (opts.bridge.isRunning(id) || !(await opts.enabled())) return;
+    const turn = await opts.lastTurn(id);
+    if (!turn) return;
+    const title = await opts.nameOf(id);
+    if (turn.status === 'failed') {
       const why = turn?.error?.message ? `: ${clip(turn.error.message, 120)}` : '';
       await opts.notify({ kind: 'error', title, body: `오류로 멈췄습니다${why}`, threadId: id });
       return;
@@ -198,79 +182,19 @@ export function watchSessions(opts: {
     await opts.notify({ kind: 'done', title, body: last ? clip(last.text) : '작업을 마쳤습니다', threadId: id });
   }
 
-  function onNotification(method: string, p: any) {
-    switch (method) {
-      case 'thread/started': if (p.thread?.id) { names.set(p.thread.id, nameOf(p.thread)); status.set(p.thread.id, p.thread.status?.type); } break;
-      case 'thread/name/updated': if (p.threadId) names.set(p.threadId, p.threadName || p.name || names.get(p.threadId) || '이름 없는 세션'); break;
-      case 'thread/deleted': names.delete(p.threadId); status.delete(p.threadId); break;
-      case 'thread/status/changed': {
-        const id: string = p.threadId;
-        const prev = status.get(id), next = p.status?.type;
-        status.set(id, next);
-        clearTimeout(timers.get(id));
-        timers.delete(id);
-        if (prev === 'active' && (next === 'idle' || next === 'systemError')) {
-          // A goal or todo continuation starts the next turn right away; waiting lets that cancel the alert.
-          timers.set(id, setTimeout(() => settle(id).catch((e) => console.error('[push] 세션 상태를 확인하지 못했습니다:', e?.message || e)), settleMs));
-        }
-      } break;
-    }
-  }
-
-  function retry() {
-    if (stopped) return;
-    setTimeout(connect, retryMs);
-    retryMs = Math.min(retryMs * 2, 30_000);
-  }
-
-  async function connect() {
-    if (stopped) return;
-    let token: string;
-    try { token = await opts.token(); } catch { retry(); return; }
-    // Bun's client WebSocket can send headers and sends no Origin — both required by app-server.
-    const sock = new WebSocket(opts.upstream, { headers: { Authorization: `Bearer ${token}` } } as any);
-    ws = sock;
-    sock.onopen = async () => {
-      try {
-        await call('initialize', { clientInfo: { name: 'omonitor-push', version: '0.1.0' }, capabilities: { experimentalApi: true } });
-        retryMs = 1000;
-        let cursor: string | null = null;
-        do {
-          const r = await call('thread/list', { archived: false, cursor, limit: 100 });
-          for (const t of r?.data || []) { names.set(t.id, nameOf(t)); if (!status.has(t.id)) status.set(t.id, t.status?.type); }
-          cursor = r?.nextCursor ?? null;
-        } while (cursor);
-      } catch (e: any) {
-        console.error('[push] app-server 감시를 시작하지 못했습니다:', e?.message || e);
-        sock.close();
-      }
-    };
-    sock.onmessage = (e) => {
-      let m: any;
-      try { m = JSON.parse(String(e.data)); } catch { return; }
-      if (m.id != null && ('result' in m || 'error' in m)) {
-        const p = pending.get(m.id);
-        if (!p) return;
-        pending.delete(m.id);
-        m.error ? p.rej(new Error(m.error.message)) : p.res(m.result);
-        return;
-      }
-      if (m.method && m.id == null) onNotification(m.method, m.params || {});
-    };
-    sock.onclose = () => {
-      for (const p of pending.values()) p.rej(new Error('app-server 연결이 끊겼습니다'));
-      pending.clear();
-      if (ws === sock) ws = null;
-      retry();
-    };
-  }
-
-  void connect();
-  return {
-    stop() {
-      stopped = true;
-      for (const t of timers.values()) clearTimeout(t);
-      ws?.close();
-    },
-  };
+  opts.bridge.on('settled', (id) => {
+    clearTimeout(timers.get(id));
+    timers.set(id, setTimeout(() => settle(id).catch((e) => console.error('[push] 세션 상태를 확인하지 못했습니다:', e?.message || e)), settleMs));
+  });
+  opts.bridge.on('question', (q) => {
+    void (async () => {
+      if (!(await opts.enabled())) return;
+      const ask = q.kind === 'question';
+      await opts.relay({
+        threadId: q.threadId, requestId: q.requestId, kind: q.kind, title: `${await opts.nameOf(q.threadId)} · ${ask ? '질문' : '승인 요청'}`.slice(0, 200),
+        body: (q.text || (ask ? '답을 기다립니다' : '승인을 기다립니다')).slice(0, 500),
+      });
+    })().catch((e) => console.error('[push] 질문 알림을 보내지 못했습니다:', e?.message || e));
+  });
+  return { stop() { for (const t of timers.values()) clearTimeout(t); } };
 }

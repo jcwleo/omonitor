@@ -4,6 +4,7 @@ import headless from '@xterm/headless';
 import serialize from '@xterm/addon-serialize';
 import { z } from 'zod';
 import type { ServerWebSocket } from 'bun';
+import type { BridgeClient } from './host.ts';
 
 const sessionId = z.string().min(1).max(256).regex(/^[\w.-]+$/);
 const terminalId = z.uuid();
@@ -25,7 +26,7 @@ export type TerminalSocketData = {
   closed: boolean;
   detach?: () => void;
 };
-export type SocketData = TerminalSocketData | { readonly kind: 'relay'; up?: WebSocket; queue: string[] };
+export type SocketData = TerminalSocketData | { readonly kind: 'relay'; client?: BridgeClient };
 type Message =
   | { readonly type: 'snapshot' | 'output'; readonly data: string }
   | { readonly type: 'exit'; readonly exitCode: number }
