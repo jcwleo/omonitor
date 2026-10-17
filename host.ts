@@ -340,10 +340,13 @@ export class HostBridge extends EventEmitter {
     let p = this.#attaching.get(id);
     if (!p) {
       p = (async () => {
-        const path = s?.path || (await this.opts.index.pathOf(id));
+        const m = (await this.opts.index.list()).find((x) => x.id === id);
+        const path = s?.path || m?.path;
         if (!path) throw new HostError('세션 파일을 찾지 못했습니다');
         try {
-          const r = await this.#req('open_session', { sessionPath: path, retain_on_disconnect: true }, 120_000);
+          // Without cwd the host reopens the session in its own folder (where it was started), not the one in the
+          // session header, and the agent would then work in that folder.
+          const r = await this.#req('open_session', { sessionPath: path, ...(m?.cwd && { cwd: m.cwd }), retain_on_disconnect: true }, 120_000);
           return this.#adopt(r.sessionId, r.state);
         } catch (e: any) {
           if (e?.code !== 'session_held') throw e;
