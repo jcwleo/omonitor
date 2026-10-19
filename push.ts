@@ -1,4 +1,4 @@
-// Web Push to the devices that turned it on: a session that finished its turn, stopped with an error, or waits for an
+// Web Push to the devices that turned it on: a session that finished its work, stopped with an error, or waits for an
 // answer. VAPID keys and device subscriptions live in ~/.omonitor/push.json.
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
@@ -159,6 +159,8 @@ export function watchSessions(opts: {
   notify: (message: PushMessage) => Promise<unknown>;
   relay: (body: unknown) => Promise<unknown>;
   lastTurn: (threadId: string) => Promise<any | null>;
+  // Whether work the session started since `since` (ms) is still out and will wake it again when it reports back.
+  pendingWork: (threadId: string, since: number) => Promise<boolean>;
   nameOf: (threadId: string) => Promise<string>;
   settleMs?: number;
 }) {
@@ -178,6 +180,9 @@ export function watchSessions(opts: {
     }
     // An interrupted turn was stopped by the user, so it needs no alert.
     if (turn?.status !== 'completed') return;
+    // A run that ends while a detached eval cell, a monitor or a background subagent it started is still out is woken
+    // again when that work reports back, so the finish is the run that ends with nothing left out.
+    if (await opts.pendingWork(id, turn.askedAt ?? 0)) return;
     const last = [...(turn.items || [])].reverse().find((i: any) => i.type === 'agentMessage' && i.text?.trim());
     await opts.notify({ kind: 'done', title, body: last ? clip(last.text) : '작업을 마쳤습니다', threadId: id });
   }

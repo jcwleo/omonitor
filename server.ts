@@ -389,12 +389,13 @@ async function parseHistory(path: string, threadId: string) {
   const turn = (id: string) => (cur = turns[turns.push({ id: `file-${id}`, status: 'completed', items: [] }) - 1]);
   const push = (item: any) => (cur || turn(item.id)).items.push(item);
   // lastAt (ms): when the turn's latest message was written, shown at the end of the turn in the timeline.
+  // askedAt (ms): when the user's message that opened the turn was written; the push watcher counts work from there.
   const stamp = (e: any) => { const at = Date.parse(e.timestamp); if (cur && at) cur.lastAt = at; };
   for (const e of chain) {
     if (e.type === 'compaction') { push({ type: 'contextCompaction', id: e.id, status: 'completed' }); stamp(e); continue; }
     if (e.type !== 'message' || !e.message) continue;
     const m = e.message;
-    if (m.role === 'user') { turn(e.id).items.push({ type: 'userMessage', id: e.id, content: [{ type: 'text', text: textOf(m.content) }] }); stamp(e); continue; }
+    if (m.role === 'user') { turn(e.id).items.push({ type: 'userMessage', id: e.id, content: [{ type: 'text', text: textOf(m.content) }] }); cur.askedAt = Date.parse(e.timestamp) || 0; stamp(e); continue; }
     if (m.role === 'assistant') {
       (m.content || []).forEach((b: any, k: number) => {
         if (b?.type === 'text' && b.text?.trim()) push({ type: 'agentMessage', id: `${e.id}:${k}`, text: b.text, status: 'completed' });
@@ -502,6 +503,36 @@ async function threadMeta(threadId: string) {
     if (used && window) usage = { used, window };
   }
   return { agents: [...agents.values()], usage, skills };
+}
+
+// ── work a session still waits on, for the push watcher ──
+// A run can end while work it started runs on and wakes the session when it reports back: the host lists eval cells,
+// the terminal extension keeps monitors in a manifest beside the session file, and the session file records subagent
+// spawns and completions. Only work started since the user's last message counts, so a long watch from an earlier
+// request does not hold back later answers, and a record a crashed host left behind holds back one request at most.
+// Background shells are left out: most are servers that never report back.
+const LIVE_CELL = new Set(['queued', 'running', 'detached']);
+const alive = (pid: unknown) => {
+  if (typeof pid !== 'number') return true;
+  try { process.kill(pid, 0); return true; } catch (e: any) { return e?.code === 'EPERM'; }
+};
+async function pendingWork(threadId: string, since: number) {
+  const cells = await bridge.evalCells(threadId).catch((e: any) => {
+    if (e?.code !== 'eval_cells_unavailable') console.warn('[push] eval 셀 목록을 읽지 못했습니다:', e?.message || e);
+    return [];
+  });
+  if (cells.some((c) => LIVE_CELL.has(c?.state) && c.startedAtMs >= since)) return true;
+  const path = await threadPath(threadId);
+  if (!path) return false;
+  let monitors: any[] = [];
+  try {
+    monitors = JSON.parse(await readFile(join(dirname(path), 'extensions', 'terminal', `${threadId}.json`), 'utf8')).monitors || [];
+  } catch (e: any) {
+    if (e?.code !== 'ENOENT') console.warn('[push] 모니터 목록을 읽지 못했습니다:', e?.message || e);
+  }
+  if (monitors.some((m) => !m?.suspended && m.createdAt >= since && alive(m.runtime?.pid))) return true;
+  const { agents } = await threadMeta(threadId);
+  return agents.some((a) => a.live_progress && (a.live_progress.started_at ?? 0) >= since);
 }
 
 // ── pasted images ──
@@ -963,6 +994,7 @@ if (!MOCK) {
   watchSessions({
     bridge, enabled: () => push.hasDevices(), notify: (m) => push.send(m), relay: (body) => push.relay(body),
     lastTurn: async (id) => { const path = await threadPath(id); return path ? (await parseHistory(path, id)).at(-1) || null : null; },
+    pendingWork,
     nameOf: async (id) => { const m = (await sessions.list()).find((x) => x.id === id); return bridge.nameOf(id) || m?.name || m?.preview.slice(0, 40) || '이름 없는 세션'; },
   });
 }

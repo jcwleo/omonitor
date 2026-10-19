@@ -200,6 +200,13 @@ export class HostBridge extends EventEmitter {
   isRunning(id: string) { return !!this.#byId.get(id)?.running; }
   nameOf(id: string) { return this.#byId.get(id)?.name || null; }
   toolImage(threadId: string, callId: string, n: number) { return this.#images.get(`${threadId}/${callId}`)?.[n] ?? null; }
+  // The session's eval cells, live and recently settled; the host answers for any session it holds, attached or not.
+  async evalCells(id: string): Promise<any[]> {
+    const s = this.#byId.get(id);
+    if (!s) return [];
+    const cells = await this.#req('eval_cells.list', { sessionId: s.handle });
+    return Array.isArray(cells) ? cells : [];
+  }
 
   addClient(c: { send: (data: string) => void; close: (code: number, reason: string) => void }): BridgeClient {
     const client: BridgeClient = { ...c, subs: new Set(), ready: Promise.resolve() };
