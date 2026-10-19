@@ -424,7 +424,7 @@ html[data-vt]::view-transition-old(root),html[data-vt]::view-transition-new(root
 <sc-if value="{{ notPhone }}"><div style="display:flex;flex-wrap:wrap;column-gap:9px;font-size:12px;color:var(--fg3)"><span style="white-space:nowrap"><span style="font-family:var(--mono);color:var(--fg2)">↑↓</span> 이동</span><span style="white-space:nowrap"><span style="font-family:var(--mono);color:var(--fg2)">Tab</span> 자동완성</span><span style="white-space:nowrap"><span style="font-family:var(--mono);color:var(--fg2)">/</span>로 끝내면 하위 폴더</span><span style="white-space:nowrap">목록은 기존 세션에서 모았습니다</span></div></sc-if>
 </div>
 <div style="display:flex;flex-direction:column;gap:4px">
-<span style="font-size:12px;color:var(--fg2)">모델 · effort</span>
+<div style="display:flex;align-items:center;gap:6px;min-height:20px"><span style="font-size:12px;color:var(--fg2)">모델 · effort</span><sc-if value="{{ sheetModelToggle }}"><button onClick="{{ onSheetModelToggle }}" style="all:unset;cursor:pointer;margin-left:auto;min-height:28px;padding:0 6px;display:flex;align-items:center;border-radius:var(--r-sm);font-size:12px;color:var(--acc-fg)" style-hover="background:var(--hover)">{{ sheetModelToggleLabel }}</button></sc-if></div>
 <select class="input" value="{{ sheetModel }}" onChange="{{ onSheetModel }}" style="min-height:44px;font:13.5px var(--font-ui);color:var(--fg)">
 <option value="">기본 (omo 설정)</option>
 <sc-for list="{{ sheetModelGroups }}" as="g"><optgroup label="{{ g.label }}"><sc-for list="{{ g.items }}" as="m"><option value="{{ m.id }}">{{ m.label }}</option></sc-for></optgroup></sc-for>
@@ -617,6 +617,7 @@ class Component extends DCLogic {
     document.addEventListener('mc-terminal-live', this.onTermLive);
     this.tick = setInterval(() => this.setState({ now: Date.now() }), 1000);
     try { this.setState({ favs: JSON.parse(localStorage.getItem('mc.favCwds') || '[]') }); } catch {}
+    try { this.setState({ favModels: JSON.parse(localStorage.getItem('mc.favModels') || '[]') }); } catch {}
     try { this.setState({ panels: { left: false, right: false, ...JSON.parse(localStorage.getItem('mc.panels') || '{}') } }); } catch {}
     try { const l = JSON.parse(localStorage.getItem('mc.sessionList') || '{}'); this.setState({ lg: l.grouped ?? true, lgC: l.folded || {} }); } catch {}
     try {
@@ -858,6 +859,13 @@ class Component extends DCLogic {
   patchDraftImage(id, imgId, patch) {
     const d = this.drafts.get(id);
     if (d) this.drafts.set(id, { ...d, images: d.images.map((m) => (m.id === imgId ? { ...m, ...patch } : m)) });
+  }
+  // Models starred in the composer's model menu; once any is starred, the model lists show only those until "모든 모델 보기".
+  toggleFavModel(id) {
+    const favs = this.state.favModels || [];
+    const next = favs.includes(id) ? favs.filter((x) => x !== id) : [...favs, id];
+    try { localStorage.setItem('mc.favModels', JSON.stringify(next)); } catch {}
+    this.setState({ favModels: next });
   }
   notifyAllowed() { return typeof Notification !== 'undefined' && Notification.permission === 'granted'; }
   async syncPush() {
@@ -1603,7 +1611,7 @@ class Component extends DCLogic {
         diffItems: diff.map((f) => ({ key: f.path, isFile: true, files: [{ path: f.path, kind: f.isNew ? 'add' : f.isDel ? 'delete' : 'update', add: f.add, del: f.del, lines: f.text.split('\n').filter((l) => !/^(diff --git|index |--- |\+\+\+ |new file)/.test(l)) }] })),
         diffNone: diff.length === 0,
         composer: {
-          running, activity: live ? [live.label, live.elapsed].filter(Boolean).join(' · ') : '', model: T.settings?.model, effort: T.settings?.effort, models: st.s.models, skills: st.s.skills, usage: T.usage || null,
+          running, activity: live ? [live.label, live.elapsed].filter(Boolean).join(' · ') : '', model: T.settings?.model, effort: T.settings?.effort, models: st.s.models, favModels: s.favModels || [], onFavModel: (id) => this.toggleFavModel(id), skills: st.s.skills, usage: T.usage || null,
           padBottom: isPhone ? 'max(10px, env(safe-area-inset-bottom))' : '10px',
           threadId: T.id, draft: this.draftOf(T.id), onDraft: (id, d) => this.saveDraft(id, d), patchDraftImage: (id, imgId, patch) => this.patchDraftImage(id, imgId, patch),
           takeFocus: () => { const w = this.wantFocus; this.wantFocus = false; return w; },
@@ -1679,8 +1687,12 @@ class Component extends DCLogic {
     const shEfforts = (shModels.find((m) => m.id === shModel)?.supportedReasoningEfforts || []).map((e) => (typeof e === 'string' ? e : e?.reasoningEffort)).filter(Boolean);
     const shEffort = shEfforts.includes(sh?.effort) ? sh.effort : '';
     const PROV = { 'anthropic-subscription': 'CLAUDE 구독', anthropic: 'CLAUDE', 'chatgpt-subscription': 'CHATGPT 구독', openai: 'OPENAI' };
+    // Starred models only (and the chosen one), until the switch beside the label lists every model.
+    const shFavs = (s.favModels || []).filter((id) => shModels.some((m) => m.id === id));
+    const shAll = !shFavs.length || !!sh?.allModels;
     const shGroups = new Map();
     for (const m of shModels) {
+      if (!shAll && !shFavs.includes(m.id) && m.id !== shModel) continue;
       const p = m.id.includes('/') ? m.id.slice(0, m.id.indexOf('/')) : '';
       if (!shGroups.has(p)) shGroups.set(p, []);
       shGroups.get(p).push({ id: m.id, label: m.displayName || m.id });
@@ -1689,6 +1701,8 @@ class Component extends DCLogic {
     Object.assign(vals, cw, {
       sheetModel: shModel, onSheetModel: (e) => this.setState({ sheet: { ...sh, model: e.target.value } }),
       sheetModelGroups: [...shGroups].sort((a, b) => provRank(a[0]) - provRank(b[0])).map(([p, items]) => ({ label: PROV[p] || p || '모델', items })),
+      sheetModelToggle: shFavs.length > 0, sheetModelToggleLabel: shAll ? '즐겨찾기만 보기' : `모든 모델 보기 (${shModels.length})`,
+      onSheetModelToggle: () => this.setState({ sheet: { ...sh, allModels: !shAll } }),
       sheetHasEfforts: shEfforts.length > 0,
       sheetEfforts: ['', ...shEfforts].map((e) => ({ label: e || '기본', bd: e === shEffort ? 'var(--acc)' : 'var(--line2)', bg: e === shEffort ? 'var(--acc-tint)' : 'transparent', fg: e === shEffort ? 'var(--fg)' : 'var(--fg2)', onTap: () => this.setState({ sheet: { ...sh, effort: e } }) })),
       canAttachSheet, sheetFileRef: this.sheetFileRef, pickSheetImage: () => this.sheetFileRef.current?.click(),

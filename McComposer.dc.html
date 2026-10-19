@@ -31,9 +31,10 @@
 <sc-if value="{{ noEfforts }}"><div style="font-size:12.5px;color:var(--fg3);min-height:20px;display:flex;align-items:center">{{ noEffortText }}</div></sc-if>
 </div>
 <div ref="{{ modelListRef }}" style="position:relative;overflow-y:auto;min-height:0;padding:2px 0 4px">
-<sc-for list="{{ modelGroups }}" as="g"><div style="font-size:12px;font-weight:500;color:var(--fg3);padding:8px 9px 3px">{{ g.label }}</div><sc-for list="{{ g.items }}" as="m"><button data-cur="{{ m.cur }}" onClick="{{ m.onTap }}" title="{{ m.id }}" style="all:unset;cursor:pointer;box-sizing:border-box;width:calc(100% - 8px);margin:0 4px;display:flex;align-items:center;gap:8px;min-height:36px;padding:0 9px;border-radius:var(--r-sm);font-size:13.5px;color:var(--fg);background:{{ m.bg }}" style-hover="background:var(--hover)"><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ m.label }}</span><span style="flex:none;font:12px var(--mono);color:var(--acc-fg)">{{ m.mark }}</span></button></sc-for></sc-for>
+<sc-for list="{{ modelGroups }}" as="g"><div style="font-size:12px;font-weight:500;color:var(--fg3);padding:8px 9px 3px">{{ g.label }}</div><sc-for list="{{ g.items }}" as="m"><div style="width:calc(100% - 8px);margin:0 4px;display:flex;align-items:center;border-radius:var(--r-sm);background:{{ m.bg }}"><button data-cur="{{ m.cur }}" onClick="{{ m.onTap }}" title="{{ m.id }}" style="all:unset;cursor:pointer;box-sizing:border-box;flex:1;min-width:0;display:flex;align-items:center;gap:8px;min-height:36px;padding:0 6px 0 9px;border-radius:var(--r-sm);font-size:13.5px;color:var(--fg)" style-hover="background:var(--hover)"><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ m.label }}</span><span style="flex:none;font:12px var(--mono);color:var(--acc-fg)">{{ m.mark }}</span></button><button onClick="{{ m.onStar }}" title="{{ m.starTitle }}" aria-label="{{ m.starTitle }}" style="all:unset;cursor:pointer;flex:none;width:36px;height:36px;display:grid;place-items:center;border-radius:var(--r-sm);font-size:15px;color:{{ m.starColor }}" style-hover="background:var(--hover)">{{ m.star }}</button></div></sc-for></sc-for>
 <sc-if value="{{ noModels }}"><div style="padding:10px 9px;font-size:12.5px;color:var(--fg3)">모델 목록을 불러오지 못했습니다</div></sc-if>
 </div>
+<sc-if value="{{ hasModelFoot }}"><div style="flex:none;display:flex;align-items:center;gap:6px;min-height:36px;padding:0 4px 0 9px;border-top:1px solid var(--line-soft);font-size:12px;color:var(--fg3)"><span style="flex:1;min-width:0">{{ modelFootText }}</span><sc-if value="{{ hasModelToggle }}"><button onClick="{{ toggleAllModels }}" style="all:unset;cursor:pointer;flex:none;min-height:30px;padding:0 6px;display:flex;align-items:center;border-radius:var(--r-sm);color:var(--acc-fg)" style-hover="background:var(--hover)">{{ modelToggleLabel }}</button></sc-if></div></sc-if>
 </div>
 </sc-if>
 <div onDragOver="{{ onDragOver }}" onDragLeave="{{ onDragLeave }}" onDrop="{{ onDrop }}" style="border-top:1px solid var(--line-soft);padding:8px 10px {{ padBottom }};display:flex;flex-direction:column;gap:4px;background:{{ dropBg }};box-shadow:{{ dropRing }}">
@@ -57,7 +58,7 @@ const TOUCH_KEYBOARD = typeof matchMedia === 'function' && matchMedia('(pointer:
 const HANGUL = /[\u1100-\u11ff\u3130-\u318f\uac00-\ud7a3]/;
 const fmtK = (n) => (n >= 1e6 ? `${+(n / 1e6).toFixed(1)}M` : n >= 1000 ? `${Math.round(n / 1000)}k` : String(n));
 class Component extends DCLogic {
-  state = { text: '', idx: 0, wide: false, modelOpen: false, images: [], drag: false };
+  state = { text: '', idx: 0, wide: false, modelOpen: false, allModels: false, images: [], drag: false };
   fileRef = React.createRef();
   // The draft (text and attached images) lives with the parent per session: switching to the inbox or board unmounts
   // this component, and switching sessions reuses it, so it loads the session's draft and saves every change back.
@@ -166,8 +167,12 @@ class Component extends DCLogic {
     // model/list ids are "provider/model"; tolerate a bare model id as well.
     const cur = models.find((m) => m.id === c.model) || models.find((m) => (m.model || m.id) === c.model);
     const efforts = (cur?.supportedReasoningEfforts || []).map((e) => (typeof e === 'string' ? e : e?.reasoningEffort)).filter(Boolean);
+    // Once any model is starred the menu lists the starred ones (and the current model) until "모든 모델 보기".
+    const favs = (c.favModels || []).filter((id) => models.some((m) => m.id === id));
+    const allModels = !favs.length || this.state.allModels;
     const groups2 = new Map();
     for (const m of models) {
+      if (!allModels && !favs.includes(m.id) && m !== cur) continue;
       const p = m.id.includes('/') ? m.id.slice(0, m.id.indexOf('/')) : '';
       if (!groups2.has(p)) groups2.set(p, []);
       groups2.get(p).push(m);
@@ -176,8 +181,13 @@ class Component extends DCLogic {
     const modelGroups = [...groups2].sort((a, b) => rank(a[0]) - rank(b[0])).map(([p, ms]) => ({
       label: PROVIDER[p] || p || '모델',
       items: ms.map((m) => {
-        const on = m === cur;
-        return { id: m.id, label: m.displayName || m.id, cur: on ? 'true' : 'false', mark: on ? '✓' : '', bg: on ? 'var(--sel)' : 'transparent', onTap: () => { c.onSettings?.({ model: m.id }); } };
+        const on = m === cur, fav = favs.includes(m.id);
+        return {
+          id: m.id, label: m.displayName || m.id, cur: on ? 'true' : 'false', mark: on ? '✓' : '', bg: on ? 'var(--sel)' : 'transparent', onTap: () => { c.onSettings?.({ model: m.id }); },
+          star: fav ? '★' : '☆', starColor: fav ? 'var(--warn)' : 'var(--fg3)', starTitle: fav ? '즐겨찾기 해제' : '즐겨찾기',
+          // Starring from the full list keeps it open, so several models can be starred in one go.
+          onStar: () => { if (allModels) this.setState({ allModels: true }); c.onFavModel?.(m.id); },
+        };
       }),
     }));
     const u = c.usage;
@@ -234,7 +244,11 @@ class Component extends DCLogic {
       effortLabel: c.effort || '', hasEffortLabel: !!c.effort,
       modelOpen: this.state.modelOpen,
       modelListRef: this.modelListRef,
-      toggleModel: () => this.setState((s) => ({ modelOpen: !s.modelOpen }), () => this.state.modelOpen && this.centerCurrent()),
+      toggleModel: () => this.setState((s) => ({ modelOpen: !s.modelOpen, allModels: false }), () => this.state.modelOpen && this.centerCurrent()),
+      hasModelFoot: models.length > 0, hasModelToggle: favs.length > 0,
+      modelFootText: !favs.length ? '☆로 즐겨찾기하면 그 모델만 보여 줍니다' : allModels ? `모든 모델 ${models.length}개` : `즐겨찾기 ${favs.length}개`,
+      modelToggleLabel: allModels ? '즐겨찾기만 보기' : `모든 모델 보기 (${models.length})`,
+      toggleAllModels: () => this.setState((s) => ({ allModels: !s.allModels }), () => this.centerCurrent()),
       closeModel: () => this.setState({ modelOpen: false }),
       modelGroups, noModels: models.length === 0,
       effortFor: cur ? cur.displayName || cur.id : '',
