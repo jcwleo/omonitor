@@ -6,7 +6,7 @@ import { EventEmitter } from 'node:events';
 import { createConnection, type Socket } from 'node:net';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { readGoal, textOf, trashSession, type ArchiveStore, type SessionIndex, type SessionMeta } from './sessions.ts';
+import { readGoal, textOf, toolImages, trashSession, type ArchiveStore, type SessionIndex, type SessionMeta } from './sessions.ts';
 
 export const HOST_SOCKET = process.env.OMO_HOST_SOCKET || join(homedir(), '.omo/agent/rpc/rpc.sock');
 
@@ -178,6 +178,9 @@ export class HostBridge extends EventEmitter {
   #turnSeq = 0;
   #models: { at: number; data: Promise<any[]> } | null = null;
   #tui: { at: number; ids: Promise<Set<string>> } | null = null;
+  // Image blocks of the latest tool results by "thread/call": the browser asks for them as soon as the call ends, which
+  // can be before the session file has the result.
+  #images = new Map<string, any[]>();
 
   constructor(readonly opts: BridgeOptions) { super(); }
 
@@ -196,6 +199,7 @@ export class HostBridge extends EventEmitter {
 
   isRunning(id: string) { return !!this.#byId.get(id)?.running; }
   nameOf(id: string) { return this.#byId.get(id)?.name || null; }
+  toolImage(threadId: string, callId: string, n: number) { return this.#images.get(`${threadId}/${callId}`)?.[n] ?? null; }
 
   addClient(c: { send: (data: string) => void; close: (code: number, reason: string) => void }): BridgeClient {
     const client: BridgeClient = { ...c, subs: new Set(), ready: Promise.resolve() };
@@ -516,13 +520,19 @@ export class HostBridge extends EventEmitter {
         this.#item(s, 'item/started', { type: 'dynamicToolCall', id: m.toolCallId, tool: m.toolName, status: 'inProgress', contentItems: [{ type: 'inputText', text: clip(textOf(m.partialResult?.content)) }] });
         return;
       }
-      case 'tool_execution_end':
+      case 'tool_execution_end': {
         s.ticks.delete(m.toolCallId);
+        const images = (Array.isArray(m.result?.content) ? m.result.content : []).filter((c: any) => c?.type === 'image');
+        if (images.length) {
+          this.#images.set(`${s.id}/${m.toolCallId}`, images);
+          if (this.#images.size > 8) this.#images.delete(this.#images.keys().next().value!);
+        }
         this.#item(s, 'item/completed', {
           type: 'dynamicToolCall', id: m.toolCallId, tool: m.toolName, status: m.isError ? 'failed' : 'completed', success: !m.isError,
-          contentItems: [{ type: 'inputText', text: clip(textOf(m.result?.content)) }],
+          contentItems: [{ type: 'inputText', text: clip(textOf(m.result?.content)) }, ...toolImages(s.id, m.toolCallId, m.result?.content)],
         });
         return;
+      }
       case 'compaction_start': {
         if (!s.attached) return;
         s.compacting = { id: `${s.handle}:c${++s.seq}`, own: !s.turn };

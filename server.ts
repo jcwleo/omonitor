@@ -7,7 +7,7 @@ import { homedir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import { engineOf, ensureHost, HOST_SOCKET, HostBridge, probeHost } from './host.ts';
 import { PushError, PushService, watchSessions } from './push.ts';
-import { ArchiveStore, SessionIndex } from './sessions.ts';
+import { ArchiveStore, SessionIndex, TOOL_IMAGE_TYPES, toolImages } from './sessions.ts';
 import { TerminalError, TerminalManager } from './terminal.ts';
 import type { SocketData } from './terminal.ts';
 import { applySelf, checkSelf, isServiceProcess } from './update.ts';
@@ -368,7 +368,7 @@ const textOf = (content: any): string => (typeof content === 'string' ? content 
 // with nothing sent yet has no file: that is an empty session, not an error.
 const readSession = (path: string) => readFile(path, 'utf8').catch((e: any) => (e?.code === 'ENOENT' ? '' : Promise.reject(e)));
 // Follows the latest entry's parent chain (the active branch) and starts one turn per user message.
-async function parseHistory(path: string) {
+async function parseHistory(path: string, threadId: string) {
   const entries = new Map<string, any>();
   let leaf: string | null = null;
   for (const line of (await readSession(path)).split('\n')) {
@@ -414,7 +414,7 @@ async function parseHistory(path: string) {
     }
     if (m.role === 'toolResult') {
       const it = calls.get(m.toolCallId);
-      if (it) Object.assign(it, { success: !m.isError, status: m.isError ? 'failed' : 'completed', contentItems: [{ type: 'inputText', text: clip(textOf(m.content)) }] });
+      if (it) Object.assign(it, { success: !m.isError, status: m.isError ? 'failed' : 'completed', contentItems: [{ type: 'inputText', text: clip(textOf(m.content)) }, ...toolImages(threadId, m.toolCallId, m.content)] });
       continue;
     }
     if (m.role === 'bashExecution') { push({ type: 'commandExecution', id: e.id, command: m.command, aggregatedOutput: clip(m.output || ''), exitCode: m.exitCode ?? null, status: m.cancelled ? 'interrupted' : 'completed' }); stamp(e); }
@@ -423,13 +423,13 @@ async function parseHistory(path: string) {
 }
 async function readHistory(threadId: string) {
   const path = await threadPath(threadId);
-  return path ? (await parseHistory(path)).slice(-HISTORY_TURNS) : [];
+  return path ? (await parseHistory(path, threadId)).slice(-HISTORY_TURNS) : [];
 }
 // Todo calls across the whole session, for threads whose app-server history lost its tool items after a restart.
 async function restoreTodos(threadId: string) {
   const path = await threadPath(threadId);
   if (!path) return [];
-  const turns = await parseHistory(path);
+  const turns = await parseHistory(path, threadId);
   return turns.flatMap((u) => u.items).filter((i) => i.type === 'dynamicToolCall' && i.tool === 'todo' && typeof i.arguments?.op === 'string').map((i) => ({ ...i, id: `restored-${i.id}` }));
 }
 
@@ -524,6 +524,28 @@ async function saveUpload(req: Request) {
   const path = join(UPLOADS, name);
   await Bun.write(path, body);
   return Response.json({ path, url: `/uploads/${name}` });
+}
+
+// ── images in tool results (sessions.ts toolImages) ──
+// Like uploads, <img> loads them without the key: the session and tool call ids in the path are not guessable.
+// A call that just ended is served from the bridge, since the session file may not have its result yet.
+const TOOL_IMAGE_PATH = /^\/tool-images\/([^/]+)\/([^/]+)\/(\d+)$/;
+async function toolImage(threadId: string, callId: string, n: number) {
+  let img = bridge.toolImage(threadId, callId, n);
+  const path = img ? null : await threadPath(threadId);
+  if (path) {
+    // Only the result's own line is parsed: a long session file holds tens of megabytes of other entries.
+    const text = await readSession(path);
+    const needle = `"toolCallId":${JSON.stringify(callId)}`;
+    for (let at = text.indexOf(needle); at >= 0 && !img; at = text.indexOf(needle, at + needle.length)) {
+      const end = text.indexOf('\n', at);
+      let m: any;
+      try { m = JSON.parse(text.slice(text.lastIndexOf('\n', at) + 1, end < 0 ? undefined : end))?.message; } catch { continue; }
+      if (m?.role === 'toolResult' && m.toolCallId === callId) img = (Array.isArray(m.content) ? m.content : []).filter((c: any) => c?.type === 'image')[n] ?? null;
+    }
+  }
+  if (!img?.data || !TOOL_IMAGE_TYPES.has(img.mimeType)) return new Response('not found', { status: 404 });
+  return new Response(Buffer.from(img.data, 'base64'), { headers: { 'content-type': img.mimeType, 'x-content-type-options': 'nosniff', 'cache-control': 'private, max-age=31536000, immutable' } });
 }
 
 // ── git graph of a session folder: branch, upstream, uncommitted changes and the latest commits with their parents ──
@@ -851,6 +873,11 @@ const server = Bun.serve<SocketData>({
       const f = Bun.file(join(UPLOADS, up[1]));
       return (await f.exists()) ? new Response(f, { headers: { 'cache-control': 'private, max-age=31536000, immutable' } }) : new Response('not found', { status: 404 });
     }
+    const ti = url.pathname.match(TOOL_IMAGE_PATH);
+    if (ti) {
+      try { return await toolImage(decodeURIComponent(ti[1]), decodeURIComponent(ti[2]), Number(ti[3])); }
+      catch (e: any) { return new Response(String(e?.message || e), { status: 500 }); }
+    }
     if (url.pathname.startsWith('/api/')) {
       if (!keyOk(req, url)) return new Response('bad key', { status: 401 });
       if (url.pathname === '/api/terminal' || url.pathname.startsWith('/api/terminals/') || url.pathname === '/api/terminals') {
@@ -935,7 +962,7 @@ if (!MOCK) {
   bridge.start();
   watchSessions({
     bridge, enabled: () => push.hasDevices(), notify: (m) => push.send(m), relay: (body) => push.relay(body),
-    lastTurn: async (id) => { const path = await threadPath(id); return path ? (await parseHistory(path)).at(-1) || null : null; },
+    lastTurn: async (id) => { const path = await threadPath(id); return path ? (await parseHistory(path, id)).at(-1) || null : null; },
     nameOf: async (id) => { const m = (await sessions.list()).find((x) => x.id === id); return bridge.nameOf(id) || m?.name || m?.preview.slice(0, 40) || '이름 없는 세션'; },
   });
 }

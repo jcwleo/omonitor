@@ -435,7 +435,9 @@ function viewItem(i) {
         return { ...base, isTodo: true, glyph: a.op === 'done' ? '✓' : a.op === 'init' ? '≡' : a.op === 'drop' ? '×' : '+', text: t || textOf(i) || 'todo' };
       }
       const detail = i.arguments?.summary || i.arguments?.path || '';
-      return { ...base, isTool: true, text: `${i.tool}${detail ? ` · ${detail}` : ''}`, result: textOf(i), failed: i.success === false };
+      // Images the tool returned (a read image file, eval's display, a screenshot), as the agent saw them.
+      const images = (i.contentItems || []).filter((c) => c.type === 'inputImage' && c.imageUrl).map((c, k) => ({ key: String(k), url: c.imageUrl }));
+      return { ...base, isTool: true, text: `${i.tool}${detail ? ` · ${detail}` : ''}`, result: textOf(i), failed: i.success === false, hasImages: images.length > 0, images };
     }
     case 'mcpToolCall': return { ...base, isTool: true, text: `${i.server}.${i.tool}`, result: (i.result?.content || []).map((c) => c.text).join('\n') };
     case 'webSearch': return { ...base, isTool: true, text: `웹 검색 · ${i.query || ''}` };

@@ -11,6 +11,12 @@ export type SessionMeta = {
 type Scan = SessionMeta & { offset: number; size: number; header: boolean; bad: boolean };
 
 export const textOf = (content: any): string => (typeof content === 'string' ? content : Array.isArray(content) ? content.filter((c) => c?.type === 'text').map((c) => c.text).join('\n') : '');
+// Images in a tool result (a read image file, eval's display, a screenshot) go to the timeline as links only: the bytes
+// stay in the session file and server.ts serves them at the URL. n counts every image block of the result.
+export const TOOL_IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp']);
+export const toolImages = (threadId: string, callId: string, content: any) =>
+  (Array.isArray(content) ? content : []).filter((c) => c?.type === 'image').flatMap((c, n) => (TOOL_IMAGE_TYPES.has(c.mimeType)
+    ? [{ type: 'inputImage', imageUrl: `/tool-images/${encodeURIComponent(threadId)}/${encodeURIComponent(callId)}/${n}` }] : []));
 const PREVIEW_MAX = 400;
 const STAMP = /"timestamp":"([^"]+)"/;
 

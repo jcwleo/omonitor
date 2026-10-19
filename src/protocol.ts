@@ -56,7 +56,8 @@ export interface CommandExecutionItem extends ItemBase { type: 'commandExecution
 export interface FileChange { path: string; kind: 'add' | 'delete' | 'update' | { type: 'add' | 'delete' | 'update' } | (string & {}); diff?: string }
 export interface FileChangeItem extends ItemBase { type: 'fileChange'; changes: FileChange[] }
 export interface McpToolCallItem extends ItemBase { type: 'mcpToolCall'; server: string; tool: string; arguments?: unknown; result?: { content?: { type: string; text?: string }[] } }
-export interface DynamicToolCallItem extends ItemBase { type: 'dynamicToolCall'; tool: string; arguments?: unknown; success?: boolean; contentItems?: { type: string; text?: string }[] }
+/** contentItems: `inputText` with the result text, then one `inputImage` per image in the result (served by the backend). */
+export interface DynamicToolCallItem extends ItemBase { type: 'dynamicToolCall'; tool: string; arguments?: unknown; success?: boolean; contentItems?: { type: string; text?: string; imageUrl?: string }[] }
 export interface WebSearchItem extends ItemBase { type: 'webSearch'; query?: string }
 export interface ContextCompactionItem extends ItemBase { type: 'contextCompaction' }
 export type Item = UserMessageItem | AgentMessageItem | ReasoningItem | CommandExecutionItem | FileChangeItem | McpToolCallItem | DynamicToolCallItem | WebSearchItem | ContextCompactionItem;
