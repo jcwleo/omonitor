@@ -11,10 +11,11 @@
 <link rel="stylesheet" href="app/styles.css">
 </helmet>
 <sc-if value="{{ s.roomy }}" hint-placeholder-val="{{ true }}">
-<div data-sid="{{ s.id }}" data-press="card" onClick="{{ s.onOpen }}" style="border:1px solid var(--line-soft);border-radius:var(--r);outline:{{ s.ring }};outline-offset:2px;padding:11px 12px;display:flex;flex-direction:column;gap:8px;color:var(--fg);font-family:var(--font-body);background:var(--card);cursor:pointer;transition:border-color .2s,opacity .3s;opacity:{{ s.opacity }}" style-hover="border-color:var(--line3)">
+<div data-sid="{{ s.id }}" data-press="card" onClick="{{ s.onOpen }}" style="border:1px solid {{ s.cardBd }};border-radius:var(--r);outline:{{ s.ring }};outline-offset:2px;padding:11px 12px;display:flex;flex-direction:column;gap:8px;color:var(--fg);font-family:var(--font-body);background:var(--card);cursor:pointer;transition:border-color .2s,opacity .3s;opacity:{{ s.opacity }}" style-hover="border-color:var(--line3)">
 <div style="display:flex;flex-direction:column;gap:3px">
 <div style="display:flex;align-items:flex-start;gap:6px">
 <sc-if value="{{ s.selectable }}"><button onClick="{{ s.onSelect }}" style="all:unset;cursor:pointer;width:18px;height:18px;margin-top:2px;flex:none;box-sizing:border-box;border-radius:5px;border:1.5px solid {{ s.selBd }};background:{{ s.selBg }};display:grid;place-items:center;color:var(--on-acc);font-size:12px;font-weight:700">{{ s.selMark }}</button></sc-if>
+<sc-if value="{{ s.unseen }}"><span role="img" aria-label="확인하지 않은 결과" title="작업이 끝난 뒤 아직 열어 보지 않았습니다" style="width:8px;height:8px;margin-top:6px;border-radius:50%;flex:none;background:var(--acc)"></span></sc-if>
 <span style="font:600 15px/1.3 var(--font-heading);flex:1;min-width:0">{{ s.name }}</span>
 <span style="font-size:11.5px;font-weight:500;padding:2px 8px;border-radius:999px;white-space:nowrap;color:color-mix(in oklab, {{ s.statusColor }} 72%, var(--fg));background:color-mix(in oklab, {{ s.statusColor }} 15%, transparent);transition:color .3s,background .3s">{{ s.statusLabel }}</span>
 </div>
@@ -75,11 +76,12 @@
 </div>
 </sc-if>
 <sc-if value="{{ s.dense }}">
-<div data-sid="{{ s.id }}" data-press="card" style="border:1px solid var(--line-soft);border-radius:var(--r);outline:{{ s.ring }};outline-offset:2px;padding:8px 10px;display:flex;flex-direction:column;gap:5px;background:var(--card);color:var(--fg);font-family:var(--font-body);opacity:{{ s.opacity }};transition:opacity .3s">
+<div data-sid="{{ s.id }}" data-press="card" style="border:1px solid {{ s.cardBd }};border-radius:var(--r);outline:{{ s.ring }};outline-offset:2px;padding:8px 10px;display:flex;flex-direction:column;gap:5px;background:var(--card);color:var(--fg);font-family:var(--font-body);opacity:{{ s.opacity }};transition:opacity .3s">
 <div style="display:flex;align-items:center;gap:5px;min-width:0;min-height:26px">
 <sc-if value="{{ s.selectable }}"><button onClick="{{ s.onSelect }}" style="all:unset;cursor:pointer;width:26px;height:26px;flex:none;display:grid;place-items:center"><span style="width:18px;height:18px;box-sizing:border-box;border-radius:5px;border:1.5px solid {{ s.selBd }};background:{{ s.selBg }};display:grid;place-items:center;color:var(--on-acc);font-size:12px;font-weight:700">{{ s.selMark }}</span></button></sc-if>
 <span style="width:7px;height:7px;border-radius:50%;flex:none;background:{{ s.statusColor }};transition:background .3s"></span>
 <span onClick="{{ s.onOpen }}" style="font:600 14.5px/1.3 var(--font-heading);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer">{{ s.name }}</span>
+<sc-if value="{{ s.unseen }}"><span role="img" aria-label="확인하지 않은 결과" title="작업이 끝난 뒤 아직 열어 보지 않았습니다" style="width:7px;height:7px;border-radius:50%;flex:none;background:var(--acc)"></span></sc-if>
 <sc-if value="{{ s.showProject }}"><span style="flex:0 1 auto;max-width:34%;font:12px var(--mono);color:var(--fg2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ s.projectName }}</span></sc-if>
 <sc-if value="{{ s.showMini }}"><span style="font-size:12px;color:{{ s.miniColor }};white-space:nowrap">{{ s.miniText }}</span></sc-if>
 <span title="{{ s.headTitle }}" style="font-size:12px;color:var(--fg3);white-space:nowrap;font-variant-numeric:tabular-nums">{{ s.headTime }}</span>
