@@ -434,7 +434,7 @@ html[data-vt]::view-transition-old(root),html[data-vt]::view-transition-new(root
 <div class="field"><label>첫 메시지 (선택)</label><textarea class="input" value="{{ sheetText }}" onChange="{{ onSheetText }}" onPaste="{{ onSheetPaste }}" onDragOver="{{ onSheetDragOver }}" onDrop="{{ onSheetDrop }}" placeholder="{{ sheetPlaceholder }}" style="min-height:{{ sheetTextH }};font-size:14.5px;color:var(--fg)"></textarea>
 <sc-if value="{{ canAttachSheet }}"><div style="display:flex;align-items:flex-start;gap:8px;flex-wrap:wrap;padding-top:8px"><sc-for list="{{ sheetImages }}" as="im"><div title="{{ im.title }}" style="position:relative;width:56px;height:56px;flex:none;border:1px solid {{ im.bd }};border-radius:var(--r-md);background:var(--tint)"><img src="{{ im.preview }}" alt="붙여넣은 이미지" style="display:block;width:100%;height:100%;object-fit:cover;border-radius:7px;opacity:{{ im.opacity }}"><sc-if value="{{ im.hasNote }}"><span style="position:absolute;left:0;right:0;bottom:0;padding:1px 0;font-size:11px;text-align:center;background:rgba(10,11,12,.72);color:{{ im.noteColor }}">{{ im.note }}</span></sc-if><button onClick="{{ im.onRemove }}" title="첨부 빼기" style="all:unset;cursor:pointer;position:absolute;top:-8px;right:-8px;width:22px;height:22px;display:grid;place-items:center;border-radius:50%;background:var(--bg2);border:1px solid var(--line2);font-size:14px;line-height:1;color:var(--fg)">×</button></div></sc-for><button onClick="{{ pickSheetImage }}" title="이미지 첨부 — 붙여넣기(⌘V)나 끌어다 놓기도 됩니다" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:4px;min-height:32px;padding:0 8px;font-size:12.5px;color:var(--fg2);border-radius:var(--r-md);border:1px dashed var(--line2)" style-hover="color:var(--fg)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round"><rect x="3" y="4" width="18" height="16" rx="1"></rect><circle cx="9" cy="10" r="1.6"></circle><path d="m21 16-5-5-9 9"></path></svg>이미지</button><input ref="{{ sheetFileRef }}" type="file" accept="image/png,image/jpeg,image/gif,image/webp" multiple onChange="{{ onSheetPick }}" style="display:none"></div></sc-if></div>
 </div>
-<div style="flex:none;display:flex;justify-content:flex-end;gap:6px;padding:7px 13px {{ sheetPadBottom }};border-top:1px solid var(--line-soft)"><button class="btn btn-secondary" onClick="{{ closeSheet }}" style="min-height:44px;color:var(--fg)">취소</button><button class="btn btn-primary" disabled="{{ sheetDisabled }}" onClick="{{ createSession }}" style="min-height:44px;font-size:14.5px;padding:0 13px">{{ sheetCta }}</button></div>
+<div style="flex:none;display:flex;justify-content:flex-end;gap:6px;padding:7px 13px {{ sheetPadBottom }};border-top:1px solid var(--line-soft)"><button class="btn btn-secondary" onClick="{{ closeSheet }}" style="min-height:44px;color:var(--fg)">취소<sc-if value="{{ modalKeys }}"><span style="font:11.5px var(--mono);color:var(--fg3)">Esc</span></sc-if></button><button class="btn btn-primary" disabled="{{ sheetDisabled }}" onClick="{{ createSession }}" style="min-height:44px;font-size:14.5px;padding:0 13px">{{ sheetCta }}<sc-if value="{{ modalKeys }}"><span style="font:11.5px var(--mono);opacity:.7">↵</span></sc-if></button></div>
 </div>
 </div>
 </sc-if>
@@ -465,8 +465,8 @@ html[data-vt]::view-transition-old(root),html[data-vt]::view-transition-new(root
 <div class="dialog" data-surface="1" onClick="{{ stop }}" style="animation:mcPop var(--dur) var(--ease-out);background:var(--bg2);color:var(--fg);border:1px solid var(--line2);box-shadow:var(--shadow-lg)">
 <div class="dialog-title">{{ dlgTitle }}</div>
 <div class="dialog-body" style="line-height:1.55;white-space:pre-line">{{ dlgBody }}</div>
-<sc-if value="{{ dlgHasInput }}"><input class="input" data-dlg-input="1" autofocus="{{ true }}" value="{{ dlgInput }}" onChange="{{ onDlgInput }}" onKeyDown="{{ dlgKey }}" style="min-height:44px;font-size:14.5px;color:var(--fg)"></sc-if>
-<div class="dialog-actions"><button class="btn btn-secondary" onClick="{{ dlgCancel }}" style="min-height:40px;color:var(--fg)">취소</button><button class="btn btn-primary" onClick="{{ dlgOk }}" style="min-height:40px;background:{{ dlgOkBg }};border-color:{{ dlgOkBg }}">{{ dlgConfirm }}</button></div>
+<sc-if value="{{ dlgHasInput }}"><input class="input" data-dlg-input="1" autofocus="{{ true }}" value="{{ dlgInput }}" onChange="{{ onDlgInput }}" style="min-height:44px;font-size:14.5px;color:var(--fg)"></sc-if>
+<div class="dialog-actions"><button class="btn btn-secondary" onClick="{{ dlgCancel }}" style="min-height:40px;color:var(--fg)">취소<sc-if value="{{ modalKeys }}"><span style="font:11.5px var(--mono);color:var(--fg3)">Esc</span></sc-if></button><button class="btn btn-primary" onClick="{{ dlgOk }}" style="min-height:40px;background:{{ dlgOkBg }};border-color:{{ dlgOkBg }}">{{ dlgConfirm }}<sc-if value="{{ modalKeys }}"><span style="font:11.5px var(--mono);opacity:.7">↵</span></sc-if></button></div>
 </div>
 </div>
 </sc-if>
@@ -524,8 +524,10 @@ class Component extends DCLogic {
     }
     this.onResize = () => this.setState({ w: window.innerWidth });
     this.onKey = (e) => this.key(e);
+    this.onModalKey = (e) => this.modalKey(e);
     window.addEventListener('resize', this.onResize);
     window.addEventListener('keydown', this.onKey);
+    window.addEventListener('keydown', this.onModalKey, true);
     // A focused text box brings up the iOS keyboard, or with a hardware keyboard iPadOS's floating shortcut bar. iOS
     // then shrinks the visual viewport and pans it down over the page, which neither 100dvh nor overflow:hidden stops:
     // the app slid up under the status bar and the page could be dragged. So the app is sized to the visual viewport
@@ -677,7 +679,7 @@ class Component extends DCLogic {
       });
     } catch (e) { console.error(e); this.setState({ fatal: String(e?.message || e) }); }
   }
-  componentWillUnmount() { window.visualViewport?.removeEventListener('resize', this.fitViewport); window.visualViewport?.removeEventListener('scroll', this.fitViewport); window.removeEventListener('scroll', this.fitViewport); document.removeEventListener('touchstart', this.onTouchStart); document.removeEventListener('touchmove', this.onTouchMove); document.removeEventListener('touchend', this.onTouchEnd); document.removeEventListener('touchcancel', this.onTouchEnd); window.removeEventListener('resize', this.onResize); window.removeEventListener('keydown', this.onKey); window.removeEventListener('dragover', this.onWinDrag); window.removeEventListener('drop', this.onWinDrag); document.removeEventListener('mc-terminal-live', this.onTermLive); clearInterval(this.tick); clearInterval(this.versionTick); clearInterval(this.usageTick); clearInterval(this.termTick); clearInterval(this.gitTick); clearTimeout(this.gitSoon); this.exits?.disconnect(); this.client?.close(); }
+  componentWillUnmount() { window.visualViewport?.removeEventListener('resize', this.fitViewport); window.visualViewport?.removeEventListener('scroll', this.fitViewport); window.removeEventListener('scroll', this.fitViewport); document.removeEventListener('touchstart', this.onTouchStart); document.removeEventListener('touchmove', this.onTouchMove); document.removeEventListener('touchend', this.onTouchEnd); document.removeEventListener('touchcancel', this.onTouchEnd); window.removeEventListener('resize', this.onResize); window.removeEventListener('keydown', this.onKey); window.removeEventListener('keydown', this.onModalKey, true); window.removeEventListener('dragover', this.onWinDrag); window.removeEventListener('drop', this.onWinDrag); document.removeEventListener('mc-terminal-live', this.onTermLive); clearInterval(this.tick); clearInterval(this.versionTick); clearInterval(this.usageTick); clearInterval(this.termTick); clearInterval(this.gitTick); clearTimeout(this.gitSoon); this.exits?.disconnect(); this.client?.close(); }
   // The conversation follows the finger during a back swipe. Styles go straight to the element so the drag does not
   // re-render; React leaves them alone because the template sets no transform, transition or shadow there.
   slideDetail(dx) {
@@ -1054,6 +1056,17 @@ class Component extends DCLogic {
     if (this.state.view === 'session') return (this._list || []).map((x) => x.id);
     return (this._cols || []).filter((c) => c.open !== false).flatMap((c) => c.sessions.map((s) => s.id));
   }
+  // Enter confirms the open dialog and Esc cancels it. Taken in the capture phase, before the message box or list
+  // underneath that may still hold focus acts on the same key (an Esc there would arm the double-Esc stop). A dialog
+  // button reached with Tab keeps its own Enter, and a held Enter does not confirm.
+  modalKey(e) {
+    if (!this.dlgOk || this.state.pal || e.isComposing || e.keyCode === 229) return;
+    if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); this.setState({ dialog: null }); return; }
+    if (e.key !== 'Enter' || e.shiftKey || e.altKey) return;
+    if (e.target?.tagName === 'BUTTON' && e.target.closest('.dialog')) return;
+    e.preventDefault(); e.stopPropagation();
+    if (!e.repeat) this.dlgOk();
+  }
   key(e) {
     if (e.composedPath().some((el) => el.tagName === 'MC-TERMINAL')) return;
     const tag = document.activeElement?.tagName;
@@ -1063,13 +1076,22 @@ class Component extends DCLogic {
       const s = this.state;
       if (s.pal) return this.setState({ pal: null });
       if (s.dialog) return this.setState({ dialog: null });
-      if (s.sheet) return this.setState({ sheet: null });
+      if (s.sheet) { this.dropSheetImages(s.sheet); return this.setState({ sheet: null }); }
       if (s.menu) return this.setState({ menu: false });
       if (s.prefs) return this.setState({ prefs: false });
       if (s.drawer) return this.setState({ drawer: false });
       if (s.selMode) return this.setState({ selMode: false, sel: {} });
       // Inside the message box the composer counts the press (onEscape).
       if (!typing && s.view === 'session' && s.selId && this.running(s.selId)) this.escStop(s.selId);
+      return;
+    }
+    // Enter in the new-session sheet creates the session the way the message box sends: Shift+Enter breaks the line in
+    // the first message, and a touch keyboard's Return stays a line break unless Cmd/Ctrl is held. A focused button or
+    // select keeps its own Enter, and an Enter the folder list took to complete the path is already spent (cwdKey).
+    if (e.key === 'Enter' && this.state.sheet && !this.state.pal && !this.state.dialog) {
+      const mod = e.metaKey || e.ctrlKey;
+      const own = tag === 'BUTTON' || tag === 'SELECT' || (tag === 'TEXTAREA' && COARSE);
+      if (!e.defaultPrevented && !e.repeat && !e.shiftKey && !e.altKey && !e.isComposing && e.keyCode !== 229 && (mod || !own)) { e.preventDefault(); this.sheetGo?.(); }
       return;
     }
     if (this.state.pal || this.state.dialog || this.state.sheet) return;
@@ -1666,10 +1688,11 @@ class Component extends DCLogic {
         : ['omonitor를 업데이트할까요?', `${monNews}\n\n${monV.restartNeeded ? `서버 코드가 바뀌어서 받은 뒤 omonitor를 다시 시작합니다${monOpenTerms ? `. 대시보드에 열린 터미널 ${monOpenTerms}개가 닫힙니다` : ''}. 다시 시작되면 화면을 자동으로 새로고침합니다.` : '화면 파일만 바뀌어 재시작 없이 새로고침합니다. 열린 터미널은 그대로 둠니다.'}`, monV.restartNeeded ? '업데이트하고 재시작' : '업데이트', 'var(--acc)', () => this.runOmonitorUpdate()],
     }[d?.kind] || null;
     const ok = async () => { const fn = DLG?.[4]; this.setState({ dialog: null }); try { await fn?.(); } catch {} };
+    this.dlgOk = DLG ? ok : null; // Enter (modalKey)
     Object.assign(vals, {
       dlgOpen: !!DLG, dlgTitle: DLG?.[0] || '', dlgBody: DLG?.[1] || '', dlgConfirm: DLG?.[2] || '', dlgOkBg: DLG?.[3] || 'var(--acc)',
       dlgHasInput: d?.kind === 'rename', dlgInput: d?.input || '', onDlgInput: (e) => this.setState({ dialog: { ...d, input: e.target.value } }),
-      dlgKey: (e) => { if (e.key === 'Enter' && !(e.nativeEvent?.isComposing || e.keyCode === 229)) ok(); }, dlgOk: ok, dlgCancel: () => this.setState({ dialog: null }),
+      dlgOk: ok, dlgCancel: () => this.setState({ dialog: null }), modalKeys: !COARSE,
     });
 
     // ── new session sheet ──
@@ -1734,6 +1757,7 @@ class Component extends DCLogic {
         try { const id = await st.startThread(cwd, text, settings); this.openSession(id); } catch {}
       },
     });
+    this.sheetGo = sh ? vals.createSession : null; // Enter (key)
 
     // ── omo update ──
     const ver = s.omoVer;
