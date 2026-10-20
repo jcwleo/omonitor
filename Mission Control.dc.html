@@ -38,6 +38,12 @@ html,body{margin:0;height:var(--root-h, 100%);background:#161618;overflow:hidden
    swipe over a row's label stopped there and never scrolled the list around it (the model picker over its rows).
    Matched on text-overflow because React serializes inline styles ("overflow: hidden") and no scroller carries it. */
 .mc [style*="text-overflow"]{overscroll-behavior:auto}
+/* The same for the other boxes that never scroll up and down: the overflow:hidden cards and image frames (a command, a
+   file change, a request, a picture) and the sideways scrollers of tables, code blocks and diffs. A wheel over any of
+   them in the conversation stopped there instead of scrolling it. The browser writes a list that scrolls only up and
+   down as "overflow: hidden auto;", which the semicolon keeps out; markdown HTML keeps its "overflow-x:auto" as written. */
+.mc [style*="overflow: hidden;"]{overscroll-behavior:auto}
+.mc [style*="overflow-x:auto"],.mc [style*="overflow-x: auto"]{overscroll-behavior-y:auto}
 /* UI text uses the system sans (SF, Apple SD Gothic Neo for Hangul). Code, paths, diffs and the terminal keep the terminal
    font of iTerm2's default profile (MesloLGS NF); Menlo and JetBrains Mono stand in where it is not installed. */
 :root{--term:"MesloLGS NF",Menlo,"JetBrains Mono",ui-monospace,monospace;--font-ui:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Segoe UI",system-ui,sans-serif;--font-body:var(--font-ui);--font-heading:var(--font-ui);--font-heading-weight:500}

@@ -92,7 +92,7 @@ function mdToHtml(src) {
       for (i++; i < lines.length && !lines[i].trim().startsWith(m[1]); i++) body.push(lines[i]);
       i++;
       const lang = m[2] ? `<span style="display:block;color:var(--md-codeblock-border);margin-bottom:3px">${esc(m[2])}</span>` : '';
-      out.push(`<pre style="margin:4px 0 10px;padding:9px 12px;border:1px solid var(--md-codeblock-border);border-radius:var(--r-md);background:var(--md-codeblock-bg);font:12.5px/1.5 var(--mono);color:var(--md-codeblock);overflow:auto;white-space:pre">${lang}${esc(body.join('\n'))}</pre>`);
+      out.push(`<pre style="margin:4px 0 10px;padding:9px 12px;border:1px solid var(--md-codeblock-border);border-radius:var(--r-md);background:var(--md-codeblock-bg);font:12.5px/1.5 var(--mono);color:var(--md-codeblock);overflow-x:auto;white-space:pre">${lang}${esc(body.join('\n'))}</pre>`);
       continue;
     }
     if (!line.trim()) { flush(); i++; continue; }
