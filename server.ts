@@ -491,8 +491,10 @@ async function threadMeta(threadId: string) {
     } else if (m?.role === 'toolResult' && Array.isArray(m.details?.toolCalls)) {
       const names = m.details.toolCalls.filter((c: any) => /^read$/i.test(c?.name || '') && c.ok !== false).map((c: any) => String(c.args?.path || c.args?.file_path || '')).filter((p: string) => /(^|\/)SKILL\.md$/.test(p)).map((p: string) => p.split('/').at(-2)).filter(Boolean);
       if (names.length) skills[m.toolCallId] = [...new Set<string>(names)];
-    } else if (e.type === 'custom_message' && Array.isArray(e.details)) {
-      for (const c of e.details) if (c?.customType === 'senpi-task.completion') for (const d of c.details || []) if (d?.task_id) agents.set(d.task_id, { ...agents.get(d.task_id), ...finishedTask(d) });
+    } else if (e.type === 'custom_message') {
+      // New wake messages wrap the producer's completion records; older sessions store the array directly.
+      const details = Array.isArray(e.details) ? e.details : e.details?.producerDetails;
+      if (Array.isArray(details)) for (const c of details) if (c?.customType === 'senpi-task.completion') for (const d of c.details || []) if (d?.task_id) agents.set(d.task_id, { ...agents.get(d.task_id), ...finishedTask(d) });
     }
   }
   let usage = null;
