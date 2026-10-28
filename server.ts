@@ -1,11 +1,14 @@
 // omonitor local backend — static files + the dashboard's session protocol bridged to `omo host`, bound to 127.0.0.1 only.
 //   bun server.ts          # real mode: drives the shared omo host (~/.omo/agent/rpc/rpc.sock), starting it when needed
 //   bun server.ts --mock   # UI runs on the in-browser simulator (no omo host needed)
-// Env: PORT (4800), OMO_HOST_SOCKET, OMONITOR_ORIGINS
+// Each dashboard picks its engine: omo (default) or opencode2 (`/ws?engine=opencode`, opencode.ts), which drives the
+// shared OpenCode 2 background server instead.
+// Env: PORT (4800), OMO_HOST_SOCKET, OMONITOR_ORIGINS, OPENCODE_SERVICE_FILE
 import { mkdir, readFile, readdir, realpath, stat } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import { engineOf, ensureHost, HOST_SOCKET, HostBridge, probeHost } from './host.ts';
+import { OpencodeBridge, opencodeInstalled } from './opencode.ts';
 import { PushError, PushService, watchSessions } from './push.ts';
 import { ArchiveStore, SessionIndex, TOOL_IMAGE_TYPES, toolImages } from './sessions.ts';
 import { TerminalError, TerminalManager } from './terminal.ts';
@@ -872,6 +875,7 @@ const bridge = new HostBridge({
   socket: HOST_SOCKET, index: sessions, archive: new ArchiveStore(join(homedir(), '.omonitor/archived.json')), trashDir: join(homedir(), '.omonitor/trash'),
   fallbackModels: async () => (await askOmo('get_available_models'))?.models || [],
 });
+const opencode = new OpencodeBridge();
 const push = new PushService(join(homedir(), '.omonitor/push.json'), 'https://github.com/jcwleo/omonitor');
 const server = Bun.serve<SocketData>({
   hostname: HOST,
@@ -882,12 +886,16 @@ const server = Bun.serve<SocketData>({
     if (url.pathname === '/') return Response.redirect(encodeURI(ENTRY), 302);
     if (url.pathname === '/api/config') {
       if (req.headers.get('sec-fetch-site') === 'cross-site') return new Response('forbidden', { status: 403 });
-      return Response.json({ mode: MOCK ? 'mock' : 'real', key: KEY, upstream: HOST_SOCKET });
+      return Response.json({
+        mode: MOCK ? 'mock' : 'real', key: KEY, upstream: HOST_SOCKET,
+        engines: { omo: true, opencode: !MOCK && (await opencodeInstalled()) }, upstreams: { omo: HOST_SOCKET, opencode: opencode.url },
+      });
     }
     if (url.pathname === '/ws') {
       if (MOCK) return new Response('mock mode', { status: 404 });
       if (!keyOk(req, url)) return new Response('bad key', { status: 401 });
-      return server.upgrade(req, { data: { kind: 'relay' } }) ? undefined : new Response('upgrade failed', { status: 400 });
+      const relay = url.searchParams.get('engine') === 'opencode' ? opencode : bridge;
+      return server.upgrade(req, { data: { kind: 'relay', bridge: relay } }) ? undefined : new Response('upgrade failed', { status: 400 });
     }
     if (url.pathname === '/terminal-ws') {
       if (!keyOk(req, url)) return new Response('bad key', { status: 401 });
@@ -923,6 +931,17 @@ const server = Bun.serve<SocketData>({
       }
       if (url.pathname === '/api/uploads' && req.method === 'POST') return await saveUpload(req).catch((e) => new Response(String(e?.message || e), { status: 500 }));
       try {
+        // A dashboard in opencode2 mode names its engine on the session routes; the rest serve both engines.
+        if (url.searchParams.get('engine') === 'opencode') {
+          if (url.pathname === '/api/skills') return Response.json(await opencode.palette());
+          if (url.pathname === '/api/models/extra') return Response.json([]);
+          if (url.pathname === '/api/threads/activity' && req.method === 'GET') return Response.json(await opencode.activity());
+          const oh = url.pathname.match(/^\/api\/threads\/([^/]+)\/history$/);
+          if (oh && req.method === 'GET') return Response.json(await opencode.history(decodeURIComponent(oh[1])));
+          const om = url.pathname.match(/^\/api\/threads\/([^/]+)\/meta$/);
+          if (om && req.method === 'GET') return Response.json(await opencode.meta(decodeURIComponent(om[1])));
+          if (/^\/api\/threads\/[^/]+\/restore-todos$/.test(url.pathname) && req.method === 'POST') return Response.json([]);
+        }
         if (url.pathname === '/api/skills') return Response.json(await listSkills());
         if (url.pathname === '/api/models/extra') return Response.json(await extraModels());
         if (url.pathname === '/api/threads/activity' && req.method === 'GET') return Response.json(await activityTimes());
@@ -961,18 +980,18 @@ const server = Bun.serve<SocketData>({
   websocket: {
     async open(ws) {
       if (ws.data.kind === 'terminal') { terminals.open(ws); return; }
-      ws.data.client = bridge.addClient({
+      ws.data.client = ws.data.bridge.addClient({
         send: (data) => { ws.send(data); },
         close: (code, reason) => { try { ws.close(code, wsReason(reason)); } catch {} },
       });
     },
     message(ws, msg) {
       if (ws.data.kind === 'terminal') { terminals.message(ws, msg); return; }
-      if (ws.data.client) void bridge.message(ws.data.client, String(msg));
+      if (ws.data.client) void ws.data.bridge.message(ws.data.client, String(msg));
     },
     close(ws) {
       if (ws.data.kind === 'terminal') { terminals.close(ws); return; }
-      if (ws.data.client) bridge.removeClient(ws.data.client);
+      if (ws.data.client) ws.data.bridge.removeClient(ws.data.client);
     },
   },
 });
@@ -999,6 +1018,16 @@ if (!MOCK) {
     pendingWork,
     nameOf: async (id) => { const m = (await sessions.list()).find((x) => x.id === id); return bridge.nameOf(id) || m?.name || m?.preview.slice(0, 40) || '이름 없는 세션'; },
   });
+  // opencode2 sessions alert too, whichever engine the open dashboards show. No background work is tracked for them,
+  // so a finished run alerts as soon as it settles.
+  if (await opencodeInstalled()) {
+    opencode.start();
+    watchSessions({
+      bridge: opencode, enabled: () => push.hasDevices(), notify: (m) => push.send(m), relay: (body) => push.relay(body),
+      lastTurn: (id) => opencode.lastTurn(id), pendingWork: async () => false,
+      nameOf: async (id) => opencode.nameOf(id) || '이름 없는 세션',
+    });
+  }
 }
 
 console.log(`omonitor → http://${HOST}:${PORT}  (${MOCK ? 'mock 시뮬레이터' : `omo host ${HOST_SOCKET}`})`);

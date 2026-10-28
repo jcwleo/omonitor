@@ -150,6 +150,12 @@ type Sess = {
 type Question = { id: string; header?: string; question: string; options: { label: string; description?: string }[] | null; multiSelect: boolean; isOther?: boolean };
 type UiReq = { id: string; threadId: string; handle: string; kind: 'question' | 'select' | 'confirm' | 'input'; questions: Question[]; msg: unknown };
 export type BridgeClient = { send: (data: string) => void; close: (code: number, reason: string) => void; subs: Set<string>; ready: Promise<void> };
+// What a dashboard socket talks to: HostBridge (omo) or OpencodeBridge (opencode.ts).
+export type RelayBridge = {
+  addClient(c: { send: (data: string) => void; close: (code: number, reason: string) => void }): BridgeClient;
+  removeClient(c: BridgeClient): void;
+  message(c: BridgeClient, raw: string): Promise<void>;
+};
 export type BridgeOptions = { socket: string; index: SessionIndex; archive: ArchiveStore; trashDir: string; fallbackModels: () => Promise<any[]> };
 
 const YES = '예', NO = '아니오';

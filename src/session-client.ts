@@ -52,6 +52,8 @@ export interface RealClientOptions {
   /** Per-launch secret the backend injects into index.html; guards the local socket from other pages. */
   sessionKey?: string;
   maxBackoffMs?: number;
+  /** Engine the dashboard shows: the omo host (default) or the opencode2 server. Sent on the socket and the session routes. */
+  engine?: 'omo' | 'opencode';
 }
 
 type Pending = { resolve: (v: unknown) => void; reject: (e: unknown) => void; method: string };
@@ -151,7 +153,8 @@ export class RealClient implements SessionClient {
   }
   private open(onFirstOpen?: () => void, onFirstFail?: (e: unknown) => void) {
     const base = this.opts.url ?? `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`;
-    const url = this.opts.sessionKey ? `${base}?key=${encodeURIComponent(this.opts.sessionKey)}` : base;
+    const q = new URLSearchParams({ ...(this.opts.sessionKey && { key: this.opts.sessionKey }), ...(this.opts.engine === 'opencode' && { engine: 'opencode' }) }).toString();
+    const url = q ? `${base}?${q}` : base;
     this.emit('connection', { state: this.everOpened ? 'reconnecting' : 'connecting', attempt: this.attempt });
     const ws = new WebSocket(url);
     this.ws = ws;

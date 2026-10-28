@@ -41,6 +41,7 @@ omonitor open     # 브라우저에서 http://127.0.0.1:4800 을 엽니다
 | --- | --- | --- |
 | `PORT` | `4800` | 대시보드 포트 |
 | `OMO_HOST_SOCKET` | `~/.omo/agent/rpc/rpc.sock` | 붙을 omo host 소켓 (`omo host --socket`과 같은 값) |
+| `OPENCODE_SERVICE_FILE` | `~/.local/state/opencode/service.json` | opencode2 서비스가 주소와 비밀번호를 적어 두는 파일 (opencode2 모드) |
 | `OMONITOR_ORIGINS` | (없음) | 추가로 허용할 Origin (쉼표 구분). 터널·리버스 프록시 주소로 열 때 지정합니다. 예: `https://omo.example.com` |
 
 예: 따로 띄운 host에 붙이려면 `OMO_HOST_SOCKET=/tmp/my-host.sock omonitor start`를 사용합니다. `omonitor start`를 실행할 때의 값(과 `PATH`)이 서비스에 저장되므로, 바꾸려면 새 값으로 `omonitor start`를 다시 실행합니다.
@@ -74,6 +75,20 @@ omonitor open     # 브라우저에서 http://127.0.0.1:4800 을 엽니다
   - iPhone·iPad는 홈 화면에 추가한 앱(iOS 16.4 이상)에서만 켤 수 있고, 대시보드를 HTTPS(예: Cloudflare 터널)로 열어야 합니다. Mac은 Chrome이 실행 중일 때 받습니다.
   - 푸시 키와 등록된 기기는 `~/.omonitor/push.json`에 있습니다. 이 파일을 지우면 모든 기기에서 다시 켜야 합니다.
 
+## opencode2 모드
+
+[OpenCode 2](https://opencode.ai/v2/docs/cli/)(`opencode2`)도 사용자마다 백그라운드 서버 하나를 띄워 모든 세션을 맡깁니다. omonitor는 그 서버에 붙어 opencode2 세션도 같은 보드·타임라인·작성창으로 보여 줍니다.
+
+- 헤더의 **omo | opencode2** 토글로 전환합니다. 좋은 화면에서는 설정 버튼, 휴대전화에서는 왼쪽 서랍의 "엔진"에 있습니다(⌘K 명령으로도 됩니다). 한 화면에는 한 엔진의 세션만 보이고, 전환하면 페이지를 다시 불러옵니다. 선택은 기기별로 저장합니다(localStorage `mc.engine`). opencode2가 설치되어 있을 때만 토글이 보입니다.
+- 백엔드(`opencode.ts`)는 opencode 서비스가 `~/.local/state/opencode/service.json`에 적어 둔 주소와 비밀번호로 접속합니다(`opencode2 service status`로 확인). 서버가 응답하지 않으면 `opencode2 service start`로 띄웁니다. 비밀번호는 브라우저로 보내지 않습니다.
+- 세션 목록·기록·실시간 진행(텍스트, 추론, 도구 호출)·컨텍스트 사용량은 서버 API와 이벤트 스트림(`/api/event`)에서 읽습니다. 세션은 모두 서버가 들고 있어서 omo 같은 "불러오기" 확인 창이 없고, 세션을 열면 바로 구독합니다.
+- 메시지 보내기, 작업 중 끼어들기, 중단, 모델·effort(variant) 변경, 이름 변경, 압축, 복제, 보관(opencode 자체 보관), 삭제를 지원합니다. `/명령`은 opencode 명령으로, `/skill:이름`은 스킬을 붙인 프롬프트로 보냅니다.
+- 권한 요청은 승인 카드로, 질문 도구와 폼은 질문 카드로 표시합니다. "세션 동안 허용"은 opencode의 `always` 응답이라 opencode가 그 규칙을 저장합니다.
+- 하위 에이전트(subagent)는 부모 세션의 에이전트 탭에 보이고, 보드에는 최상위 세션만 나옵니다.
+- 완료·오류·질문·승인 푸시 알림도 보냅니다. 대시보드가 어느 엔진을 보고 있든 opencode2 세션 알림은 옵니다.
+- opencode2에는 목표(goal)가 없어 목표 탭을 숨깁니다. omo 업데이트 버튼과 요금제 사용량 칩은 omo 기준 그대로입니다.
+- opencode2는 아직 베타이고 API도 실험 단계입니다. opencode 2.1.4에서 확인했습니다.
+
 ## 구조와 보안
 
 ### 세션 터미널
@@ -100,7 +115,7 @@ omonitor open     # 브라우저에서 http://127.0.0.1:4800 을 엽니다
 
 ### 연결 경계
 
-브라우저는 `127.0.0.1:4800/ws`에 연결합니다. Bun 백엔드(`host.ts`)가 omo host 소켓에 연결을 하나 열어 두고, 브라우저와는 예전 app-server와 같은 JSON-RPC로 주고받으며 양쪽을 번역합니다. 브라우저는 host 소켓에 직접 닿지 않습니다. 대시보드는 정적 런타임 파일만 서빙하며 `/ws`, `/api/*`에 로컬 Origin과 실행별 세션 키를 요구합니다. 붙여넣은 이미지(`/uploads/<무작위 UUID>`)는 `<img>`로 불러오도록 키 없이 서빙하며, 추측할 수 없는 이름으로만 열립니다.
+브라우저는 `127.0.0.1:4800/ws`에 연결합니다. Bun 백엔드(`host.ts`)가 omo host 소켓에 연결을 하나 열어 두고, 브라우저와는 예전 app-server와 같은 JSON-RPC로 주고받으며 양쪽을 번역합니다. 브라우저는 host 소켓에 직접 닿지 않습니다. opencode2 모드(`/ws?engine=opencode`)에서는 `opencode.ts`가 opencode 서버의 HTTP API와 이벤트 스트림에 붙어 같은 방식으로 번역합니다. 대시보드는 정적 런타임 파일만 서빙하며 `/ws`, `/api/*`에 로컬 Origin과 실행별 세션 키를 요구합니다. 붙여넣은 이미지(`/uploads/<무작위 UUID>`)는 `<img>`로 불러오도록 키 없이 서빙하며, 추측할 수 없는 이름으로만 열립니다.
 
 터미널의 `/api/terminal`, `/api/terminals`와 `/terminal-ws`도 실행별 세션 키와 허용된 Origin으로 보호합니다. `/terminal-ws`는 Origin 없는 연결도 거절합니다. 터널을 통해 접속할 때에는 기존 `OMONITOR_ORIGINS`에 해당 주소를 지정하세요. xterm 라이브러리는 서버에서 직접 제공합니다.
 
@@ -112,6 +127,7 @@ omonitor open     # 브라우저에서 http://127.0.0.1:4800 을 엽니다
 | --- | --- |
 | `server.ts` | 정적 파일·API·인증된 WebSocket |
 | `host.ts` | omo host 연결과 대시보드 프로토콜 번역 |
+| `opencode.ts` | opencode2 서버 연결과 대시보드 프로토콜 번역 |
 | `sessions.ts` | 세션 파일 목록·목표 읽기, 보관 목록, 삭제(휴지통) |
 | `bin/omonitor.ts` | `omonitor` 명령과 백그라운드 서비스(LaunchAgent·systemd) 관리 |
 | `Mission Control.dc.html`, `Mc*.dc.html` | 대시보드와 UI 컴포넌트 |

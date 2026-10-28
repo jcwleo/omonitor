@@ -128,6 +128,7 @@ html[data-vt]::view-transition-old(root),html[data-vt]::view-transition-new(root
 <sc-if value="{{ notPhone }}" hint-placeholder-val="{{ true }}">
 <div style="view-transition-name:mc-head;flex:none;display:flex;align-items:center;gap:12px;padding:0 10px 0 14px;min-height:48px;border-bottom:1px solid var(--line-soft)">
 <div style="font:600 15px var(--font-heading);white-space:nowrap">omonitor</div>
+<sc-if value="{{ engineInline }}"><div role="group" aria-label="엔진" style="flex:none;display:flex;gap:2px;padding:2px;border-radius:var(--r-md);background:var(--tint)"><sc-for list="{{ engineOpts }}" as="e" hint-placeholder-count="2"><button data-press="btn" onClick="{{ e.onTap }}" aria-pressed="{{ e.on }}" title="{{ e.title }}" style="all:unset;cursor:pointer;display:flex;align-items:center;min-height:32px;padding:0 9px;border-radius:var(--r-sm);font-size:12.5px;font-weight:500;color:{{ e.fg }};background:{{ e.bg }};box-shadow:{{ e.shadow }}" style-hover="color:var(--fg)">{{ e.label }}</button></sc-for></div></sc-if>
 <div style="display:flex;gap:2px;padding:2px;border-radius:var(--r-md);background:var(--tint)">
 <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="3"><button data-press="btn" onClick="{{ t.onTap }}" title="{{ t.title }}" style="all:unset;cursor:pointer;position:relative;isolation:isolate;display:flex;align-items:center;gap:5px;min-height:32px;padding:0 10px;border-radius:var(--r-sm);font-size:13px;font-weight:500;color:{{ t.fg }}" style-hover="color:var(--fg)"><span aria-hidden="true" style="position:absolute;inset:0;z-index:-1;border-radius:inherit;background:{{ t.bg }};box-shadow:{{ t.shadow }};view-transition-name:{{ t.vtn }}"></span>{{ t.label }}<sc-if value="{{ t.hasKey }}"><span style="font:11.5px var(--mono);color:var(--fg3)">{{ t.key }}</span></sc-if><sc-if value="{{ t.hasBadge }}"><span style="animation:{{ badgeAnim }};font:600 11px/16px var(--font-ui);background:var(--warn);color:var(--on-warn);padding:0 5px;min-width:16px;box-sizing:border-box;border-radius:999px;text-align:center">{{ t.badge }}</span></sc-if></button></sc-for>
 </div>
@@ -152,6 +153,7 @@ html[data-vt]::view-transition-old(root),html[data-vt]::view-transition-new(root
 <button data-press="btn" onClick="{{ openDrawer }}" style="all:unset;cursor:pointer;width:44px;height:44px;display:grid;place-items:center;color:var(--fg)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="stroke-width:1.5;stroke-linecap:round"><path d="M4 6h16"></path><path d="M4 12h16"></path><path d="M4 18h16"></path></svg></button>
 <span style="font:600 20.5px/1 var(--font-heading)">{{ phoneTitle }}</span>
 <span style="font:12.5px var(--mono);color:{{ phoneCountColor }};margin-left:6px">{{ phoneCount }}</span>
+<sc-if value="{{ engineChip }}"><button data-press="btn" onClick="{{ openDrawer }}" title="엔진 전환은 메뉴에서" style="all:unset;cursor:pointer;margin-left:6px;padding:2px 7px;border-radius:999px;background:var(--acc-tint);color:var(--acc-fg);font-size:11.5px;font-weight:500">{{ engineLabel }}</button></sc-if>
 <button data-press="btn" type="button" onClick="{{ reloadPage }}" title="페이지 새로고침" aria-label="페이지 새로고침" style="all:unset;cursor:pointer;flex:none;width:44px;height:44px;display:grid;place-items:center;color:var(--fg2)" style-hover="background:var(--hover)"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round"><path d="M20 7v5h-5"></path><path d="M20 12a8 8 0 1 0-2.3 5.7M20 7l-2.3-2.7"></path></svg></button>
 <sc-if value="{{ vBoard }}"><button data-press="btn" onClick="{{ toggleGroup }}" style="all:unset;cursor:pointer;margin-left:auto;min-height:44px;padding:0 6px;font-size:12.5px;color:{{ groupFg }};display:flex;align-items:center">프로젝트별</button><button data-press="btn" onClick="{{ toggleAllC }}" style="all:unset;cursor:pointer;min-height:44px;padding:0 6px;font-size:12.5px;color:var(--fg2);display:flex;align-items:center">{{ allCLabel }}</button><button data-press="btn" onClick="{{ toggleSelMode }}" style="all:unset;cursor:pointer;min-height:44px;padding:0 7px 0 4px;font-size:12.5px;color:{{ selModeFg }};display:flex;align-items:center">{{ selModeShort }}</button></sc-if>
 </div>
@@ -364,6 +366,7 @@ html[data-vt]::view-transition-old(root),html[data-vt]::view-transition-new(root
 <div style="position:absolute;top:0;bottom:0;left:0;width:300px;max-width:86vw;background:var(--side);border-right:1px solid var(--line);border-radius:0 var(--r-lg) var(--r-lg) 0;transform:translateX({{ drawerX }});transition:transform .26s cubic-bezier(.2,.8,.2,1);z-index:41;display:flex;flex-direction:column;padding:max(7px, env(safe-area-inset-top)) 0 14px;overflow:auto;box-sizing:border-box">
 <div style="display:flex;align-items:center;padding:0 4px 0 12px"><span style="font:600 19.5px var(--font-heading)">omonitor</span><button data-press="btn" onClick="{{ closeDrawer }}" style="all:unset;cursor:pointer;margin-left:auto;width:44px;height:44px;display:grid;place-items:center;color:var(--fg2)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="stroke-width:1.5;stroke-linecap:round"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></button></div>
 <div style="padding:0 12px 7px;font:12px var(--mono);color:var(--fg3)">127.0.0.1 · <span style="color:{{ connDot }}">{{ connLabel }}</span></div>
+<sc-if value="{{ engineToggle }}"><div style="display:flex;align-items:center;gap:8px;min-height:44px;padding:0 12px;font-size:13.5px">엔진<div role="group" aria-label="엔진" style="margin-left:auto;display:flex;gap:2px;padding:2px;border-radius:var(--r-md);background:var(--tint)"><sc-for list="{{ engineOpts }}" as="e" hint-placeholder-count="2"><button data-press="btn" onClick="{{ e.onTap }}" aria-pressed="{{ e.on }}" title="{{ e.title }}" style="all:unset;cursor:pointer;display:flex;align-items:center;min-height:36px;padding:0 10px;border-radius:var(--r-sm);font-size:13px;font-weight:500;color:{{ e.fg }};background:{{ e.bg }};box-shadow:{{ e.shadow }}">{{ e.label }}</button></sc-for></div></div></sc-if>
 <div style="font-size:12px;font-weight:500;color:var(--fg3);padding:7px 12px 3px;border-top:1px solid var(--line-soft)">프로젝트</div>
 <button data-press="row" onClick="{{ clearProjectFilter }}" style="all:unset;cursor:pointer;display:flex;align-items:center;min-height:44px;padding:0 12px;font-size:13.5px;background:{{ allProjBg }}">전체</button>
 <sc-for list="{{ projects }}" as="p"><button data-press="row" onClick="{{ p.onTap }}" style="all:unset;cursor:pointer;display:flex;align-items:center;min-height:44px;padding:0 12px;background:{{ p.bg }};color:{{ p.fg }}"><span style="font:12.5px var(--mono)">{{ p.name }}</span><span style="margin-left:auto;font:12px var(--mono);color:var(--fg3)">{{ p.count }}</span></button></sc-for>
@@ -432,7 +435,7 @@ html[data-vt]::view-transition-old(root),html[data-vt]::view-transition-new(root
 <div style="display:flex;flex-direction:column;gap:4px">
 <div style="display:flex;align-items:center;gap:6px;min-height:20px"><span style="font-size:12px;color:var(--fg2)">모델 · effort</span><sc-if value="{{ sheetModelToggle }}"><button onClick="{{ onSheetModelToggle }}" style="all:unset;cursor:pointer;margin-left:auto;min-height:28px;padding:0 6px;display:flex;align-items:center;border-radius:var(--r-sm);font-size:12px;color:var(--acc-fg)" style-hover="background:var(--hover)">{{ sheetModelToggleLabel }}</button></sc-if></div>
 <select class="input" value="{{ sheetModel }}" onChange="{{ onSheetModel }}" style="min-height:44px;font:13.5px var(--font-ui);color:var(--fg)">
-<option value="">기본 (omo 설정)</option>
+<option value="">기본 ({{ engineLabel }} 설정)</option>
 <sc-for list="{{ sheetModelGroups }}" as="g"><optgroup label="{{ g.label }}"><sc-for list="{{ g.items }}" as="m"><option value="{{ m.id }}">{{ m.label }}</option></sc-for></optgroup></sc-for>
 </select>
 <sc-if value="{{ sheetHasEfforts }}"><div style="display:flex;gap:3px;flex-wrap:wrap"><sc-for list="{{ sheetEfforts }}" as="e"><button data-press="btn" onClick="{{ e.onTap }}" style="all:unset;cursor:pointer;min-height:36px;padding:0 12px;box-sizing:border-box;border-radius:999px;display:flex;align-items:center;font:12.5px var(--mono);border:1px solid {{ e.bd }};background:{{ e.bg }};color:{{ e.fg }}">{{ e.label }}</button></sc-for></div></sc-if>
@@ -448,6 +451,7 @@ html[data-vt]::view-transition-old(root),html[data-vt]::view-transition-new(root
 <sc-if value="{{ prefsOpen }}">
 <div onClick="{{ closePrefs }}" style="position:absolute;inset:0;z-index:45">
 <div onClick="{{ stop }}" style="animation:mcPop var(--dur) var(--ease-out);transform-origin:100% 0;position:absolute;top:{{ prefsTop }};right:10px;width:250px;padding:4px;box-sizing:border-box;background:var(--bg2);border:1px solid var(--line2);border-radius:var(--r);box-shadow:var(--shadow-lg);display:flex;flex-direction:column">
+<sc-if value="{{ engineToggle }}"><div style="display:flex;align-items:center;gap:8px;min-height:40px;padding:0 4px 0 10px;font-size:13.5px;color:var(--fg)">엔진<div role="group" aria-label="엔진" style="margin-left:auto;display:flex;gap:2px;padding:2px;border-radius:var(--r-md);background:var(--tint)"><sc-for list="{{ engineOpts }}" as="e" hint-placeholder-count="2"><button data-press="btn" onClick="{{ e.onTap }}" aria-pressed="{{ e.on }}" title="{{ e.title }}" style="all:unset;cursor:pointer;display:flex;align-items:center;min-height:30px;padding:0 8px;border-radius:var(--r-sm);font-size:12.5px;font-weight:500;color:{{ e.fg }};background:{{ e.bg }};box-shadow:{{ e.shadow }}" style-hover="color:var(--fg)">{{ e.label }}</button></sc-for></div></div></sc-if>
 <button data-press="row" onClick="{{ toggleTheme }}" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:8px;min-height:40px;padding:0 10px;border-radius:var(--r-md);font-size:13.5px;color:var(--fg)" style-hover="background:var(--hover)">테마<span style="margin-left:auto;font-size:12.5px;color:var(--fg2)">{{ themeLabel }}</span></button>
 <button data-press="row" onClick="{{ askNotify }}" title="{{ nbTitle }}" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:8px;min-height:40px;padding:0 10px;border-radius:var(--r-md);font-size:13.5px;color:var(--fg)" style-hover="background:var(--hover)">브라우저 알림<span style="margin-left:auto;width:30px;height:18px;flex:none;border-radius:999px;background:{{ nbTrack }};position:relative;transition:background .15s"><span style="position:absolute;top:2px;left:2px;translate:{{ nbX }};width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3);transition:translate .15s var(--ease-out)"></span></span></button>
 <button data-press="row" onClick="{{ toggleSound }}" title="새 질문·승인 요청이 오면 소리로 알립니다" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:8px;min-height:40px;padding:0 10px;border-radius:var(--r-md);font-size:13.5px;color:var(--fg)" style-hover="background:var(--hover)">알림음<span style="margin-left:auto;width:30px;height:18px;flex:none;border-radius:999px;background:{{ nsTrack }};position:relative;transition:background .15s"><span style="position:absolute;top:2px;left:2px;translate:{{ nsX }};width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3);transition:translate .15s var(--ease-out)"></span></span></button>
@@ -483,7 +487,7 @@ html[data-vt]::view-transition-old(root),html[data-vt]::view-transition-new(root
 <sc-if value="{{ showUpdateBtn }}"><button onClick="{{ onUpdateBtn }}" title="{{ updateTitle }}" style="all:unset;pointer-events:auto;cursor:pointer;display:flex;align-items:center;gap:6px;padding:5px 12px;border-radius:999px;background:{{ updateBg }};border:1px solid {{ updateBd }};font:12px var(--mono);color:{{ updateFg }};animation:{{ updateAnim }}" style-hover="background:var(--hover)"><sc-if value="{{ updateHasDot }}"><span style="width:6px;height:6px;border-radius:50%;background:{{ updateDot }};flex:none"></span></sc-if>{{ updateLabel }}</button></sc-if>
 </div>
 
-<sc-if value="{{ fatal }}"><div style="position:absolute;inset:0;display:grid;place-items:center;background:var(--bg);z-index:80"><div style="max-width:420px;padding:14px;text-align:center;display:flex;flex-direction:column;gap:6px"><span style="font:600 18.5px var(--font-heading)">대시보드를 시작하지 못했습니다</span><span style="font:12px var(--mono);color:var(--err-fg)">{{ fatal }}</span></div></div></sc-if>
+<sc-if value="{{ fatal }}"><div style="position:absolute;inset:0;display:grid;place-items:center;background:var(--bg);z-index:80"><div style="max-width:420px;padding:14px;text-align:center;display:flex;flex-direction:column;gap:6px"><span style="font:600 18.5px var(--font-heading)">대시보드를 시작하지 못했습니다</span><span style="font:12px var(--mono);color:var(--err-fg)">{{ fatal }}</span><sc-if value="{{ fatalSwitch }}"><button class="btn btn-secondary" onClick="{{ fatalSwitchTap }}" style="align-self:center;margin-top:6px;min-height:40px;color:var(--fg)">{{ fatalSwitchLabel }}</button></sc-if></div></div></sc-if>
 </div>
 </x-dc>
 <script type="text/x-dc" data-dc-script data-props="{&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;dark&quot;,&quot;light&quot;],&quot;default&quot;:&quot;dark&quot;,&quot;tsType&quot;:&quot;'dark' | 'light'&quot;,&quot;section&quot;:&quot;화면&quot;},&quot;showDemo&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;데모&quot;}}">
@@ -658,13 +662,18 @@ class Component extends DCLogic {
       if (cfg.mode !== 'real' && cfg.mode !== 'mock') throw new Error('대시보드 서버의 실행 모드를 확인할 수 없습니다.');
       const real = cfg.mode === 'real';
       this.mode = cfg.mode;
+      // Each dashboard shows one engine, picked with the header toggle; switching reloads the page onto the other one.
+      this.engines = real ? { omo: true, ...cfg.engines } : { omo: true };
+      let picked = 'omo';
+      try { picked = localStorage.getItem('mc.engine') || 'omo'; } catch {}
+      this.engine = this.engines.opencode && picked === 'opencode' ? 'opencode' : 'omo';
       const [mod, S, terminal, push, TM, gitGraph] = await Promise.all([import(`${base}app/${real ? 'real' : 'mock'}-client.js`), import(`${base}app/store.js`), import(`${base}app/terminal.js`), import(`${base}app/push.js`), import(`${base}app/terminals.js`), import(`${base}app/git-graph.js`)]);
       terminal.defineTerminal();
       gitGraph.defineGitGraph();
       this.TM = TM;
       this.S = S;
-      this.client = real ? new mod.RealClient({ sessionKey: cfg.key }) : new mod.MockClient({ speed: 1 });
-      this.upstream = cfg?.upstream || '';
+      this.client = real ? new mod.RealClient({ sessionKey: cfg.key, engine: this.engine }) : new mod.MockClient({ speed: 1 });
+      this.upstream = cfg?.upstreams?.[this.engine] || cfg?.upstream || '';
       this.store = new S.Store(this.client);
       this.store.s.notify = { browser: this.notify.browser && this.notifyAllowed(), sound: !!this.notify.sound };
       this.store.subscribe((v) => this.onStore(v));
@@ -681,7 +690,7 @@ class Component extends DCLogic {
       navigator.serviceWorker?.addEventListener('message', (e) => { if (e.data?.type === 'omonitor:open' && e.data.threadId) this.openSession(e.data.threadId); });
       const opened = location.hash.match(/^#session=([^&]+)/);
       if (opened) { history.replaceState(null, '', location.pathname + location.search); this.openSession(decodeURIComponent(opened[1])); }
-      this.info = real ? `${this.client.serverInfo ? `${this.client.serverInfo.name} ${this.client.serverInfo.version}` : 'omo host'} · ${this.upstream}` : 'mock 시뮬레이터 · 실제 서버 아님';
+      this.info = real ? [this.client.serverInfo ? `${this.client.serverInfo.name} ${this.client.serverInfo.version}` : this.engine === 'opencode' ? 'opencode' : 'omo host', this.upstream].filter(Boolean).join(' · ') : 'mock 시뮬레이터 · 실제 서버 아님';
       this.checkOmoVersion();
       this.checkOmonitorVersion();
       this.versionTick = setInterval(() => { this.checkOmoVersion(); this.checkOmonitorVersion(); }, 30 * 60 * 1000);
@@ -1041,6 +1050,8 @@ class Component extends DCLogic {
     else if (!desk && !(s.view === 'session' && s.selId)) this.navVT('push', update);
     else this.setState(update);
     if (!T) { st?.resume(id).catch(() => {}); return; }
+    // The opencode2 server holds every session, so following one has no side effects: opening it subscribes.
+    if (this.engine === 'opencode' && !T.subscribed && !T.archived) { st.resume(id, true).catch(() => {}); return; }
     if (!T.historyLoaded) st.guard(st.loadHistory(id), '세션 기록을 읽지 못했습니다').catch(() => {});
   }
   // An opened session takes typing right away (not on touch screens, see COARSE). The composer takes the request when
@@ -1081,6 +1092,25 @@ class Component extends DCLogic {
   }
   // Loading a saved thread can collide with a terminal omo that has it open, and omo may auto-continue its goal/todo.
   needsTakeover(T) { return !!T && !T.subscribed && !T.archived && T.status?.type === 'notLoaded'; }
+  switchEngine(engine) {
+    if (engine === this.engine) return;
+    try { localStorage.setItem('mc.engine', engine); } catch {}
+    window.location.reload();
+  }
+  // The engine toggle sits in the header when it fits, and always in the settings popover and the phone menu.
+  engineVals(s, isPhone) {
+    const on = !!this.engines?.opencode, cur = this.engine || 'omo';
+    const label = (k) => (k === 'opencode' ? 'opencode2' : 'omo');
+    const other = cur === 'opencode' ? 'omo' : 'opencode';
+    return {
+      engineToggle: on, engineInline: on && !isPhone && s.w >= 1100, engineChip: on && isPhone && cur === 'opencode', engineLabel: label(cur),
+      engineOpts: ['omo', 'opencode'].map((k) => ({
+        key: k, label: label(k), on: cur === k, title: cur === k ? `지금 ${label(k)} 세션을 보고 있습니다` : `${label(k)} 세션으로 전환 (페이지를 다시 불러옵니다)`,
+        fg: cur === k ? 'var(--fg)' : 'var(--fg2)', bg: cur === k ? 'var(--seg)' : 'transparent', shadow: cur === k ? 'var(--seg-shadow)' : 'none', onTap: () => this.switchEngine(k),
+      })),
+      fatalSwitch: on, fatalSwitchLabel: `${label(other)}로 전환`, fatalSwitchTap: () => this.switchEngine(other),
+    };
+  }
   async sendMany(ids, text) {
     await Promise.allSettled(ids.map((id) => this.store.send(id, text)));
     this.store.toast(`${ids.length}개 세션에 보냈습니다`, 'info');
@@ -1329,6 +1359,7 @@ class Component extends DCLogic {
     const base = {
       theme, isPhone, notPhone: !isPhone, fatal: s.fatal, stop: (e) => e.stopPropagation(),
       reloadPage: () => window.location.reload(),
+      ...this.engineVals(s, isPhone),
       // With the default status bar style iOS keeps the home-screen app below the bar and the top inset is 0; the insets
       // stay for an iOS that still lays the page under it. Phone bars pad themselves; the wider layouts (iPad) start
       // below it here.
@@ -1394,9 +1425,10 @@ class Component extends DCLogic {
 
 
     const connState = conn.state;
+    const oc = this.engine === 'opencode', hostName = oc ? 'opencode 서버' : 'omo host';
     const vals = {
       ...base, loading: loading && connState !== 'closed' || loading,
-      connBanner: connState === 'reconnecting', connText: conn.firstConnect ? `omo host에 연결하지 못했습니다${conn.reason ? ` (${conn.reason})` : ''}. \`omonitor status\`로 omo host 상태를 확인하세요 · ${Math.ceil((conn.retryInMs || 3000) / 1000)}초 후 다시 시도 (${conn.attempt || 1}회째)` : `omo host 연결이 끊겼습니다 · ${Math.ceil((conn.retryInMs || 3000) / 1000)}초 후 다시 연결 (${conn.attempt || 1}회째). 연결되면 구독을 복구합니다.`,
+      connBanner: connState === 'reconnecting', connText: conn.firstConnect ? `${hostName}에 연결하지 못했습니다${conn.reason ? ` (${conn.reason})` : ''}. ${oc ? '\`opencode2 service status\`로 서버' : '\`omonitor status\`로 omo host'} 상태를 확인하세요 · ${Math.ceil((conn.retryInMs || 3000) / 1000)}초 후 다시 시도 (${conn.attempt || 1}회째)` : `${hostName} 연결이 끊겼습니다 · ${Math.ceil((conn.retryInMs || 3000) / 1000)}초 후 다시 연결 (${conn.attempt || 1}회째). 연결되면 구독을 복구합니다.`,
       reconnectNow: () => this.client.reconnectNow(),
       connDot: connState === 'open' ? 'var(--acc)' : connState === 'reconnecting' || connState === 'connecting' ? 'var(--warn)' : 'var(--err)',
       connLabel: { open: '연결됨', connecting: '연결 중', reconnecting: '재연결 중', closed: '끊김' }[connState] || connState,
@@ -1594,14 +1626,16 @@ class Component extends DCLogic {
       // The latest user message is what the agent is working on now; the Todo panel shows it above the list.
       const ask = items.findLast((x) => x.isUser);
       const diff = S.diffFiles(T.diff || '');
-      const tabsDef = [['todo', 'Todo', sel.hasTodo ? sel.todoText : ''], ['agents', '에이전트', sel.agents.length ? String(sel.agents.length) : ''], ['goal', '목표', T.goal ? '●' : ''], ['diff', '변경', diff.length ? String(diff.length) : ''], ['git', 'Git', ''], ['terminal', '터미널', termOf.has(T.id) ? '●' : '']];
+      // opencode2 has no goals, so its sessions get no goal tab.
+      const tabsDef = [['todo', 'Todo', sel.hasTodo ? sel.todoText : ''], ['agents', '에이전트', sel.agents.length ? String(sel.agents.length) : ''], ['goal', '목표', T.goal ? '●' : ''], ['diff', '변경', diff.length ? String(diff.length) : ''], ['git', 'Git', ''], ['terminal', '터미널', termOf.has(T.id) ? '●' : '']]
+        .filter(([k]) => k !== 'goal' || this.engine !== 'opencode');
       const rtab = s.rtab, ptab = s.ptab;
       const panel = isPhone ? ptab : rtab;
       const g = T.goal;
       const goalBudgetN = Number(String(s.goalBudgetDraft).replace(/[^\d]/g, '')) || undefined;
       const mkTab = (cur, set) => ([k, label, count]) => ({ label, count, fg: cur === k ? 'var(--fg)' : 'var(--fg3)', bg: cur === k ? 'var(--sel)' : 'transparent', onTap: () => this.setState({ [set]: k }) });
       Object.assign(vals, {
-        sel, selItems: items, selItemsEmpty: items.length === 0, agentName: 'sisyphus',
+        sel, selItems: items, selItemsEmpty: items.length === 0, agentName: this.engine === 'opencode' ? 'opencode' : 'sisyphus',
         // Questions and approvals for this session are answered right in its timeline.
         selReqs: st.reqsFor(T.id).sort((a, b) => a.receivedAt - b.receivedAt).map((r) => this.requestView(r, now)),
         hasSelReqs: st.reqsFor(T.id).length > 0,
@@ -1860,7 +1894,7 @@ class Component extends DCLogic {
     // screens, measured at 1440px; an account takes about 76px plus 88px a window, 160px with its reset time), otherwise
     // in a row under it.
     const usageW = usageAccts.reduce((n, a) => n + 76 + a.wins.reduce((m, w) => m + (w.hasLeft ? 160 : 88), 0), 0);
-    const usageInline = !isPhone && usageAccts.length > 0 && s.w >= (s.view === 'board' ? 900 : 680) + usageW;
+    const usageInline = !isPhone && usageAccts.length > 0 && s.w >= (s.view === 'board' ? 900 : 680) + usageW + (vals.engineInline ? 160 : 0);
     Object.assign(vals, { hasUsage: usageAccts.length > 0, usageAccts, usageInline, usageRow: !isPhone && usageAccts.length > 0 && !usageInline });
 
     // ── command palette ──
@@ -1871,6 +1905,7 @@ class Component extends DCLogic {
         ['새 세션', 'N', () => this.setState({ sheet: this.newSheet() })], ['보드로 이동', '⌥1 · g b', () => this.go('board')],
         ['세션 화면으로 이동', '⌥2 · g s', () => this.go('session')], ['터미널 관리로 이동', '⌥3 · g t', () => this.go('terminals')], [`테마: ${theme === 'dark' ? '라이트로' : '다크로'} 전환`, '', () => this.setStateVT({ theme: theme === 'dark' ? 'light' : 'dark' })],
         ['여러 세션에 메시지 보내기', '', () => this.setState({ view: 'board', selMode: true, sel: {} })],
+        ...(this.engines?.opencode ? [[`엔진: ${this.engine === 'opencode' ? 'omo' : 'opencode2'}로 전환`, '', () => this.switchEngine(this.engine === 'opencode' ? 'omo' : 'opencode')]] : []),
         ...(this.mode === 'mock' ? [['연결 끊김 시뮬레이션', '데모', () => this.client.simulateDisconnect()]] : []),
       ].filter(([l]) => !q || l.toLowerCase().includes(q)).map(([label, hint, run]) => ({ label, hint, dot: 'transparent', run }));
       const sess = allViews.filter((v) => !q || `${v.name} ${v.cwd} ${v.statusLabel}`.toLowerCase().includes(q)).map((v) => ({ label: v.name, hint: `${v.projectName} · ${v.statusLabel}`, dot: v.statusColor, run: () => this.openSession(v.id) }));

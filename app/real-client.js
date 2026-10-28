@@ -1,4 +1,4 @@
-// RealClient — browser ⇄ local Bun backend (/ws) ⇄ omo host. Same contract as MockClient.
+// RealClient — browser ⇄ local Bun backend (/ws) ⇄ omo host or the opencode2 server (opts.engine). Same contract as MockClient.
 // JS twin of src/session-client.ts so the prototype runs without a build step.
 export class RealClient {
   constructor(opts = {}) {
@@ -13,7 +13,8 @@ export class RealClient {
     this.timer = null;
     this.serverInfo = null;
     const hdr = () => (opts.sessionKey ? { 'x-mc-key': opts.sessionKey } : {});
-    const api = (p) => new URL(p, location.href).href;
+    // The backend serves session data of the engine the dashboard shows.
+    const api = (p) => { const u = new URL(p, location.href); if (opts.engine === 'opencode') u.searchParams.set('engine', 'opencode'); return u.href; };
     this.backend = {
       listSkills: async () => {
         const r = await fetch(api('api/skills'), { headers: hdr() });
@@ -115,7 +116,8 @@ export class RealClient {
   open() {
     const proto = location.protocol === 'https:' ? 'wss' : 'ws';
     const base = this.opts.url || `${proto}://${location.host}/ws`;
-    const url = this.opts.sessionKey ? `${base}?key=${encodeURIComponent(this.opts.sessionKey)}` : base;
+    const q = new URLSearchParams({ ...(this.opts.sessionKey && { key: this.opts.sessionKey }), ...(this.opts.engine === 'opencode' && { engine: 'opencode' }) }).toString();
+    const url = q ? `${base}?${q}` : base;
     this.emit('connection', { state: this.everOpened ? 'reconnecting' : 'connecting', attempt: this.attempt, firstConnect: !this.everOpened });
     const ws = new WebSocket(url);
     this.ws = ws;
@@ -172,7 +174,7 @@ export class RealClient {
   }
   request(method, params) {
     const ws = this.ws;
-    if (!ws || ws.readyState !== WebSocket.OPEN) return Promise.reject({ code: -32000, message: 'omo host에 연결되어 있지 않습니다' });
+    if (!ws || ws.readyState !== WebSocket.OPEN) return Promise.reject({ code: -32000, message: `${this.opts.engine === 'opencode' ? 'opencode 서버' : 'omo host'}에 연결되어 있지 않습니다` });
     const id = ++this.seq;
     return new Promise((resolve, reject) => {
       this.pending.set(id, { resolve, reject, method });
