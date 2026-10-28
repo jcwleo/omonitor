@@ -480,8 +480,11 @@ export class OpencodeBridge extends EventEmitter {
       createdAt: s.createdAt, updatedAt: s.updatedAt || s.createdAt, archived: s.archived,
     };
   }
+  // A session made without a model keeps none of its own and runs on the server's default model, so that is what the
+  // composer shows.
   async #opened(s: Sess) {
-    return { thread: await this.#threadOf(s), model: s.model?.id, modelProvider: s.model?.providerID, reasoningEffort: s.model?.variant };
+    const m = s.model || (await this.#defaultModel());
+    return { thread: await this.#threadOf(s), model: m?.id, modelProvider: m?.providerID, reasoningEffort: m?.variant };
   }
   async #list(archived: boolean) {
     const top = [...this.#byId.values()].filter((s) => !s.parentID && s.archived === archived);
