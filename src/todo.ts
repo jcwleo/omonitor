@@ -42,12 +42,24 @@ function apply(phases: Phase[], a: TodoOp): Phase[] {
   }
 }
 
+// opencode2's todowrite replaces the whole list each call, every item with a status, and has no phases.
+const WRITE_STATUS: Record<string, TodoStatus> = { pending: 'pending', in_progress: 'in_progress', completed: 'completed', cancelled: 'abandoned' };
+type Written = { todos: { content?: unknown; status?: unknown }[] };
+const writtenTodos = (a: Written): Phase[] =>
+  a.todos.length ? [{ name: '할 일', tasks: a.todos.map((t) => ({ text: String(t?.content ?? ''), status: WRITE_STATUS[String(t?.status)] ?? 'pending' })) }] : [];
+
 /** null = the session never used the todo tool. `raw` = last result text when arguments could not be parsed. */
 export function replayTodos(items: Item[]): TodoState | null {
   let phases: Phase[] | null = null;
   let raw: string | null = null;
   let seen = false;
   for (const it of items) {
+    if (it.type === 'dynamicToolCall' && it.tool === 'todowrite') {
+      let a: unknown = it.arguments;
+      if (typeof a === 'string') { try { a = JSON.parse(a); } catch { a = null; } }
+      if (a && typeof a === 'object' && Array.isArray((a as Written).todos)) { seen = true; phases = writtenTodos(a as Written); raw = null; }
+      continue;
+    }
     if (it.type !== 'dynamicToolCall' || it.tool !== 'todo') continue;
     seen = true;
     const text = (it.contentItems ?? []).map((c) => c.text).filter(Boolean).join('\n');

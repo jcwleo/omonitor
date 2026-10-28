@@ -97,9 +97,19 @@ function applyTodo(phases, a) {
     default: throw new Error(`unknown op ${a.op}`);
   }
 }
+// opencode2's todowrite replaces the whole list each call, every item with a status, and has no phases.
+const WRITE_STATUS = { pending: 'pending', in_progress: 'in_progress', completed: 'completed', cancelled: 'abandoned' };
+const writtenTodos = (a) => (a.todos.length ? [{ name: '할 일', tasks: a.todos.map((t) => ({ text: String(t?.content ?? ''), status: WRITE_STATUS[t?.status] || 'pending' })) }] : []);
 export function replayTodos(items) {
   let phases = null, raw = null, seen = false;
   for (const it of items) {
+    if (it.type === 'dynamicToolCall' && it.tool === 'todowrite') {
+      let a = it.arguments;
+      if (typeof a === 'string') { try { a = JSON.parse(a); } catch { a = null; } }
+      // A call still streaming its input has no list yet.
+      if (Array.isArray(a?.todos)) { seen = true; phases = writtenTodos(a); raw = null; }
+      continue;
+    }
     if (it.type !== 'dynamicToolCall' || it.tool !== 'todo') continue;
     seen = true;
     let a = it.arguments;
@@ -433,6 +443,11 @@ function viewItem(i) {
         const a = typeof i.arguments === 'object' && i.arguments ? i.arguments : {};
         const t = { init: `todo 작성 · ${(a.list || []).length}단계 ${(a.list || []).reduce((n, p) => n + (p.items || []).length, 0)}개`, done: `완료 · ${a.task ?? a.phase ?? ''}`, start: `시작 · ${a.task ?? a.phase ?? ''}`, drop: `포기 · ${a.task ?? a.phase ?? ''}`, append: `추가 · ${(a.items || []).join(', ')}`, rm: `삭제 · ${a.task ?? a.phase ?? ''}`, view: '목록 확인' }[a.op];
         return { ...base, isTodo: true, glyph: a.op === 'done' ? '✓' : a.op === 'init' ? '≡' : a.op === 'drop' ? '×' : '+', text: t || textOf(i) || 'todo' };
+      }
+      if (i.tool === 'todowrite') {
+        const list = Array.isArray(i.arguments?.todos) ? i.arguments.todos : [];
+        const done = list.filter((t) => t?.status === 'completed').length;
+        return { ...base, isTodo: true, glyph: '≡', text: list.length ? `todo 갱신 · ${done}/${list.length} 완료` : 'todo 갱신' };
       }
       const detail = i.arguments?.summary || i.arguments?.path || '';
       // Images the tool returned (a read image file, eval's display, a screenshot), as the agent saw them.
