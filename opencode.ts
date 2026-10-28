@@ -422,12 +422,13 @@ export class OpencodeBridge extends EventEmitter {
     return p;
   }
 
-  // Desc pages until the window holds HISTORY_TURNS user messages, returned oldest first.
+  // Desc pages until the window holds HISTORY_TURNS user messages, returned oldest first. A cursor carries its own
+  // order, and the server refuses one sent with `order` as well.
   async #messages(id: string) {
     const out: any[] = [];
     let cursor: string | null = null, users = 0;
     do {
-      const r = await this.#api('GET', `/api/session/${enc(id)}/message?order=desc&limit=200${cursor ? `&cursor=${enc(cursor)}` : ''}`);
+      const r = await this.#api('GET', `/api/session/${enc(id)}/message?limit=200&${cursor ? `cursor=${enc(cursor)}` : 'order=desc'}`);
       const data = r.data || [];
       out.push(...data);
       users += data.filter((m: any) => m.type === 'user').length;
