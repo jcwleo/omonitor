@@ -662,7 +662,7 @@ class Component extends DCLogic {
       if (cfg.mode !== 'real' && cfg.mode !== 'mock') throw new Error('대시보드 서버의 실행 모드를 확인할 수 없습니다.');
       const real = cfg.mode === 'real';
       this.mode = cfg.mode;
-      // Each dashboard shows one engine, picked with the header toggle; switching reloads the page onto the other one.
+      // The header toggle picks the engine on screen (switchEngine); the last one picked opens first.
       this.engines = real ? { omo: true, ...cfg.engines } : { omo: true };
       let picked = 'omo';
       try { picked = localStorage.getItem('mc.engine') || 'omo'; } catch {}
@@ -670,15 +670,12 @@ class Component extends DCLogic {
       const [mod, S, terminal, push, TM, gitGraph] = await Promise.all([import(`${base}app/${real ? 'real' : 'mock'}-client.js`), import(`${base}app/store.js`), import(`${base}app/terminal.js`), import(`${base}app/push.js`), import(`${base}app/terminals.js`), import(`${base}app/git-graph.js`)]);
       terminal.defineTerminal();
       gitGraph.defineGitGraph();
-      this.TM = TM;
-      this.S = S;
-      this.client = real ? new mod.RealClient({ sessionKey: cfg.key, engine: this.engine }) : new mod.MockClient({ speed: 1 });
-      this.upstream = cfg?.upstreams?.[this.engine] || cfg?.upstream || '';
-      this.store = new S.Store(this.client);
-      this.store.s.notify = { browser: this.notify.browser && this.notifyAllowed(), sound: !!this.notify.sound };
-      this.store.subscribe((v) => this.onStore(v));
+      Object.assign(this, { TM, S, mod, cfg, runtimes: {} });
+      const rt = this.engineRuntime(this.engine);
+      Object.assign(this, { client: rt.client, store: rt.store });
       this.setState({ v: 1 });
-      await this.store.init();
+      await rt.ready;
+      this.info = rt.info;
       this.push = push;
       this.syncPush();
       // Open shells: every 5s on the 터미널 screen, every 30s elsewhere (session list marks), only while the page is visible.
@@ -687,28 +684,46 @@ class Component extends DCLogic {
       this.termTick = setInterval(() => { if (document.visibilityState === 'visible' && (this.state.view === 'terminals' || ++termN % 6 === 0)) this.refreshTerms(); }, 5000);
       // A tap on a push notification opens its session: an open dashboard hears it from the service worker, a closed app
       // starts at #session=<id> (sw.js).
-      navigator.serviceWorker?.addEventListener('message', (e) => { if (e.data?.type === 'omonitor:open' && e.data.threadId) this.openSession(e.data.threadId); });
+      navigator.serviceWorker?.addEventListener('message', (e) => { if (e.data?.type === 'omonitor:open' && e.data.threadId) this.openAlerted(e.data.threadId); });
       const opened = location.hash.match(/^#session=([^&]+)/);
-      if (opened) { history.replaceState(null, '', location.pathname + location.search); this.openSession(decodeURIComponent(opened[1])); }
-      this.info = real ? [this.client.serverInfo ? `${this.client.serverInfo.name} ${this.client.serverInfo.version}` : this.engine === 'opencode' ? 'opencode' : 'omo host', this.upstream].filter(Boolean).join(' · ') : 'mock 시뮬레이터 · 실제 서버 아님';
+      if (opened) { history.replaceState(null, '', location.pathname + location.search); this.openAlerted(decodeURIComponent(opened[1])); }
       this.checkOmoVersion();
       this.checkOmonitorVersion();
       this.versionTick = setInterval(() => { this.checkOmoVersion(); this.checkOmonitorVersion(); }, 30 * 60 * 1000);
       // Plan usage: every minute while the page is visible and after each finished turn (the backend caches Claude for 3 minutes, ChatGPT for 30s).
       this.checkUsage();
       this.usageTick = setInterval(() => { if (document.visibilityState === 'visible') this.checkUsage(); }, 60 * 1000);
-      this.client.on('notification', (m) => { if (m.method === 'turn/completed') this.checkUsage(); });
       // Branches and worktrees: every 20s while the page is visible, and shortly after a turn ends or a session starts.
       this.store.refreshGit();
       this.gitTick = setInterval(() => { if (document.visibilityState === 'visible') this.store.refreshGit(); }, 20 * 1000);
-      this.client.on('notification', (m) => {
-        if (m.method !== 'turn/completed' && m.method !== 'thread/started') return;
-        clearTimeout(this.gitSoon);
-        this.gitSoon = setTimeout(() => this.store.refreshGit(), 1500);
-      });
     } catch (e) { console.error(e); this.setState({ fatal: String(e?.message || e) }); }
   }
-  componentWillUnmount() { window.visualViewport?.removeEventListener('resize', this.fitViewport); window.visualViewport?.removeEventListener('scroll', this.fitViewport); window.removeEventListener('scroll', this.fitViewport); document.removeEventListener('touchstart', this.onTouchStart); document.removeEventListener('touchmove', this.onTouchMove); document.removeEventListener('touchend', this.onTouchEnd); document.removeEventListener('touchcancel', this.onTouchEnd); window.removeEventListener('resize', this.onResize); window.removeEventListener('keydown', this.onKey); window.removeEventListener('keydown', this.onModalKey, true); window.removeEventListener('dragover', this.onWinDrag); window.removeEventListener('drop', this.onWinDrag); document.removeEventListener('mc-terminal-live', this.onTermLive); document.removeEventListener('visibilitychange', this.onVisibility); window.removeEventListener('storage', this.onStorage); clearInterval(this.tick); clearInterval(this.versionTick); clearInterval(this.usageTick); clearInterval(this.termTick); clearInterval(this.gitTick); clearTimeout(this.gitSoon); this.exits?.disconnect(); this.client?.close(); }
+  // One client and store per engine. An engine connects the first time it is shown and stays connected, so switching
+  // back is instant and both engines keep alerting; the screen follows only the store on it.
+  engineRuntime(engine) {
+    if (this.runtimes[engine]) return this.runtimes[engine];
+    const real = this.mode === 'real';
+    const client = real ? new this.mod.RealClient({ sessionKey: this.cfg.key, engine }) : new this.mod.MockClient({ speed: 1 });
+    const store = new this.S.Store(client);
+    // Every store shares one notification settings object, so a switch flipped on either screen applies to both.
+    this.notifyState ??= { browser: this.notify.browser && this.notifyAllowed(), sound: !!this.notify.sound };
+    store.s.notify = this.notifyState;
+    store.subscribe((v) => { if (this.store === store) this.onStore(v); });
+    client.on('notification', (m) => {
+      // Plan usage after each finished turn (the backend caches Claude for 3 minutes, ChatGPT for 30s).
+      if (m.method === 'turn/completed') this.checkUsage();
+      if (this.store !== store || (m.method !== 'turn/completed' && m.method !== 'thread/started')) return;
+      clearTimeout(this.gitSoon);
+      this.gitSoon = setTimeout(() => this.store.refreshGit(), 1500);
+    });
+    const upstream = this.cfg.upstreams?.[engine] || this.cfg.upstream || '';
+    const rt = { client, store, info: '', ready: null };
+    rt.ready = store.init().then(() => {
+      rt.info = real ? [client.serverInfo ? `${client.serverInfo.name} ${client.serverInfo.version}` : engine === 'opencode' ? 'opencode' : 'omo host', upstream].filter(Boolean).join(' · ') : 'mock 시뮬레이터 · 실제 서버 아님';
+    });
+    return (this.runtimes[engine] = rt);
+  }
+  componentWillUnmount() { window.visualViewport?.removeEventListener('resize', this.fitViewport); window.visualViewport?.removeEventListener('scroll', this.fitViewport); window.removeEventListener('scroll', this.fitViewport); document.removeEventListener('touchstart', this.onTouchStart); document.removeEventListener('touchmove', this.onTouchMove); document.removeEventListener('touchend', this.onTouchEnd); document.removeEventListener('touchcancel', this.onTouchEnd); window.removeEventListener('resize', this.onResize); window.removeEventListener('keydown', this.onKey); window.removeEventListener('keydown', this.onModalKey, true); window.removeEventListener('dragover', this.onWinDrag); window.removeEventListener('drop', this.onWinDrag); document.removeEventListener('mc-terminal-live', this.onTermLive); document.removeEventListener('visibilitychange', this.onVisibility); window.removeEventListener('storage', this.onStorage); clearInterval(this.tick); clearInterval(this.versionTick); clearInterval(this.usageTick); clearInterval(this.termTick); clearInterval(this.gitTick); clearTimeout(this.gitSoon); this.exits?.disconnect(); for (const rt of Object.values(this.runtimes || {})) rt.client.close(); }
   // The conversation follows the finger during a back swipe. Styles go straight to the element so the drag does not
   // re-render; React leaves them alone because the template sets no transform, transition or shadow there.
   slideDetail(dx) {
@@ -1092,10 +1107,32 @@ class Component extends DCLogic {
   }
   // Loading a saved thread can collide with a terminal omo that has it open, and omo may auto-continue its goal/todo.
   needsTakeover(T) { return !!T && !T.subscribed && !T.archived && T.status?.type === 'notLoaded'; }
-  switchEngine(engine) {
-    if (engine === this.engine) return;
+  // The other engine's sessions cross-fade in without a reload; an engine shown for the first time loads behind the
+  // skeleton. Each engine keeps the session that was open in it.
+  async switchEngine(engine) {
+    if (engine === this.engine || !this.engines?.[engine]) return;
     try { localStorage.setItem('mc.engine', engine); } catch {}
-    window.location.reload();
+    (this.engineSel ??= {})[this.engine] = this.state.selId;
+    const rt = this.engineRuntime(engine);
+    Object.assign(this, { engine, client: rt.client, store: rt.store, info: rt.info, cols: null });
+    this.setStateVT({ selId: this.engineSel[engine] ?? null, pal: null, v: this.state.v + 1 });
+    try { await rt.ready; } catch (e) {
+      // The next switch to this engine starts over with a new connection.
+      rt.client.close();
+      delete this.runtimes[engine];
+      rt.store.toast(`세션 목록을 읽지 못했습니다: ${e?.message || e}`);
+      return;
+    }
+    if (this.store !== rt.store) return;
+    this.info = rt.info;
+    this.store.refreshGit();
+    this.setState({ v: this.state.v + 1 });
+  }
+  // A push alert can name a session of the engine not on screen; opencode2 session ids start with ses_.
+  async openAlerted(id) {
+    const engine = this.engines?.opencode && /^ses_/.test(id) ? 'opencode' : 'omo';
+    if (engine !== this.engine) await this.switchEngine(engine);
+    this.openSession(id);
   }
   // The engine toggle sits in the header when it fits, and always in the settings popover and the phone menu.
   engineVals(s, isPhone) {
@@ -1105,10 +1142,11 @@ class Component extends DCLogic {
     return {
       engineToggle: on, engineInline: on && !isPhone && s.w >= 1100, engineChip: on && isPhone && cur === 'opencode', engineLabel: label(cur),
       engineOpts: ['omo', 'opencode'].map((k) => ({
-        key: k, label: label(k), on: cur === k, title: cur === k ? `지금 ${label(k)} 세션을 보고 있습니다` : `${label(k)} 세션으로 전환 (페이지를 다시 불러옵니다)`,
+        key: k, label: label(k), on: cur === k, title: cur === k ? `지금 ${label(k)} 세션을 보고 있습니다` : `${label(k)} 세션으로 전환`,
         fg: cur === k ? 'var(--fg)' : 'var(--fg2)', bg: cur === k ? 'var(--seg)' : 'transparent', shadow: cur === k ? 'var(--seg-shadow)' : 'none', onTap: () => this.switchEngine(k),
       })),
-      fatalSwitch: on, fatalSwitchLabel: `${label(other)}로 전환`, fatalSwitchTap: () => this.switchEngine(other),
+      // The page failed to start, so the other engine starts with a fresh load.
+      fatalSwitch: on, fatalSwitchLabel: `${label(other)}로 전환`, fatalSwitchTap: () => { try { localStorage.setItem('mc.engine', other); } catch {} window.location.reload(); },
     };
   }
   async sendMany(ids, text) {
