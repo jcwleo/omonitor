@@ -62,6 +62,14 @@ function withoutLiveTail(fileTurn, live) {
   while (cut > 0 && fileTurn.items[cut - 1].type === 'agentMessage' && texts.has(fileTurn.items[cut - 1].text)) cut--;
   return { ...fileTurn, items: fileTurn.items.slice(0, cut) };
 }
+// A prompt sent just before its run starts is already in the file history (opencode2 stores it on delivery) while the
+// live turn does not exist yet, so the history shows it in a file turn of its own. When the live copy arrives (same
+// item id), the file copy goes, and a file turn left empty with it.
+export function withoutFileCopy(turns, live, itemId) {
+  const copy = (u) => u !== live && u.id.startsWith('file-') && (u.items || []).some((x) => x.id === itemId);
+  if (!turns.some(copy)) return turns;
+  return turns.map((u) => (copy(u) ? { ...u, items: u.items.filter((x) => x.id !== itemId) } : u)).filter((u) => u === live || !u.id.startsWith('file-') || u.items.length);
+}
 const isEmptyReasoning = (i) => i.type === 'reasoning' && ![...(i.summary || []), ...(i.content || [])].some((s) => String(s || '').trim());
 
 // ── todo replay ──
@@ -734,6 +742,7 @@ export class Store {
         if (item.status == null) item.status = method === 'item/started' ? 'inProgress' : 'completed';
         const i = u.items.findIndex((x) => x.id === item.id);
         u.items = i >= 0 ? u.items.map((x, k) => (k === i ? { ...x, ...item } : x)) : [...u.items, item];
+        if (i < 0) T.turns = withoutFileCopy(T.turns, u, item.id);
         T.updatedAt = T.liveAt = u.phaseAt = u.lastAt = Date.now();
         // Subagent spawns and control calls (task, task_cancel, ...) change the agents tab.
         // A tool that read SKILL.md files inside itself (eval) reports them only in the session file.
