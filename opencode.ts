@@ -8,6 +8,7 @@ import { readFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import type { BridgeClient } from './host.ts';
+import { TOOL_IMAGE_TYPES } from './sessions.ts';
 
 // The service writes its URL and generated password here when it starts (`opencode debug paths state`).
 const SERVICE_FILE = process.env.OPENCODE_SERVICE_FILE || join(process.env.XDG_STATE_HOME || join(homedir(), '.local/state'), 'opencode/service.json');
@@ -78,7 +79,14 @@ const promptText = (p: any) => `${(Array.isArray(p?.skills) ? p.skills : []).map
 // ── tool calls → timeline items ──
 // The shell tool reads like a command; the rest stay tool rows, with the argument that says what they did as summary.
 const SUMMARY: Record<string, string> = { webfetch: 'url', websearch: 'query', glob: 'pattern', grep: 'pattern', skill: 'id', subagent: 'description' };
-function toolItem(id: string, name: string, input: any, state: any, cwd: string) {
+// Images in a tool result (a read image file, a screenshot) are file parts with a data: URI. The timeline gets links
+// only; server.ts serves the bytes at /tool-images/<session>/<message>:<call>/<n>, read back through toolImage. n counts
+// every image part of the result, as toolImages in sessions.ts does for omo.
+const imageParts = (content: any) => (Array.isArray(content) ? content : []).filter((c) => c?.type === 'file' && /^image\//.test(String(c.mime)));
+const toolImageItems = (threadId: string, messageId: string, callId: string, content: any) =>
+  imageParts(content).flatMap((c, n) => (TOOL_IMAGE_TYPES.has(c.mime)
+    ? [{ type: 'inputImage', imageUrl: `/tool-images/${enc(threadId)}/${enc(`${messageId}:${callId}`)}/${n}` }] : []));
+function toolItem(id: string, name: string, input: any, state: any, cwd: string, images: any[] = []) {
   const failed = state?.status === 'error';
   const status = state?.status === 'completed' ? 'completed' : failed ? (state.error?.type === 'aborted' ? 'interrupted' : 'failed') : 'inProgress';
   const out = clip(textOf(state?.content) || (failed ? String(state.error?.message || '') : ''));
@@ -89,13 +97,13 @@ function toolItem(id: string, name: string, input: any, state: any, cwd: string)
   }
   const key = SUMMARY[name];
   const summary = key && typeof args[key] === 'string' ? args[key] : name === 'question' ? args.questions?.[0]?.question : '';
-  return { type: 'dynamicToolCall', id, tool: name, arguments: summary ? { ...args, summary } : args, status, success: !failed, contentItems: [{ type: 'inputText', text: out }] };
+  return { type: 'dynamicToolCall', id, tool: name, arguments: summary ? { ...args, summary } : args, status, success: !failed, contentItems: [{ type: 'inputText', text: out }, ...images] };
 }
 
 // Saved messages → turns, one per user message, like omo's session files. Item ids match the live ones (message id
 // plus the part's place among the message's text or reasoning parts, tool call ids), so a running turn read from both
 // places merges.
-export function historyTurns(msgs: any[], cwd: string) {
+export function historyTurns(msgs: any[], cwd: string, threadId: string) {
   const turns: any[] = [];
   let cur: any = null;
   const open = (id: string, at: number) => (cur = turns[turns.push({ id: `file-${id}`, status: 'completed', items: [], askedAt: at, lastAt: at }) - 1]);
@@ -108,7 +116,7 @@ export function historyTurns(msgs: any[], cwd: string) {
         for (const c of m.content || []) {
           if (c?.type === 'text') { const k = n.text++; if (c.text?.trim()) push(m, { type: 'agentMessage', id: `${m.id}:t${k}`, text: c.text, status: 'completed' }); }
           else if (c?.type === 'reasoning') { const k = n.reasoning++; if (c.text?.trim()) push(m, { type: 'reasoning', id: `${m.id}:r${k}`, content: [c.text], status: 'completed' }); }
-          else if (c?.type === 'tool') push(m, toolItem(c.id, c.name, c.state?.input, c.state, cwd));
+          else if (c?.type === 'tool') push(m, toolItem(c.id, c.name, c.state?.input, c.state, cwd, toolImageItems(threadId, m.id, c.id, c.state?.content)));
         }
         break;
       }
@@ -243,7 +251,18 @@ export class OpencodeBridge extends EventEmitter {
   // ── backend REST (server.ts) ──
   async history(id: string) {
     await this.ready();
-    return historyTurns(await this.#messages(id), this.#byId.get(id)?.cwd || '').slice(-HISTORY_TURNS);
+    return historyTurns(await this.#messages(id), this.#byId.get(id)?.cwd || '', id).slice(-HISTORY_TURNS);
+  }
+  // An image a tool returned, for server.ts's /tool-images route: key is "<message id>:<call id>". Only sessions this
+  // bridge holds are looked up, so omo's ids fall through untouched.
+  async toolImage(threadId: string, key: string, n: number): Promise<{ data: string; mimeType: string } | null> {
+    const at = key.indexOf(':');
+    if (!this.#byId.has(threadId) || at < 0) return null;
+    const r = await this.#api('GET', `/api/session/${enc(threadId)}/message/${enc(key.slice(0, at))}`);
+    const part = ((r.data || r).content || []).find((c: any) => c?.type === 'tool' && c.id === key.slice(at + 1));
+    const img = imageParts(part?.state?.content)[n];
+    const m = String(img?.uri || '').match(/^data:([^;,]+);base64,(.*)$/s);
+    return m && TOOL_IMAGE_TYPES.has(m[1]) ? { mimeType: m[1], data: m[2] } : null;
   }
   async lastTurn(id: string) { return (await this.history(id)).at(-1) || null; }
   async activity() {
@@ -543,11 +562,11 @@ export class OpencodeBridge extends EventEmitter {
     if (!this.#startTurn(s).items.some((x) => x.id === id)) this.#item(s, 'item/started', type === 'agentMessage' ? { type, id, text: '', status: 'inProgress' } : { type, id, content: [], status: 'inProgress' });
     return id;
   }
-  #tool(s: Sess, id: string, state: any, done = false) {
+  #tool(s: Sess, id: string, state: any, done = false, messageId = '') {
     const known = s.tools.get(id);
     const prev = s.turn?.items.find((x) => x.id === id);
     const t = known || { name: prev?.tool || (prev?.type === 'commandExecution' ? 'shell' : 'tool'), input: prev?.arguments || (prev?.command ? { command: prev.command } : {}) };
-    this.#item(s, done ? 'item/completed' : 'item/started', toolItem(id, t.name, t.input, state, s.cwd));
+    this.#item(s, done ? 'item/completed' : 'item/started', toolItem(id, t.name, t.input, state, s.cwd, messageId ? toolImageItems(s.id, messageId, id, state.content) : []));
     if (done) s.tools.delete(id);
   }
 
@@ -667,8 +686,8 @@ export class OpencodeBridge extends EventEmitter {
         this.#tool(s, d.id, { status: 'running' });
         return;
       }
-      case 'session.tool.success': this.#tool(s, d.id, { status: 'completed', content: d.content, metadata: d.metadata }, true); return;
-      case 'session.tool.failed': this.#tool(s, d.id, { status: 'error', error: d.error, content: d.content, metadata: d.metadata }, true); return;
+      case 'session.tool.success': this.#tool(s, d.id, { status: 'completed', content: d.content, metadata: d.metadata }, true, d.assistantMessageID); return;
+      case 'session.tool.failed': this.#tool(s, d.id, { status: 'error', error: d.error, content: d.content, metadata: d.metadata }, true, d.assistantMessageID); return;
       // Each model call reports the tokens it sent and got back: the context the session now holds.
       case 'session.step.ended': {
         const used = tokensUsed(d.tokens);

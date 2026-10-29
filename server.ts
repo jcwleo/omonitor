@@ -564,10 +564,11 @@ async function saveUpload(req: Request) {
 
 // ── images in tool results (sessions.ts toolImages) ──
 // Like uploads, <img> loads them without the key: the session and tool call ids in the path are not guessable.
-// A call that just ended is served from the bridge, since the session file may not have its result yet.
+// A call that just ended is served from the bridge, since the session file may not have its result yet. An opencode2
+// session's images come from its server (opencode.ts toolImage).
 const TOOL_IMAGE_PATH = /^\/tool-images\/([^/]+)\/([^/]+)\/(\d+)$/;
 async function toolImage(threadId: string, callId: string, n: number) {
-  let img = bridge.toolImage(threadId, callId, n);
+  let img = bridge.toolImage(threadId, callId, n) ?? (await opencode.toolImage(threadId, callId, n));
   const path = img ? null : await threadPath(threadId);
   if (path) {
     // Only the result's own line is parsed: a long session file holds tens of megabytes of other entries.
