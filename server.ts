@@ -6,7 +6,8 @@
 // Env: PORT (4800), OMO_HOST_SOCKET, OMONITOR_ORIGINS, OPENCODE_SERVICE_FILE
 import { mkdir, readFile, readdir, realpath, stat } from 'node:fs/promises';
 import { homedir } from 'node:os';
-import { basename, dirname, join, resolve } from 'node:path';
+import { basename, dirname, isAbsolute, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { engineOf, ensureHost, HOST_SOCKET, HostBridge, probeHost } from './host.ts';
 import { OpencodeBridge, opencodeInstalled } from './opencode.ts';
 import { PushError, PushService, watchSessions } from './push.ts';
@@ -14,7 +15,7 @@ import { ArchiveStore, SessionIndex, TOOL_IMAGE_TYPES, toolImages } from './sess
 import { TerminalError, TerminalManager } from './terminal.ts';
 import type { SocketData } from './terminal.ts';
 import { applySelf, checkSelf, isServiceProcess } from './update.ts';
-import type { GitRepo, GitSummary, GitWorktree, OmonitorUpdateResult, OmonitorVersion, OmoVersion, ThreadGit } from './src/protocol.ts';
+import type { GitRepo, GitSummary, GitWorktree, OmonitorUpdateResult, OmonitorVersion, OmoVersion, OpenResult, ThreadGit } from './src/protocol.ts';
 
 const MOCK = process.argv.includes('--mock');
 const PORT = Number(process.env.PORT || 4800);
@@ -562,6 +563,41 @@ async function saveUpload(req: Request) {
   return Response.json({ path, url: `/uploads/${name}` });
 }
 
+// ── links and files opened on this Mac ──
+// The installed dashboard app is a Chrome window, so a link opened from it lands in that app's Chrome rather than the
+// Mac's default browser, and a file path cannot be opened at all. A dashboard served straight from this machine (not
+// through the tunnel) hands both to the system: a URL to the default browser, a file or folder to its default app.
+// Anything that would run or install when opened (an app, a .command script, a bare executable) is shown in Finder.
+const LOOPBACK = new Set(['127.0.0.1', 'localhost', '[::1]']);
+const fromThisMachine = (req: Request) => {
+  if (req.headers.get('cf-connecting-ip')) return false;
+  try { return LOOPBACK.has(new URL(req.headers.get('origin') || '').hostname); } catch { return false; }
+};
+const LAUNCHES = /\.(app|command|tool|terminal|pkg|mpkg|workflow|action|prefpane|saver|jar|webloc|inetloc|fileloc)$/i;
+const OPENER = process.platform === 'darwin' ? 'open' : 'xdg-open';
+async function openHere(target: string, cwd: string): Promise<OpenResult> {
+  if (/^https?:\/\//i.test(target)) {
+    await exec([OPENER, new URL(target).href]);
+    return { opened: 'browser' };
+  }
+  const raw = target.startsWith('file://') ? fileURLToPath(target) : target.replace(/^~(?=\/|$)/, homedir());
+  if (!isAbsolute(raw) && !isAbsolute(cwd)) throw new Error('세션 폴더를 몰라 상대 경로를 열 수 없습니다');
+  // Agents write file:line (app/store.js:462); the line goes when no file carries it in its name.
+  for (const p of new Set([raw, raw.replace(/:\d+(?:[-:]\d+)*$/, '')])) {
+    const path = resolve(cwd, p);
+    const st = await stat(path).catch(() => null);
+    if (!st) continue;
+    const bareExecutable = st.isFile() && !/.\.[^.]+$/.test(basename(path)) && (st.mode & 0o111) !== 0;
+    if (LAUNCHES.test(path) || bareExecutable) {
+      await exec(process.platform === 'darwin' ? ['open', '-R', path] : [OPENER, dirname(path)]);
+      return { opened: 'finder' };
+    }
+    await exec([OPENER, path]);
+    return { opened: 'app' };
+  }
+  throw new Error(`파일을 찾지 못했습니다: ${raw}`);
+}
+
 // ── images in tool results (sessions.ts toolImages) ──
 // Like uploads, <img> loads them without the key: the session and tool call ids in the path are not guessable.
 // A call that just ended is served from the bridge, since the session file may not have its result yet. An opencode2
@@ -959,6 +995,12 @@ const server = Bun.serve<SocketData>({
           if (url.pathname === '/api/push/unsubscribe') return Response.json(await push.unsubscribe(body));
           if (url.pathname === '/api/push/test') return Response.json(await push.test(body));
           if (url.pathname === '/api/push/request') return Response.json(await push.relay(body));
+        }
+        if (url.pathname === '/api/open' && req.method === 'POST') {
+          if (!fromThisMachine(req)) return new Response('omonitor를 실행 중인 Mac에서 연 대시보드에서만 열 수 있습니다', { status: 403 });
+          const body = await req.json().catch(() => null);
+          if (typeof body?.target !== 'string' || !body.target.trim()) return new Response('열 대상이 없습니다', { status: 400 });
+          return Response.json(await openHere(body.target.trim(), typeof body.cwd === 'string' ? body.cwd : ''));
         }
         if (url.pathname === '/api/usage' && req.method === 'GET') return Response.json(await planUsage());
         if (url.pathname === '/api/git' && req.method === 'GET') return Response.json(await gitGraph(url.searchParams.get('cwd') || ''));

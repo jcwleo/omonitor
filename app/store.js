@@ -807,6 +807,7 @@ export class Store {
     return this.guard(this.c.request('turn/start', { threadId: id, input }), '메시지를 보내지 못했습니다');
   }
   upload(file) { return this.guard(this.c.backend.upload(file), '이미지를 올리지 못했습니다'); }
+  open(target, cwd) { return this.guard(this.c.backend.open(target, cwd), '열지 못했습니다'); }
   async interrupt(id) {
     const cur = currentTurn(this.T(id));
     if (cur) await this.guard(this.c.request('turn/interrupt', { threadId: id, turnId: cur.id }), '중단 실패');

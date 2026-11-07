@@ -300,6 +300,12 @@ export class MockClient {
         ] };
       },
       gitSummary: async (threads) => { await sleep(250); return mockGit(threads); },
+      // The simulator opens nothing on the Mac: a URL goes to a browser tab as before, a file path only reports back.
+      open: async (target) => {
+        if (/^https?:\/\//i.test(target)) { window.open(target, '_blank', 'noopener'); return { opened: 'browser' }; }
+        await sleep(150);
+        return { opened: 'app' };
+      },
       // sessionStorage mc.mockOmo='stale' plays an omo updated in a terminal while the app-server kept the old engine.
       omoVersion: async () => {
         await sleep(300);

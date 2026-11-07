@@ -125,6 +125,9 @@ export interface Skill { kind: 'command' | 'skill' | 'keyword'; name: string; de
 export interface OmoVersion { current: string; latest: string; updateAvailable: boolean; engine: string; running: string | null; stale: boolean; checkedAt: number }
 /** POST /api/omo/restart: `omo host ensure` hands the host over to the installed engine, then waits until it serves the socket. */
 export interface OmoRestartResult { restart: string }
+/** POST /api/open { target, cwd? }, only from a dashboard served on the machine itself: a URL went to the default browser,
+ * a file or folder to its default app, or something that would run when opened was shown in Finder. */
+export interface OpenResult { opened: 'browser' | 'app' | 'finder' }
 /** One limit window of a subscription plan; percent is 0-100 and resetsAt is in ms. */
 export interface UsageWindow { label: string; percent: number; resetsAt: number | null }
 /** A Claude or ChatGPT login of omo. expired: the token ran out and waits for omo to refresh it. */

@@ -45,6 +45,13 @@ export class RealClient {
         if (!r.ok) throw new Error(await r.text());
         return r.json();
       },
+      // A URL to the default browser of the Mac running omonitor, a file or folder to its default app → { opened }. The
+      // backend refuses it unless this page is served from that Mac; a relative path is taken from the session's cwd.
+      open: async (target, cwd) => {
+        const r = await fetch(api('api/open'), { method: 'POST', headers: { ...hdr(), 'content-type': 'application/json' }, body: JSON.stringify({ target, cwd }) });
+        if (!r.ok) throw new Error(await r.text());
+        return r.json();
+      },
       // Models of extension-registered providers (Claude subscription) that model/list does not return.
       extraModels: async () => {
         const r = await fetch(api('api/models/extra'), { headers: hdr() });

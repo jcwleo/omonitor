@@ -50,39 +50,54 @@
 const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 // Agent messages render as markdown in omo's terminal colors (--md-* vars from Mission Control).
 // Code spans and links become placeholders first so emphasis rules never reach inside them.
-const link = (href, text) => `<a href="${href}" target="_blank" rel="noopener" style="color:var(--md-link)">${text}</a>`;
-function inline(t) {
+// On the Mac running omonitor (here), a link and a file path carry data-open and open there through onOpen: a URL in the
+// default browser, a path in its default app. A path is one under ~/, ./, ../ or a home or system folder; a relative one
+// ending in a folder or a file name with an extension (app/store.js:462); or a bare file name with a known extension
+// (server.ts), so code like this.state or console.log stays text.
+const link = (href, text, here) => `<a href="${href}"${here ? ` data-open="${href}"` : ''} target="_blank" rel="noopener" style="color:var(--md-link)">${text}</a>`;
+const pathLink = (target, html) => `<a data-open="${target}" title="Mac에서 열기" style="color:var(--md-link);cursor:pointer;text-decoration:underline dotted;text-underline-offset:2px">${html}</a>`;
+const ROOT = '(?:~|/(?:Users|home|tmp|private|var|opt|etc|usr|Applications|Library|System|Volumes))';
+const NAME = '[\\p{L}\\p{N}_.@+~%-]+';
+const LINE = '(?::\\d+(?:[-:]\\d+)*)?';
+const PATH = new RegExp(`^(?:(?:${ROOT}|\\.{1,2})/(?:${NAME}/)*(?:${NAME})?|(?:${NAME}/)+(?:${NAME}\\.[\\p{L}\\p{N}]{1,10})?|${NAME}\\.(?:[cm]?[jt]sx?|jsonc?|jsonl|mdx?|html?|css|scss|py|rs|go|rb|java|kt|swift|cpp|hpp|cs|php|lua|sh|zsh|bash|ya?ml|toml|ini|lock|txt|csv|sql|xml|plist|svg|png|jpe?g|gif|webp|pdf|vue|svelte|dart|zig|nix|proto|graphql|tf|patch|diff|ipynb))${LINE}$`, 'u');
+const BARE_PATH = new RegExp(`(^|[\\s(;])(${ROOT}/[^\\s<>"'\`)\\]\\u0000]+)`, 'gu');
+const CODE = (c) => `<code style="font-family:var(--mono);font-size:.9em;color:var(--md-code);background:var(--md-code-bg);padding:1px 5px;border-radius:5px">${c}</code>`;
+function inline(t, here) {
   const keep = [];
   const put = (html) => `\u0000${keep.push(html) - 1}\u0000`;
-  const s = esc(t)
-    .replace(/`([^`]+)`/g, (_, c) => put(`<code style="font-family:var(--mono);font-size:.9em;color:var(--md-code);background:var(--md-code-bg);padding:1px 5px;border-radius:5px">${c}</code>`))
-    .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, (_, text, href) => put(link(href, text)))
-    .replace(/(^|[\s(])(https?:\/\/[^\s<)]+)/g, (_, pre, href) => pre + put(link(href, href)))
+  let s = esc(t)
+    .replace(/`([^`]+)`/g, (_, c) => put(here && PATH.test(c) ? pathLink(c, CODE(c)) : CODE(c)))
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, (_, text, href) => put(link(href, text, here)));
+  if (here) s = s.replace(/\[([^\]]+)\]\(([^\s)]+)\)/g, (m, text, to) => (to.startsWith('file://') || PATH.test(to) ? put(pathLink(to, text)) : m));
+  s = s.replace(/(^|[\s(])(https?:\/\/[^\s<)]+)/g, (_, pre, href) => pre + put(link(href, href, here)));
+  if (here) s = s.replace(BARE_PATH, (_, pre, p) => { const tail = p.match(/(?:[.,;:!?]|&quot;)+$/)?.[0] || ''; const core = p.slice(0, p.length - tail.length); return pre + put(pathLink(core, core)) + tail; });
+  s = s
     .replace(/\*\*([^*]+)\*\*/g, '<strong style="font-weight:700;color:var(--fg)">$1</strong>')
     .replace(/(^|[^*\w])\*([^*\s][^*]*?)\*(?![*\w])/g, '$1<em>$2</em>')
     .replace(/~~([^~]+)~~/g, '<del>$1</del>');
-  return s.replace(/\u0000(\d+)\u0000/g, (_, k) => keep[k]);
+  const restore = (x) => x.replace(/\u0000(\d+)\u0000/g, (_, k) => restore(keep[k]));
+  return restore(s);
 }
 const HEADING_EM = [0, 1.3, 1.2, 1.1, 1, 1, 1];
 const LIST = /^(\s*)([-*+]|\d+[.)])\s+(.*)$/;
 const TABLE_SEP = /^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$/;
 const cellsOf = (row) => row.trim().replace(/^\|/, '').replace(/\|$/, '').split(/(?<!\\)\|/).map((c) => c.trim().replace(/\\\|/g, '|'));
-function table(rows, sep) {
+function table(rows, sep, here) {
   const align = cellsOf(sep).map((c) => (/^:-+:$/.test(c) ? 'center' : /-:$/.test(c) ? 'right' : 'left'));
-  const cell = (tag, c, k) => `<${tag} style="border:1px solid var(--line2);padding:3px 7px;vertical-align:top;text-align:${align[k] || 'left'}${tag === 'th' ? ';font-weight:700;color:var(--fg)' : ''}">${inline(c)}</${tag}>`;
+  const cell = (tag, c, k) => `<${tag} style="border:1px solid var(--line2);padding:3px 7px;vertical-align:top;text-align:${align[k] || 'left'}${tag === 'th' ? ';font-weight:700;color:var(--fg)' : ''}">${inline(c, here)}</${tag}>`;
   const [head, ...body] = rows.map(cellsOf);
   return `<div style="overflow-x:auto;margin:2px 0 8px"><table style="border-collapse:collapse;font-size:inherit"><thead><tr>${head.map((c, k) => cell('th', c, k)).join('')}</tr></thead><tbody>${body.map((r) => `<tr>${r.map((c, k) => cell('td', c, k)).join('')}</tr>`).join('')}</tbody></table></div>`;
 }
 // Flat rows indented by nesting level, with the marker in omo's bullet color, the way the terminal draws lists.
-function list(items) {
+function list(items, here) {
   const levels = [...new Set(items.map((x) => x.indent))].sort((a, b) => a - b);
-  return `<div style="margin:0 0 6px">${items.map((x) => `<div style="display:flex;gap:6px;padding-left:${levels.indexOf(x.indent) * 16}px"><span style="flex:none;color:var(--md-bullet)">${/^\d/.test(x.marker) ? esc(x.marker) : '-'}</span><span style="min-width:0">${x.lines.map(inline).join('<br>')}</span></div>`).join('')}</div>`;
+  return `<div style="margin:0 0 6px">${items.map((x) => `<div style="display:flex;gap:6px;padding-left:${levels.indexOf(x.indent) * 16}px"><span style="flex:none;color:var(--md-bullet)">${/^\d/.test(x.marker) ? esc(x.marker) : '-'}</span><span style="min-width:0">${x.lines.map((l) => inline(l, here)).join('<br>')}</span></div>`).join('')}</div>`;
 }
-function mdToHtml(src) {
+function mdToHtml(src, here) {
   const lines = String(src).replace(/\r\n?/g, '\n').split('\n');
   const out = [];
   let para = [];
-  const flush = () => { if (para.length) out.push(`<p style="margin:0 0 6px">${para.map(inline).join('<br>')}</p>`); para = []; };
+  const flush = () => { if (para.length) out.push(`<p style="margin:0 0 6px">${para.map((l) => inline(l, here)).join('<br>')}</p>`); para = []; };
   for (let i = 0; i < lines.length;) {
     const line = lines[i];
     let m;
@@ -98,7 +113,7 @@ function mdToHtml(src) {
     if (!line.trim()) { flush(); i++; continue; }
     if ((m = line.match(/^\s{0,3}(#{1,6})\s+(.*?)\s*#*\s*$/))) {
       flush();
-      out.push(`<div style="margin:${m[1].length <= 2 ? 10 : 8}px 0 5px;font-weight:700;font-size:${HEADING_EM[m[1].length]}em;color:var(--md-heading)">${inline(m[2])}</div>`);
+      out.push(`<div style="margin:${m[1].length <= 2 ? 10 : 8}px 0 5px;font-weight:700;font-size:${HEADING_EM[m[1].length]}em;color:var(--md-heading)">${inline(m[2], here)}</div>`);
       i++; continue;
     }
     if (/^\s{0,3}([-*_])(\s*\1){2,}\s*$/.test(line)) { flush(); out.push('<hr style="border:0;border-top:1px solid var(--md-hr);margin:8px 0">'); i++; continue; }
@@ -106,14 +121,14 @@ function mdToHtml(src) {
       flush();
       const rows = [line], sep = lines[i + 1];
       for (i += 2; i < lines.length && lines[i].includes('|') && lines[i].trim(); i++) rows.push(lines[i]);
-      out.push(table(rows, sep));
+      out.push(table(rows, sep, here));
       continue;
     }
     if (/^\s*>/.test(line)) {
       flush();
       const q = [];
       for (; i < lines.length && /^\s*>/.test(lines[i]); i++) q.push(lines[i].replace(/^\s*>\s?/, ''));
-      out.push(`<div style="margin:2px 0 8px;padding-left:8px;border-left:2px solid var(--md-quote-border);color:var(--md-quote)">${mdToHtml(q.join('\n'))}</div>`);
+      out.push(`<div style="margin:2px 0 8px;padding-left:8px;border-left:2px solid var(--md-quote-border);color:var(--md-quote)">${mdToHtml(q.join('\n'), here)}</div>`);
       continue;
     }
     if (LIST.test(line)) {
@@ -125,7 +140,7 @@ function mdToHtml(src) {
         else if (/^\s{2,}\S/.test(lines[i])) items.at(-1).lines.push(lines[i].trim());
         else break;
       }
-      out.push(list(items));
+      out.push(list(items, here));
       continue;
     }
     para.push(line.trim());
@@ -137,6 +152,13 @@ function mdToHtml(src) {
 const ROW = 18;
 class Component extends DCLogic {
   state = { open: null, top: 0 };
+  openHere = (e) => {
+    const a = e.target.closest?.('a[data-open]');
+    const on = this.props.onOpen;
+    if (!a || !on || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    e.preventDefault();
+    on(a.dataset.open);
+  };
   renderVals() {
     const it = this.props.it || {};
     const defaultOpen = it.isCmd ? (it.exitCode != null && it.exitCode !== 0) : false;
@@ -167,7 +189,7 @@ class Component extends DCLogic {
       },
     };
     if (it.isAgent) {
-      vals.md = React.createElement('div', { style: { fontSize: 14, lineHeight: 1.55, wordBreak: 'break-word', color: 'var(--md-text)' }, dangerouslySetInnerHTML: { __html: mdToHtml(it.text || '') + (it.live ? '<span style="display:inline-block;width:7px;height:15px;margin-left:2px;vertical-align:-2px;background:var(--acc)"></span>' : '') } });
+      vals.md = React.createElement('div', { style: { fontSize: 14, lineHeight: 1.55, wordBreak: 'break-word', color: 'var(--md-text)' }, onClick: this.openHere, dangerouslySetInnerHTML: { __html: mdToHtml(it.text || '', !!this.props.onOpen) + (it.live ? '<span style="display:inline-block;width:7px;height:15px;margin-left:2px;vertical-align:-2px;background:var(--acc)"></span>' : '') } });
     }
     if (it.isFile) {
       vals.files = (it.files || []).map((f) => {

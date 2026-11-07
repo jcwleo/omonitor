@@ -1,6 +1,6 @@
 // SessionClient — the only thing the UI talks to. MockClient (app/mock-client.js) and RealClient
 // below implement the same contract, so swapping them needs no UI change.
-import type { RequestId, RpcNotification, ServerRequest, Skill, Item, InitializeParams, Turn, Model, OmoVersion, OmoUpdateResult, OmoRestartResult, OmonitorVersion, OmonitorUpdateResult, PlanUsage, GitSummary } from './protocol';
+import type { RequestId, RpcNotification, ServerRequest, Skill, Item, InitializeParams, Turn, Model, OmoVersion, OmoUpdateResult, OmoRestartResult, OpenResult, OmonitorVersion, OmonitorUpdateResult, PlanUsage, GitSummary } from './protocol';
 
 export type ConnectionState = 'connecting' | 'open' | 'reconnecting' | 'closed';
 export interface ConnectionEvent { state: ConnectionState; attempt?: number; retryInMs?: number; reconnected?: boolean }
@@ -23,6 +23,9 @@ export interface SessionClient {
     activity(): Promise<Record<string, number>>;
     /** Saves a pasted image; its path goes into the message text because turn input takes no image items. */
     upload(file: Blob): Promise<{ path: string; url: string }>;
+    /** A URL to the default browser of the Mac running omonitor, a file or folder to its default app; refused unless the
+     * page is served from that Mac. A relative path is taken from cwd, the session's folder. */
+    open(target: string, cwd?: string): Promise<OpenResult>;
     /** Subagent runs (omo.task.updated shape) and context usage, read from the session file. */
     meta(threadId: string): Promise<{ agents: unknown[]; usage: { used: number; window: number } | null }>;
     restoreTodos(threadId: string): Promise<Item[]>;
@@ -83,6 +86,11 @@ export class RealClient implements SessionClient {
     },
     upload: async (file: Blob): Promise<{ path: string; url: string }> => {
       const r = await fetch('/api/uploads', { method: 'POST', headers: { ...this.hdr(), 'content-type': file.type }, body: file });
+      if (!r.ok) throw new Error(await r.text());
+      return r.json();
+    },
+    open: async (target: string, cwd?: string): Promise<OpenResult> => {
+      const r = await fetch('/api/open', { method: 'POST', headers: { ...this.hdr(), 'content-type': 'application/json' }, body: JSON.stringify({ target, cwd }) });
       if (!r.ok) throw new Error(await r.text());
       return r.json();
     },
