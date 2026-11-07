@@ -38,6 +38,13 @@ async function probe(url: string, auth: string) {
     return r.ok ? await r.json() : null;
   } catch { return null; }
 }
+// The version the shared service answers with; it keeps running the old binary after an upgrade until it restarts.
+export async function runningVersion(): Promise<string | null> {
+  const s = await readService();
+  if (!s) return null;
+  const info = await probe(s.url.replace(/\/+$/, ''), `Basic ${btoa(`opencode:${s.password}`)}`);
+  return info?.version ? String(info.version) : null;
+}
 async function run(cmd: string[], ms: number) {
   const p = Bun.spawn(cmd, { stdin: 'ignore', stdout: 'pipe', stderr: 'pipe' });
   const timer = setTimeout(() => p.kill(), ms);

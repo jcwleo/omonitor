@@ -9,13 +9,13 @@ import { homedir } from 'node:os';
 import { basename, dirname, isAbsolute, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { engineOf, ensureHost, HOST_SOCKET, HostBridge, probeHost } from './host.ts';
-import { OpencodeBridge, opencodeInstalled } from './opencode.ts';
+import { OpencodeBridge, opencodeBin, opencodeInstalled, runningVersion } from './opencode.ts';
 import { PushError, PushService, watchSessions } from './push.ts';
 import { ArchiveStore, SessionIndex, TOOL_IMAGE_TYPES, toolImages } from './sessions.ts';
 import { TerminalError, TerminalManager } from './terminal.ts';
 import type { SocketData } from './terminal.ts';
 import { applySelf, checkSelf, isServiceProcess } from './update.ts';
-import type { GitRepo, GitSummary, GitWorktree, OmonitorUpdateResult, OmonitorVersion, OmoVersion, OpenResult, ThreadGit } from './src/protocol.ts';
+import type { GitRepo, GitSummary, GitWorktree, OmonitorUpdateResult, OmonitorVersion, OmoVersion, OpencodeVersion, OpenResult, ThreadGit } from './src/protocol.ts';
 
 const MOCK = process.argv.includes('--mock');
 const PORT = Number(process.env.PORT || 4800);
@@ -158,6 +158,52 @@ async function omoUpdate() {
   try { return { update, restart: await restartHost() }; }
   catch (e: any) { return { update, restartError: String(e?.message || e) }; }
   finally { versionCache = null; }
+}
+
+// ── opencode2 version check and update ──
+// current: the installed CLI; running: the shared service, which keeps the binary it started with until it restarts.
+let opencodeCache: OpencodeVersion | null = null;
+const cliVersion = async (bin: string) => (await exec([bin, '--version'])).match(/(\d+\.\d+\.\d+)/)?.[1] || '';
+async function opencodeVersion(): Promise<OpencodeVersion | null> {
+  if (opencodeCache && Date.now() - opencodeCache.checkedAt < VERSION_CACHE_MS) return opencodeCache;
+  const bin = opencodeBin();
+  if (!bin) return null;
+  const [current, running] = await Promise.all([cliVersion(bin), runningVersion().catch(() => null)]);
+  let latest = '';
+  try {
+    const res = await fetch('https://registry.npmjs.org/@opencode/cli/latest', { signal: AbortSignal.timeout(5000) });
+    if (res.ok) latest = (await res.json()).version || '';
+  } catch {}
+  opencodeCache = { current, latest, running, updateAvailable: !!(current && latest && semverGt(latest, current)), stale: !!(current && running && running !== current), checkedAt: Date.now() };
+  return opencodeCache;
+}
+// The service restarts on the installed binary; the restart counts once it answers with that version. The dashboard's
+// opencode connection drops with it and reconnects (opencode.ts).
+async function restartOpencode() {
+  const bin = opencodeBin();
+  if (!bin) throw new Error('opencode2를 찾지 못했습니다');
+  await exec([bin, 'service', 'restart']);
+  const want = await cliVersion(bin);
+  let running: string | null = null;
+  for (const end = Date.now() + 30_000; Date.now() < end; await Bun.sleep(500)) {
+    running = await runningVersion().catch(() => null);
+    if (running && (!want || running === want)) return `opencode ${running}`;
+  }
+  throw new Error(running ? `opencode 서버가 아직 이전 버전(${running})으로 실행 중입니다. 설치된 opencode는 ${want}입니다` : 'opencode 서버가 30초 안에 응답하지 않았습니다');
+}
+async function opencodeRestart() {
+  try { return { restart: await restartOpencode() }; } finally { opencodeCache = null; }
+}
+// `upgrade` picks its install method itself; a bun global install is named, since that is how opencode2 ships here.
+async function opencodeUpdate() {
+  const bin = opencodeBin();
+  if (!bin) throw new Error('opencode2를 찾지 못했습니다');
+  const viaBun = (await realpath(bin)).includes('/.bun/install/global/');
+  const update = await exec([bin, 'upgrade', ...(viaBun ? ['--method', 'bun'] : [])]);
+  opencodeCache = null;
+  try { return { update, restart: await restartOpencode() }; }
+  catch (e: any) { return { update, restartError: String(e?.message || e) }; }
+  finally { opencodeCache = null; }
 }
 
 // ── omonitor's own update (update.ts) ──
@@ -1013,6 +1059,9 @@ const server = Bun.serve<SocketData>({
         if (url.pathname === '/api/omo/version') return Response.json(await omoVersion());
         if (url.pathname === '/api/omo/update' && req.method === 'POST') return Response.json(await omoUpdate());
         if (url.pathname === '/api/omo/restart' && req.method === 'POST') return Response.json(await omoRestart());
+        if (url.pathname === '/api/opencode/version') return Response.json(await opencodeVersion());
+        if (url.pathname === '/api/opencode/update' && req.method === 'POST') return Response.json(await opencodeUpdate());
+        if (url.pathname === '/api/opencode/restart' && req.method === 'POST') return Response.json(await opencodeRestart());
         if (url.pathname === '/api/omonitor/version') return Response.json(await omonitorVersion());
         if (url.pathname === '/api/omonitor/update' && req.method === 'POST') return Response.json(await omonitorUpdate());
       } catch (e: any) { return new Response(String(e?.message || e), { status: e instanceof PushError ? e.status : 500 }); }

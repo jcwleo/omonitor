@@ -123,6 +123,11 @@ export interface Skill { kind: 'command' | 'skill' | 'keyword'; name: string; de
  * installed senpi engine; running: the engine the omo host answers with; stale: it still runs an engine from before an
  * omo update (old model list included) and needs a restart. */
 export interface OmoVersion { current: string; latest: string; updateAvailable: boolean; engine: string; running: string | null; stale: boolean; checkedAt: number }
+/** GET /api/opencode/version (null without opencode2): current is the installed CLI, latest the npm @opencode/cli release,
+ * running the version the shared service answers with; stale: the service still runs a binary from before an upgrade. */
+export interface OpencodeVersion { current: string; latest: string; running: string | null; updateAvailable: boolean; stale: boolean; checkedAt: number }
+/** POST /api/opencode/update: `opencode upgrade`, then `opencode service restart`. restartError: the upgrade went in but the restart failed. */
+export interface OpencodeUpdateResult { update: string; restart?: string; restartError?: string }
 /** POST /api/omo/restart: `omo host ensure` hands the host over to the installed engine, then waits until it serves the socket. */
 export interface OmoRestartResult { restart: string }
 /** POST /api/open { target, cwd? }, only from a dashboard served on the machine itself: a URL went to the default browser,

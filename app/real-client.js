@@ -99,6 +99,24 @@ export class RealClient {
         if (!r.ok) throw new Error(await r.text());
         return r.json();
       },
+      // The installed opencode2 CLI, its latest release and the version its shared service runs → OpencodeVersion or null.
+      opencodeVersion: async () => {
+        const r = await fetch(api('api/opencode/version'), { headers: hdr() });
+        if (!r.ok) throw new Error(await r.text());
+        return r.json();
+      },
+      // `opencode upgrade`, then the service restart below → { update, restart } or { update, restartError }.
+      opencodeUpdate: async () => {
+        const r = await fetch(api('api/opencode/update'), { method: 'POST', headers: hdr() });
+        if (!r.ok) throw new Error(await r.text());
+        return r.json();
+      },
+      // Restarts the opencode2 shared service on the installed binary → { restart }.
+      opencodeRestart: async () => {
+        const r = await fetch(api('api/opencode/restart'), { method: 'POST', headers: hdr() });
+        if (!r.ok) throw new Error(await r.text());
+        return r.json();
+      },
       // omonitor's own clone against its upstream branch (update.ts) → { current, latest, behind, commits, blocked, restartNeeded, ... } or null.
       omonitorVersion: async () => {
         const r = await fetch(api('api/omonitor/version'), { headers: hdr() });

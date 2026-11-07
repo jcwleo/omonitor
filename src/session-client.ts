@@ -1,6 +1,6 @@
 // SessionClient — the only thing the UI talks to. MockClient (app/mock-client.js) and RealClient
 // below implement the same contract, so swapping them needs no UI change.
-import type { RequestId, RpcNotification, ServerRequest, Skill, Item, InitializeParams, Turn, Model, OmoVersion, OmoUpdateResult, OmoRestartResult, OpenResult, OmonitorVersion, OmonitorUpdateResult, PlanUsage, GitSummary } from './protocol';
+import type { RequestId, RpcNotification, ServerRequest, Skill, Item, InitializeParams, Turn, Model, OmoVersion, OmoUpdateResult, OmoRestartResult, OpenResult, OpencodeVersion, OpencodeUpdateResult, OmonitorVersion, OmonitorUpdateResult, PlanUsage, GitSummary } from './protocol';
 
 export type ConnectionState = 'connecting' | 'open' | 'reconnecting' | 'closed';
 export interface ConnectionEvent { state: ConnectionState; attempt?: number; retryInMs?: number; reconnected?: boolean }
@@ -42,6 +42,12 @@ export interface SessionClient {
     omoUpdate(): Promise<OmoUpdateResult>;
     /** Hands the omo host over to the installed omo; running sessions finish their turn first. */
     omoRestart(): Promise<OmoRestartResult>;
+    /** The installed opencode2 CLI against its latest release and the version its shared service runs; null without opencode2. */
+    opencodeVersion(): Promise<OpencodeVersion | null>;
+    /** Upgrades opencode2 and restarts its shared service on the new binary. */
+    opencodeUpdate(): Promise<OpencodeUpdateResult>;
+    /** Restarts the opencode2 shared service on the installed binary. */
+    opencodeRestart(): Promise<{ restart: string }>;
     /** omonitor's own clone against its upstream branch; null when it does not run from a git clone. */
     omonitorVersion(): Promise<OmonitorVersion | null>;
     /** Fast-forwards omonitor; when server code changed, the service restarts it and every open terminal closes. */
@@ -136,6 +142,21 @@ export class RealClient implements SessionClient {
     },
     omoRestart: async (): Promise<OmoRestartResult> => {
       const r = await fetch('/api/omo/restart', { method: 'POST', headers: this.hdr() });
+      if (!r.ok) throw new Error(await r.text());
+      return r.json();
+    },
+    opencodeVersion: async (): Promise<OpencodeVersion | null> => {
+      const r = await fetch('/api/opencode/version', { headers: this.hdr() });
+      if (!r.ok) throw new Error(await r.text());
+      return r.json();
+    },
+    opencodeUpdate: async (): Promise<OpencodeUpdateResult> => {
+      const r = await fetch('/api/opencode/update', { method: 'POST', headers: this.hdr() });
+      if (!r.ok) throw new Error(await r.text());
+      return r.json();
+    },
+    opencodeRestart: async (): Promise<{ restart: string }> => {
+      const r = await fetch('/api/opencode/restart', { method: 'POST', headers: this.hdr() });
       if (!r.ok) throw new Error(await r.text());
       return r.json();
     },
