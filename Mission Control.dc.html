@@ -300,7 +300,7 @@ html[data-vt]::view-transition-old(root),html[data-vt]::view-transition-new(root
 <sc-if value="{{ selTerminal }}"><div style="border-radius:var(--r);background:var(--tint);padding:10px 12px;display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--fg2);line-height:1.5"><span><span style="border-radius:999px;background:var(--sel);color:var(--fg);padding:1px 8px;font-size:12px;margin-right:6px">터미널 세션</span>터미널에서 켠 세션입니다. 대시보드는 아직 구독하지 않아 실시간 상태를 모릅니다.</span><button class="btn btn-secondary" onClick="{{ takeoverSel }}" style="align-self:flex-start;min-height:40px;font-size:13px;color:var(--acc-fg)">대시보드로 이어 받기…</button></div></sc-if>
 <sc-if value="{{ selNotSubNote }}"><div style="border-radius:var(--r);background:var(--tint);padding:8px 12px;display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--fg2)"><span style="flex:1">구독하지 않은 세션이라 실시간 알림이 오지 않고, 승인 요청은 자동으로 거절됩니다.</span><button class="btn btn-secondary" onClick="{{ subscribeSel }}" style="min-height:36px;font-size:12.5px;color:var(--fg)">구독</button></div></sc-if>
 <sc-if value="{{ selLost }}"><div style="border-radius:var(--r);background:var(--tint);padding:8px 12px;display:flex;flex-wrap:wrap;align-items:center;gap:7px;font-size:12.5px;color:var(--fg2);line-height:1.5"><span style="flex:1 1 240px">app-server가 재시작되어 이전 턴은 메시지만 남았습니다. todo와 도구 기록이 없습니다.</span><button class="btn btn-secondary" onClick="{{ restoreSel }}" style="min-height:36px;font-size:12.5px;color:var(--acc-fg);white-space:nowrap">세션 파일에서 todo 복원</button></div></sc-if>
-<sc-for list="{{ selItems }}" as="it" hint-placeholder-count="6"><dc-import name="McItem" it="{{ it }}" agent-name="{{ agentName }}" hint-size="100%,36px"></dc-import></sc-for>
+<sc-for list="{{ selItems }}" as="it" hint-placeholder-count="6"><dc-import name="McItem" it="{{ it }}" agent-name="{{ agentName }}" on-image="{{ openImage }}" hint-size="100%,36px"></dc-import></sc-for>
 <sc-if value="{{ hasSelReqs }}"><div style="display:flex;flex-direction:column;gap:8px;padding:6px 0 4px"><sc-for list="{{ selReqs }}" as="r"><dc-import name="McRequestCard" r="{{ r }}" hint-size="100%,220px"></dc-import></sc-for></div></sc-if>
 <sc-if value="{{ selItemsEmpty }}"><div style="padding:14px 0;font-size:13px;color:var(--fg3);text-align:center">아직 기록이 없습니다. 아래에서 첫 메시지를 보내세요.</div></sc-if>
 </div>
@@ -481,6 +481,17 @@ html[data-vt]::view-transition-old(root),html[data-vt]::view-transition-new(root
 </div>
 </sc-if>
 
+<sc-if value="{{ viewerOpen }}">
+<div data-exit="pop" onClick="{{ closeViewer }}" style="animation:mcFade var(--dur-fast) ease-out;position:absolute;inset:0;z-index:75;background:rgba(10,11,12,.94);color:#ececee">
+<div style="position:absolute;inset:calc(max(8px, env(safe-area-inset-top)) + 52px) 0 0;display:flex;overflow:auto;padding:0 env(safe-area-inset-right) max(8px, env(safe-area-inset-bottom)) env(safe-area-inset-left)"><img data-surface="1" src="{{ viewerUrl }}" alt="{{ viewerAlt }}" onLoad="{{ onViewerLoad }}" onClick="{{ onViewerImage }}" style="animation:mcPop var(--dur) var(--ease-out);display:block;flex:none;margin:auto;max-width:{{ viewerMax }};max-height:{{ viewerMax }};cursor:{{ viewerCursor }}"></div>
+<div style="position:absolute;top:0;left:0;right:0;display:flex;align-items:center;gap:6px;padding:max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) 8px max(14px, env(safe-area-inset-left))">
+<span style="flex:1;min-width:0;font-size:12.5px;color:rgba(236,236,238,.7);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ viewerHint }}</span>
+<sc-if value="{{ viewerNewTab }}"><a href="{{ viewerUrl }}" target="_blank" rel="noopener" onClick="{{ stop }}" style="all:unset;cursor:pointer;display:inline-flex;align-items:center;min-height:44px;padding:0 14px;border-radius:999px;background:rgba(255,255,255,.1);font-size:13.5px;color:#ececee;white-space:nowrap" style-hover="background:rgba(255,255,255,.17)">새 창에서 열기</a></sc-if>
+<button onClick="{{ closeViewer }}" style="all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 14px 0 11px;border-radius:999px;background:rgba(255,255,255,.1);font-size:13.5px;color:#ececee;white-space:nowrap" style-hover="background:rgba(255,255,255,.17)"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="stroke-width:1.8;stroke-linecap:round"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>닫기<sc-if value="{{ modalKeys }}"><span style="font:11.5px var(--mono);color:rgba(236,236,238,.6)">Esc</span></sc-if></button>
+</div>
+</div>
+</sc-if>
+
 <div style="position:absolute;z-index:70;right:14px;left:{{ toastLeft }};bottom:{{ toastBottom }};display:flex;flex-direction:column;gap:4px;align-items:flex-end;pointer-events:none">
 <sc-for list="{{ toasts }}" as="t"><sc-if value="{{ t.show }}"><div style="animation:{{ t.anim }};pointer-events:auto;max-width:420px;background:var(--bg2);border:1px solid var(--line2);border-radius:var(--r);box-shadow:var(--shadow-lg);padding:9px 12px;font-size:13px;display:flex;gap:8px;align-items:flex-start"><span style="width:7px;height:7px;margin-top:5px;flex:none;border-radius:50%;background:{{ t.bd }}"></span>{{ t.text }}</div></sc-if></sc-for>
 <sc-if value="{{ showOmonitorBtn }}"><button onClick="{{ onOmonitorBtn }}" title="{{ omonitorTitle }}" style="all:unset;pointer-events:auto;cursor:pointer;display:flex;align-items:center;gap:6px;padding:5px 12px;border-radius:999px;background:{{ omonitorBg }};border:1px solid {{ omonitorBd }};font:12px var(--mono);color:{{ omonitorFg }};animation:{{ omonitorAnim }}" style-hover="background:var(--hover)"><sc-if value="{{ omonitorHasDot }}"><span style="width:6px;height:6px;border-radius:50%;background:var(--acc);flex:none"></span></sc-if>{{ omonitorLabel }}</button></sc-if>
@@ -513,7 +524,7 @@ function loadViewed() {
 }
 class Component extends DCLogic {
   state = { v: 0, now: Date.now(), w: window.innerWidth, view: 'board', selId: null, backTo: 'board', theme: null, drawer: false, drawerMounted: false,
-    pal: null, sheet: null, dialog: null, menu: false, selMode: false, sel: {}, multiText: '', grouped: false, groupOpen: {}, lg: true, lgC: {}, lgOpen: {}, lgWt: {}, panels: { left: false, right: false }, colC: {}, secC: { archived: true },
+    pal: null, sheet: null, dialog: null, viewer: null, menu: false, selMode: false, sel: {}, multiText: '', grouped: false, groupOpen: {}, lg: true, lgC: {}, lgOpen: {}, lgWt: {}, panels: { left: false, right: false }, colC: {}, secC: { archived: true },
     exp: {}, agentOpen: {}, doneOpen: null, runFold: false, escArmed: null, allC: false, rtab: 'todo', ptab: 'tl', q: '', lf: 'all', focus: -1, pf: null, speedIdx: 0,
     goalDraft: '', goalBudgetDraft: '', fatal: null, nb: false, ns: false, omoVer: null, omoUpdating: false, omoRestarting: false, omonitorVer: null, omonitorUpdating: false, panelWidths: {}, termLive: {}, terms: [], termPolicy: null, termErr: '', prefs: false, push: { ready: false, on: false, busy: false, why: '' } };
   tlRef = React.createRef();
@@ -521,6 +532,9 @@ class Component extends DCLogic {
   sheetFileRef = React.createRef();
   stick = true;
   viewed = loadViewed();
+  // A conversation picture shown over the page (McItem onImage). The message box lets go of focus, so keys stop landing
+  // in it behind the picture and the iOS keyboard goes down.
+  openImage = (img) => { document.activeElement?.blur?.(); this.setState({ viewer: { ...img, full: false, zoomable: false } }); };
   // Images for the new-session sheet's first message, uploaded like the session composer's.
   attachSheet(files) {
     for (const file of files) {
@@ -1163,8 +1177,13 @@ class Component extends DCLogic {
   }
   // Enter confirms the open dialog and Esc cancels it. Taken in the capture phase, before the message box or list
   // underneath that may still hold focus acts on the same key (an Esc there would arm the double-Esc stop). A dialog
-  // button reached with Tab keeps its own Enter, and a held Enter does not confirm.
+  // button reached with Tab keeps its own Enter, and a held Enter does not confirm. Esc closes the image viewer the same
+  // way, and no other key reaches the screen behind it.
   modalKey(e) {
+    if (this.state.viewer) {
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); this.setState({ viewer: null }); }
+      return;
+    }
     if (!this.dlgOk || this.state.pal || e.isComposing || e.keyCode === 229) return;
     if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); this.setState({ dialog: null }); return; }
     if (e.key !== 'Enter' || e.shiftKey || e.altKey) return;
@@ -1176,7 +1195,7 @@ class Component extends DCLogic {
     if (e.composedPath().some((el) => el.tagName === 'MC-TERMINAL')) return;
     const tag = document.activeElement?.tagName;
     const typing = tag === 'INPUT' || tag === 'TEXTAREA';
-    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); if (!this.state.dialog) this.setState((s) => ({ pal: s.pal ? null : { q: '', idx: 0 } })); return; }
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); if (!this.state.dialog && !this.state.viewer) this.setState((s) => ({ pal: s.pal ? null : { q: '', idx: 0 } })); return; }
     if (e.key === 'Escape') {
       const s = this.state;
       if (s.pal) return this.setState({ pal: null });
@@ -1199,7 +1218,7 @@ class Component extends DCLogic {
       if (!e.defaultPrevented && !e.repeat && !e.shiftKey && !e.altKey && !e.isComposing && e.keyCode !== 229 && (mod || !own)) { e.preventDefault(); this.sheetGo?.(); }
       return;
     }
-    if (this.state.pal || this.state.dialog || this.state.sheet) return;
+    if (this.state.pal || this.state.dialog || this.state.sheet || this.state.viewer) return;
     // Option+1/2/3 switch screens and Option+Up/Down step through sessions, also from inside the message box (an opened
     // session focuses it). Matched on e.code: Option changes e.key on macOS.
     if (e.altKey && !e.metaKey && !e.ctrlKey && !e.defaultPrevented && !e.isComposing && e.keyCode !== 229) {
@@ -1645,7 +1664,7 @@ class Component extends DCLogic {
     const backPatch = (x) => (isPhone ? { view: x.backTo || 'board', selId: null } : { selId: null });
     const goBack = () => this.setState(backPatch);
     // The left-edge swipe (onTouchStart) does the back button's job, unless something is open over the conversation.
-    this.swipeBack = T && !isDesk && !(s.pal || s.sheet || s.dialog || s.menu) ? goBack : null;
+    this.swipeBack = T && !isDesk && !(s.pal || s.sheet || s.dialog || s.menu || s.viewer) ? goBack : null;
     if (!isDesk && !T) { vals.showList = true; vals.listW = '100%'; }
     if (!isDesk && T) vals.showList = false;
     // The session list only folds on desktop with a session open, where it sits beside the conversation.
@@ -1805,6 +1824,34 @@ class Component extends DCLogic {
       dlgOpen: !!DLG, dlgTitle: DLG?.[0] || '', dlgBody: DLG?.[1] || '', dlgConfirm: DLG?.[2] || '', dlgOkBg: DLG?.[3] || 'var(--acc)',
       dlgHasInput: d?.kind === 'rename', dlgInput: d?.input || '', onDlgInput: (e) => this.setState({ dialog: { ...d, input: e.target.value } }),
       dlgOk: ok, dlgCancel: () => this.setState({ dialog: null }), modalKeys: !COARSE,
+    });
+
+    // ── image viewer ──
+    // Conversation pictures open over the page, not as a page of their own: a home-screen app has no back button to
+    // return from one. A picture larger than the screen is fitted to it, and a tap shows it at its own size, scrolled to
+    // the tapped spot; a tap anywhere else closes it.
+    const vw = s.viewer;
+    Object.assign(vals, {
+      viewerOpen: !!vw, viewerUrl: vw?.url || '', viewerAlt: vw?.alt || '이미지', viewerMax: vw?.full ? 'none' : '100%',
+      viewerCursor: vw?.zoomable ? (vw.full ? 'zoom-out' : 'zoom-in') : 'default',
+      viewerHint: vw?.zoomable ? `${COARSE ? '탭' : '클릭'}하면 ${vw.full ? '화면에 맞춤' : '원본 크기'}` : '',
+      // A new window in an iOS home-screen app replaces the app the same way, again with no way back.
+      viewerNewTab: navigator.standalone !== true,
+      openImage: this.openImage, closeViewer: () => this.setState({ viewer: null }),
+      onViewerLoad: (e) => {
+        const el = e.currentTarget, zoomable = el.naturalWidth > el.clientWidth + 1 || el.naturalHeight > el.clientHeight + 1;
+        this.setState((x) => (x.viewer ? { viewer: { ...x.viewer, zoomable } } : {}));
+      },
+      onViewerImage: (e) => {
+        e.stopPropagation();
+        if (!vw?.zoomable) return this.setState({ viewer: null });
+        const el = e.currentTarget, r = el.getBoundingClientRect();
+        const fx = (e.clientX - r.left) / r.width, fy = (e.clientY - r.top) / r.height;
+        this.setState({ viewer: { ...vw, full: !vw.full } }, () => {
+          const box = el.parentElement;
+          if (!vw.full && box) { box.scrollLeft = fx * el.offsetWidth - box.clientWidth / 2; box.scrollTop = fy * el.offsetHeight - box.clientHeight / 2; }
+        });
+      },
     });
 
     // ── new session sheet ──
