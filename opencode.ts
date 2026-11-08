@@ -527,7 +527,7 @@ export class OpencodeBridge extends EventEmitter {
           run_stats: { duration_ms: c.idleAt && c.createdAt ? c.idleAt - c.createdAt : undefined } }),
     }));
   }
-  #tasksChanged(parentId: string) { this.#notifySubs(parentId, 'extension_event', { threadId: parentId, name: 'omo.task.updated', data: this.#agentsOf(parentId) }); }
+  #tasksChanged(parentId: string) { this.#notifyAll('extension_event', { threadId: parentId, name: 'omo.task.updated', data: this.#agentsOf(parentId) }); }
 
   #send(c: BridgeClient, msg: unknown) { try { c.send(JSON.stringify(msg)); } catch {} }
   #notifyAll(method: string, params: unknown) { for (const c of this.#clients) this.#send(c, { method, params }); }
@@ -814,7 +814,10 @@ export class OpencodeBridge extends EventEmitter {
       case 'initialize': return { userAgent: `omonitor-opencode/${this.version}`, serverInfo: { name: 'opencode', version: this.version } };
       case 'thread/list': return { data: await this.#list(!!p.archived), nextCursor: null };
       // Every session lives in the server, so "loaded" means the ones the dashboard should follow right away.
-      case 'thread/loaded/list': return { data: [...this.#byId.values()].filter((s) => !s.parentID && (s.running || [...this.#reqs.values()].some((r) => r.threadId === s.id))).map((s) => s.id) };
+      case 'thread/loaded/list': {
+        const childParents = new Set([...this.#byId.values()].filter((s) => s.running && s.parentID).map((s) => s.parentID));
+        return { data: [...this.#byId.values()].filter((s) => !s.parentID && (s.running || childParents.has(s.id) || [...this.#reqs.values()].some((r) => r.threadId === s.id))).map((s) => s.id) };
+      }
       case 'model/list': return {
         data: (await this.#modelList()).filter((m: any) => m.enabled !== false).map((m: any) => ({
           id: `${m.providerID}/${m.id}`, model: m.id, displayName: m.name || m.id, hidden: false, isDefault: false,

@@ -228,9 +228,9 @@ class Component extends DCLogic {
         this.attach(c.imageFiles?.(e.dataTransfer) || []);
       },
       dropBg: this.state.drag ? 'var(--acc-tint)' : 'var(--bg)', dropRing: this.state.drag ? 'inset 0 0 0 1px var(--acc)' : 'none',
-      modeHint: c.running ? (c.escArmed ? 'Esc를 한 번 더 누르면 중단합니다' : `${c.activity || '작업 중'} — 보내면 끼어들기로 방향을 바꿉니다`) : '대기 중 — 보내면 새 턴을 시작합니다',
+      modeHint: c.running ? (c.escArmed ? 'Esc를 한 번 더 누르면 중단합니다' : `${c.activity || '작업 중'} — 보내면 끼어들기로 방향을 바꿉니다`) : `${c.activity || '대기 중'} — 보내면 새 턴을 시작합니다`,
       modeColor: c.running && c.escArmed ? 'var(--err-fg)' : 'inherit', stopKeys: !TOUCH_KEYBOARD,
-      modeDot: c.running ? 'var(--acc)' : 'var(--idle)',
+      modeDot: c.running || c.activity ? 'var(--acc)' : 'var(--idle)',
       modeAnim: c.running ? 'mcPulse 1.4s infinite' : 'none',
       sendLabel: c.running ? '끼어들기' : '보내기',
       sendDisabled: (!text.trim() && !readyN) || show || uploading,

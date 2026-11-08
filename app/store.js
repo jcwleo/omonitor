@@ -178,6 +178,8 @@ export function activity(T) {
   // A running turn with nothing in progress is waiting on the model: before its first output and between tool calls.
   if (st === 'active' && turn) return ['모델 응답 기다리는 중', ''];
   if (st === 'active') return ['작업 중', ''];
+  const runningAgents = (T.tasks || []).filter((task) => task.state === 'running').length;
+  if (runningAgents && st !== 'systemError' && (T.turns || []).at(-1)?.status !== 'failed') return [`서브에이전트 ${runningAgents}개 실행 중`, ''];
   if (st === 'notLoaded' && T.source === 'cli') return ['터미널에서 실행 중일 수 있음', ''];
   if (st === 'notLoaded') return ['로드되지 않음', ''];
   const last = (T.turns || []).at(-1);
@@ -200,7 +202,7 @@ export function columnOf(T, reqs) {
   const st = T.status?.type;
   if (reqs.length || (T.status?.activeFlags || []).some((f) => /waitingOn/.test(f))) return 'input';
   if (st === 'systemError' || (st !== 'active' && (T.turns || []).at(-1)?.status === 'failed')) return 'error';
-  if (st === 'active') return 'working';
+  if (st === 'active' || (T.tasks || []).some((task) => task.state === 'running')) return 'working';
   return 'idle';
 }
 export const isTerminal = (T) => T.source === 'cli' && !T.subscribed;

@@ -1885,7 +1885,7 @@ class Component extends DCLogic {
         diffItems: diff.map((f) => ({ key: f.path, isFile: true, files: [{ path: f.path, kind: f.isNew ? 'add' : f.isDel ? 'delete' : 'update', add: f.add, del: f.del, lines: f.text.split('\n').filter((l) => !/^(diff --git|index |--- |\+\+\+ |new file)/.test(l)) }] })),
         diffNone: diff.length === 0,
         composer: {
-          running, activity: live ? [live.label, live.elapsed].filter(Boolean).join(' · ') : '', model: T.settings?.model, effort: T.settings?.effort, models: st.s.models, favModels: s.favModels || [], onFavModel: (id) => this.toggleFavModel(id), skills: st.s.skills, usage: T.usage || null,
+          running, activity: live ? [live.label, live.elapsed].filter(Boolean).join(' · ') : sel.col === 'working' ? sel.actLabel : '', model: T.settings?.model, effort: T.settings?.effort, models: st.s.models, favModels: s.favModels || [], onFavModel: (id) => this.toggleFavModel(id), skills: st.s.skills, usage: T.usage || null,
           padBottom: isPhone ? 'max(10px, env(safe-area-inset-bottom))' : '10px',
           threadId: T.id, draft: this.draftOf(T.id), onDraft: (id, d) => this.saveDraft(id, d), patchDraftImage: (id, imgId, patch) => this.patchDraftImage(id, imgId, patch),
           takeFocus: () => { const w = this.wantFocus; this.wantFocus = false; return w; },
