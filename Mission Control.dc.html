@@ -26,6 +26,12 @@
 <link rel="stylesheet" href="app/styles.css">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap">
 <style>
+.mc .agent-chat{position:fixed;top:calc(var(--app-h,100dvh)/2);left:50%;right:auto;bottom:auto;translate:-50% -50%;transform:var(--app-shift,none);margin:0;padding:0;width:min(860px,calc(100% - 32px));height:min(820px,calc(var(--app-h,100dvh)*.85));max-width:100%;max-height:var(--app-h,100dvh);box-sizing:border-box;overflow:hidden;border:1px solid var(--line2);border-radius:var(--r-lg);background:var(--bg);color:var(--fg);font-family:var(--font-body);box-shadow:var(--shadow-lg)}
+.mc .agent-chat[open]{display:flex;flex-direction:column}
+.mc .agent-chat::backdrop{background:rgba(0,0,0,.5);backdrop-filter:blur(4px)}
+.mc .agent-chat button{min-height:44px!important}
+.mc .agent-chat [data-agent-history] [style*="word-break"]{word-break:keep-all!important;overflow-wrap:anywhere}
+@media(max-width:699px){.mc .agent-chat{top:0;left:0;translate:none;width:100%;height:var(--app-h,100dvh);margin:0;border:0;border-radius:0;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}}
 /* The app is one fixed screen; only its panels scroll. Without this, iOS (home-screen web app) drags and rubber-bands
    the whole page, header and composer included, whenever a panel is pushed past its end. */
 html,body{margin:0;height:var(--root-h, 100%);background:#161618;overflow:hidden;overscroll-behavior:none}
@@ -481,6 +487,27 @@ html[data-vt]::view-transition-old(root),html[data-vt]::view-transition-new(root
 </div>
 </sc-if>
 
+<sc-if value="{{ agentChatOpen }}">
+<dialog class="agent-chat" ref="{{ agentChatRef }}" aria-labelledby="agent-chat-title" onCancel="{{ closeAgentChat }}">
+<div style="flex:none;display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--line-soft)">
+<div style="flex:1;min-width:0"><div id="agent-chat-title" style="font:600 17px var(--font-heading)">에이전트 대화</div><div style="font-size:14px;color:var(--fg2);overflow-wrap:anywhere;word-break:keep-all">{{ agentChatName }}</div></div>
+<button class="btn btn-secondary" onClick="{{ closeAgentChat }}" style="flex:none;color:var(--fg)">닫기<sc-if value="{{ modalKeys }}"><span style="font:12px var(--mono);color:var(--fg3)">Esc</span></sc-if></button>
+</div>
+<div style="flex:none;display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:4px 12px;border-bottom:1px solid var(--line-soft);font-size:13px;color:var(--fg2)"><span style="flex:1">{{ agentChatStatus }}</span><button class="btn btn-secondary" disabled="{{ agentChatLoading }}" onClick="{{ refreshAgentChat }}" style="color:var(--fg)">새로고침</button></div>
+<sc-if value="{{ agentChatError }}"><div role="alert" style="flex:none;padding:8px 12px;font-size:14px;line-height:1.5;color:var(--err-fg);word-break:keep-all;overflow-wrap:anywhere"><div>기록을 읽지 못했습니다.</div><div>{{ agentChatError }}</div><div>새로고침으로 다시 시도하세요.</div></div></sc-if>
+<div data-agent-history="1" ref="{{ agentHistoryRef }}" onScroll="{{ onAgentHistoryScroll }}" style="flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;padding:12px;display:flex;flex-direction:column;gap:10px;overflow-wrap:anywhere">
+<sc-if value="{{ agentChatEmpty }}"><div role="status" style="font-size:15px;line-height:1.6;color:var(--fg2);word-break:keep-all;white-space:pre-line">{{ agentChatEmptyText }}</div></sc-if>
+<sc-for list="{{ agentChatItems }}" as="it"><dc-import name="McItem" it="{{ it }}" agent-name="{{ agentChatType }}" user-label="{{ it.userLabel }}" hint-size="100%,36px"></dc-import></sc-for>
+</div>
+<div style="flex:none;display:flex;flex-direction:column;gap:6px;padding:10px 12px;border-top:1px solid var(--line-soft)">
+<label for="agent-chat-input" style="font-size:14px;color:var(--fg2)">에이전트에게 메시지</label>
+<textarea id="agent-chat-input" class="input" rows="2" value="{{ agentChatDraft }}" onChange="{{ onAgentChatDraft }}" onKeyDown="{{ agentChatKey }}" aria-busy="{{ agentChatSending }}" placeholder="이 에이전트에게만 전달할 내용" style="min-height:64px;max-height:150px;resize:vertical;font-size:16px;line-height:1.5;color:var(--fg)"></textarea>
+<div style="display:flex;align-items:center;gap:8px"><span role="status" style="flex:1;min-width:0;font-size:13px;line-height:1.5;color:var(--fg2);word-break:keep-all">{{ agentChatSendHint }}</span><button type="button" class="btn btn-primary" onClick="{{ sendAgentChat }}" disabled="{{ agentChatSendDisabled }}">{{ agentChatSendLabel }}</button></div>
+<sc-if value="{{ agentChatSendError }}"><div role="alert" style="font-size:14px;line-height:1.5;color:var(--err-fg);word-break:keep-all">{{ agentChatSendError }}</div></sc-if>
+</div>
+</dialog>
+</sc-if>
+
 <sc-if value="{{ viewerOpen }}">
 <div data-exit="pop" onClick="{{ closeViewer }}" style="animation:mcFade var(--dur-fast) ease-out;position:absolute;inset:0;z-index:75;background:rgba(10,11,12,.94);color:#ececee">
 <div style="position:absolute;inset:calc(max(8px, env(safe-area-inset-top)) + 52px) 0 0;display:flex;overflow:auto;padding:0 env(safe-area-inset-right) max(8px, env(safe-area-inset-bottom)) env(safe-area-inset-left)"><img data-surface="1" src="{{ viewerUrl }}" alt="{{ viewerAlt }}" onLoad="{{ onViewerLoad }}" onClick="{{ onViewerImage }}" style="animation:mcPop var(--dur) var(--ease-out);display:block;flex:none;margin:auto;max-width:{{ viewerMax }};max-height:{{ viewerMax }};cursor:{{ viewerCursor }}"></div>
@@ -533,12 +560,83 @@ class Component extends DCLogic {
   tlRef = React.createRef();
   detailRef = React.createRef();
   sheetFileRef = React.createRef();
+  agentChatRef = React.createRef();
+  agentHistoryRef = React.createRef();
+  agentDrafts = {};
+  agentSending = new Set();
   stick = true;
   viewed = loadViewed();
   // A conversation picture shown over the page (McItem onImage). The message box lets go of focus, so keys stop landing
   // in it behind the picture and the iOS keyboard goes down.
   openImage = (img) => { document.activeElement?.blur?.(); this.setState({ viewer: { ...img, full: false, zoomable: false } }); };
   openHere = (target) => { this.store.open(target, this.store.T(this.state.selId)?.cwd || '').catch(() => {}); };
+  openAgentChat(a) {
+    clearTimeout(this.agentChatTimer);
+    this.agentStick = true;
+    const key = `${this.engine}:${a.childId}`;
+    this.agentChatTarget = { id: a.childId, parentId: this.state.selId, taskId: a.id, name: a.name, type: a.type, client: this.client, key };
+    this.setState({ agentChat: { ...this.agentChatTarget, turns: [], loading: true, error: '', draft: this.agentDrafts[key] || '', sendError: '', sent: false } });
+    this.readAgentChat();
+  }
+  closeAgentChat = () => {
+    this.agentChatTarget = null;
+    clearTimeout(this.agentChatTimer);
+    this.agentHistoryObserver?.disconnect();
+    this.agentHistoryEl = null;
+    this.agentChatRef.current?.close();
+    this.setState({ agentChat: null });
+  };
+  pinAgentHistory = () => {
+    const el = this.agentHistoryRef.current;
+    if (el && this.agentStick) el.scrollTop = el.scrollHeight;
+  };
+  async readAgentChat() {
+    const target = this.agentChatTarget;
+    if (!target || this.agentChatBusy === target) return;
+    clearTimeout(this.agentChatTimer);
+    this.agentChatBusy = target;
+    try {
+      if (document.visibilityState !== 'visible') return;
+      // Only the simulator reads through RPC. Real sessions use the read-only history endpoint, never resume/read RPC.
+      const turns = this.mode === 'mock'
+        ? (await target.client.request('thread/read', { threadId: target.id, includeTurns: true })).thread.turns
+        : await target.client.backend.history(target.id);
+      if (this.agentChatTarget !== target) return;
+      this.setState((s) => ({ agentChat: { ...s.agentChat, turns, loading: false, error: '' } }));
+      if (this.engine === 'omo') this.store.loadMeta(target.parentId);
+    } catch (e) {
+      if (this.agentChatTarget === target) this.setState((s) => ({ agentChat: { ...s.agentChat, loading: false, error: e instanceof Error ? e.message : String(e) } }));
+    } finally {
+      if (this.agentChatBusy === target) this.agentChatBusy = null;
+      if (this.agentChatTarget === target) this.agentChatTimer = setTimeout(() => this.readAgentChat(), 3000);
+    }
+  }
+  sendAgentChat = async () => {
+    const target = this.agentChatTarget;
+    const text = this.state.agentChat?.draft.trim();
+    if (!target || !text || this.agentSending.has(target.key) || this.store.s.conn.state !== 'open') return;
+    this.agentSending.add(target.key);
+    this.setState((s) => ({ agentChat: { ...s.agentChat, sendError: '', sent: false } }));
+    try {
+      const result = await target.client.request('agent/message', { threadId: target.id, parentThreadId: target.parentId, text });
+      if (this.agentDrafts[target.key]?.trim() === text) delete this.agentDrafts[target.key];
+      if (this.agentChatTarget?.key === target.key) {
+        this.agentStick = true;
+        const sendStatus = result?.kind === 'queued' || result?.kind === 'held' ? '메시지를 대기열에 넣었습니다.' : '에이전트에게 전달했습니다.';
+        this.setState((s) => ({ agentChat: { ...s.agentChat, draft: s.agentChat.draft.trim() === text ? '' : s.agentChat.draft, sent: true, sendStatus } }));
+        this.readAgentChat();
+        this.store.loadMeta(target.parentId);
+      }
+    } catch (e) {
+      const error = e instanceof Error ? e.message : e?.message || String(e);
+      const sendError = e?.data?.deliveryUncertain ? '연결이 끊겨 전달 여부를 확인하지 못했습니다. 다시 보내기 전에 대화 기록을 확인하세요.' : `메시지 전송 결과: ${error}`;
+      if (this.agentChatTarget?.key === target.key) this.setState((s) => ({ agentChat: { ...s.agentChat, sendError } }));
+      else this.store.toast(`${target.name}: ${sendError}`, 'error');
+    } finally {
+      this.agentSending.delete(target.key);
+      this.setState((s) => ({ v: s.v + 1 }));
+    }
+  };
   // Images for the new-session sheet's first message, uploaded like the session composer's.
   attachSheet(files) {
     for (const file of files) {
@@ -741,7 +839,7 @@ class Component extends DCLogic {
     });
     return (this.runtimes[engine] = rt);
   }
-  componentWillUnmount() { window.visualViewport?.removeEventListener('resize', this.fitViewport); window.visualViewport?.removeEventListener('scroll', this.fitViewport); window.removeEventListener('scroll', this.fitViewport); document.removeEventListener('touchstart', this.onTouchStart); document.removeEventListener('touchmove', this.onTouchMove); document.removeEventListener('touchend', this.onTouchEnd); document.removeEventListener('touchcancel', this.onTouchEnd); window.removeEventListener('resize', this.onResize); window.removeEventListener('keydown', this.onKey); window.removeEventListener('keydown', this.onModalKey, true); window.removeEventListener('dragover', this.onWinDrag); window.removeEventListener('drop', this.onWinDrag); document.removeEventListener('mc-terminal-live', this.onTermLive); document.removeEventListener('visibilitychange', this.onVisibility); window.removeEventListener('storage', this.onStorage); clearInterval(this.tick); clearInterval(this.versionTick); clearInterval(this.usageTick); clearInterval(this.termTick); clearInterval(this.gitTick); clearTimeout(this.gitSoon); this.exits?.disconnect(); for (const rt of Object.values(this.runtimes || {})) rt.client.close(); }
+  componentWillUnmount() { this.agentChatTarget = null; clearTimeout(this.agentChatTimer); this.agentHistoryObserver?.disconnect(); window.visualViewport?.removeEventListener('resize', this.fitViewport); window.visualViewport?.removeEventListener('scroll', this.fitViewport); window.removeEventListener('scroll', this.fitViewport); document.removeEventListener('touchstart', this.onTouchStart); document.removeEventListener('touchmove', this.onTouchMove); document.removeEventListener('touchend', this.onTouchEnd); document.removeEventListener('touchcancel', this.onTouchEnd); window.removeEventListener('resize', this.onResize); window.removeEventListener('keydown', this.onKey); window.removeEventListener('keydown', this.onModalKey, true); window.removeEventListener('dragover', this.onWinDrag); window.removeEventListener('drop', this.onWinDrag); document.removeEventListener('mc-terminal-live', this.onTermLive); document.removeEventListener('visibilitychange', this.onVisibility); window.removeEventListener('storage', this.onStorage); clearInterval(this.tick); clearInterval(this.versionTick); clearInterval(this.usageTick); clearInterval(this.termTick); clearInterval(this.gitTick); clearTimeout(this.gitSoon); this.exits?.disconnect(); for (const rt of Object.values(this.runtimes || {})) rt.client.close(); }
   // The conversation follows the finger during a back swipe. Styles go straight to the element so the drag does not
   // re-render; React leaves them alone because the template sets no transform, transition or shadow there.
   slideDetail(dx) {
@@ -863,6 +961,18 @@ class Component extends DCLogic {
   componentDidUpdate() {
     this.syncTab();
     this.trackShown();
+    const agentDialog = this.agentChatRef.current;
+    if (this.state.agentChat && agentDialog && !agentDialog.open) agentDialog.showModal();
+    const agentHistory = this.agentHistoryRef.current;
+    if (agentHistory !== this.agentHistoryEl) {
+      this.agentHistoryObserver?.disconnect();
+      this.agentHistoryEl = agentHistory;
+      if (agentHistory) {
+        this.agentHistoryObserver = new MutationObserver(this.pinAgentHistory);
+        this.agentHistoryObserver.observe(agentHistory, { childList: true, subtree: true, characterData: true });
+      }
+    }
+    this.pinAgentHistory();
     // Focus the rename field with its text selected when the dialog opens, so a new name can be typed right away.
     const renaming = this.state.dialog?.kind === 'rename';
     if (renaming && !this._renaming) { const el = document.querySelector('[data-dlg-input]'); el?.focus(); el?.select(); }
@@ -1186,6 +1296,10 @@ class Component extends DCLogic {
   // button reached with Tab keeps its own Enter, and a held Enter does not confirm. Esc closes the image viewer the same
   // way, and no other key reaches the screen behind it.
   modalKey(e) {
+    if (this.state.agentChat) {
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); this.closeAgentChat(); }
+      return;
+    }
     if (this.state.viewer) {
       if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); this.setState({ viewer: null }); }
       return;
@@ -1198,6 +1312,7 @@ class Component extends DCLogic {
     if (!e.repeat) this.dlgOk();
   }
   key(e) {
+    if (this.state.agentChat) return;
     if (e.composedPath().some((el) => el.tagName === 'MC-TERMINAL')) return;
     const tag = document.activeElement?.tagName;
     const typing = tag === 'INPUT' || tag === 'TEXTAREA';
@@ -1670,7 +1785,7 @@ class Component extends DCLogic {
     const backPatch = (x) => (isPhone ? { view: x.backTo || 'board', selId: null } : { selId: null });
     const goBack = () => this.setState(backPatch);
     // The left-edge swipe (onTouchStart) does the back button's job, unless something is open over the conversation.
-    this.swipeBack = T && !isDesk && !(s.pal || s.sheet || s.dialog || s.menu || s.viewer) ? goBack : null;
+    this.swipeBack = T && !isDesk && !(s.pal || s.sheet || s.dialog || s.menu || s.viewer || s.agentChat) ? goBack : null;
     if (!isDesk && !T) { vals.showList = true; vals.listW = '100%'; }
     if (!isDesk && T) vals.showList = false;
     // The session list only folds on desktop with a session open, where it sits beside the conversation.
@@ -1752,7 +1867,7 @@ class Component extends DCLogic {
             const open = !!s.agentOpen[a.id];
             return { ...a, key: a.id, open, sep: i ? '1px solid var(--line-soft)' : '0', chevRot: open ? '180deg' : '0deg', nameWs: open ? 'normal' : 'nowrap', hint: open ? '눌러서 접기' : '눌러서 내용 보기',
               onToggle: () => this.setState((x) => ({ agentOpen: { ...x.agentOpen, [a.id]: !x.agentOpen[a.id] } })),
-              hasSummary: !!a.summary && a.summary !== a.name, hasModel: !!a.model, hasFinal: !!a.final, hasChild: !!a.childId, onChild: () => this.openSession(a.childId) };
+              hasSummary: !!a.summary && a.summary !== a.name, hasModel: !!a.model, hasFinal: !!a.final, hasChild: !!a.childId, onChild: () => this.openAgentChat(a) };
           }) : [],
         })),
         agentsNone: !sel.agents.length,
@@ -1797,6 +1912,27 @@ class Component extends DCLogic {
       menuPad: isPhone ? '0' : `calc(${54 + (vals.connBanner ? 40 : 0) + 44}px + env(safe-area-inset-top)) ${isDesk ? 330 : 310}px 0 0`, menuW: isPhone ? '100%' : '240px', menuAnim: isPhone ? 'mcSheet var(--dur-slow) var(--ease-out)' : 'mcPop var(--dur) var(--ease-out)', menuRadius: isPhone ? 'var(--r-lg) var(--r-lg) 0 0' : 'var(--r)', menuPadBottom: isPhone ? 'max(12px, env(safe-area-inset-bottom))' : '4px',
     });
 
+    const chat = s.agentChat;
+    const chatTask = chat && st.T(chat.parentId)?.tasks?.find((a) => a.id === chat.taskId);
+    const chatItems = chat ? S.viewItems({ turns: chat.turns }, now) : [];
+    const firstRequest = chatItems.find((item) => item.isUser)?.key;
+    Object.assign(vals, {
+      agentChatOpen: !!chat, agentChatRef: this.agentChatRef, closeAgentChat: this.closeAgentChat,
+      agentHistoryRef: this.agentHistoryRef, onAgentHistoryScroll: (e) => { const el = e.currentTarget; this.agentStick = el.scrollHeight - el.scrollTop - el.clientHeight < 64; },
+      agentChatName: chat ? `${chat.type} · ${chat.name}` : '', agentChatType: chat?.type || 'agent',
+      agentChatStatus: st.s.conn.state !== 'open' ? '연결 끊김' : chat?.error ? '기록 갱신 실패' : `${({ running: '실행 중', done: '완료', error: '실패', queued: '대기' }[chatTask?.state] || '기록')} · 3초마다 기록 갱신`,
+      agentChatLoading: !!chat?.loading, agentChatError: chat?.error || '',
+      agentChatEmpty: !!chat && !chat.turns.length && !chat.error,
+      agentChatEmptyText: chat?.loading ? '대화 기록을 읽고 있습니다.' : '아직 저장된 대화가 없습니다.\n기록이 생기면 자동으로 표시합니다.',
+      agentChatItems: chatItems.map((item) => ({ ...item, userLabel: item.key === firstRequest ? '맡긴 요청' : '요청' })), refreshAgentChat: () => this.readAgentChat(),
+      agentChatDraft: chat?.draft || '', agentChatSending: !!chat && this.agentSending.has(chat.key),
+      agentChatSendDisabled: !chat?.draft.trim() || this.agentSending.has(chat?.key) || st.s.conn.state !== 'open',
+      agentChatSendError: chat?.sendError || '', sendAgentChat: this.sendAgentChat,
+      agentChatSendLabel: this.agentSending.has(chat?.key) ? '전송 중' : '보내기',
+      agentChatSendHint: st.s.conn.state !== 'open' ? '다시 연결되면 보낼 수 있습니다.' : chat?.sent ? chat.sendStatus : COARSE ? '실행 중이면 끼어들기, 끝났으면 후속 작업을 시작합니다.' : '⌘/Ctrl+Enter 전송 · Enter 줄바꿈',
+      onAgentChatDraft: (e) => { const draft = e.target.value; this.agentDrafts[chat.key] = draft; this.setState((x) => ({ agentChat: { ...x.agentChat, draft, sent: false } })); },
+      agentChatKey: (e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); if (!e.repeat) this.sendAgentChat(); } },
+    });
     // ── dialogs ──
     const d = s.dialog;
     const dT = d ? st.T(d.id) : null;

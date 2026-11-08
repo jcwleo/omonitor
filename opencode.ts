@@ -520,7 +520,7 @@ export class OpencodeBridge extends EventEmitter {
 
   #agentsOf(parentId: string) {
     return [...this.#byId.values()].filter((c) => c.parentID === parentId).sort((a, b) => a.createdAt - b.createdAt).map((c) => ({
-      task_id: c.id, name: c.title || c.agent || '하위 에이전트', task_summary: c.title || '', agent_type: c.agent || 'agent', model: c.model?.id,
+      task_id: c.id, child_session_id: c.id, name: c.title || c.agent || '하위 에이전트', task_summary: c.title || '', agent_type: c.agent || 'agent', model: c.model?.id,
       ...(c.running
         ? { live_progress: { activity: '실행 중', started_at: c.startedAt } }
         : { live_progress: null, final_response: c.outcome === 'succeeded' ? '완료' : '', error_message: c.outcome === 'failed' ? '실패' : c.outcome === 'interrupted' ? '중단됨' : '',
@@ -828,6 +828,14 @@ export class OpencodeBridge extends EventEmitter {
       }
       case 'thread/resume': { const s = this.#sess(id); this.#subscribe(c, s); return this.#opened(s); }
       case 'thread/unsubscribe': c.subs.delete(id); return {};
+      case 'agent/message': {
+        const s = this.#sess(id);
+        if (!s.parentID || s.parentID !== p.parentThreadId) throw new OpencodeError('이 세션의 서브에이전트가 아닙니다');
+        if (typeof p.text !== 'string' || !p.text.trim()) throw new OpencodeError('보낼 메시지를 입력하세요');
+        // Direct agent messages are plain prompts, not slash commands, and do not add the child to the board.
+        await this.#api('POST', `/api/session/${enc(id)}/prompt`, { text: p.text.trim(), ...(s.running && { delivery: 'steer' }) });
+        return {};
+      }
       case 'thread/start': {
         const [providerID, ...rest] = typeof p.model === 'string' ? p.model.split('/') : [];
         const base = rest.length ? { id: rest.join('/'), providerID } : p.effort ? await this.#defaultModel() : null;

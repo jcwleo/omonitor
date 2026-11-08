@@ -7,6 +7,8 @@ import { createConnection, type Socket } from 'node:net';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { readGoal, textOf, toolImages, trashSession, type ArchiveStore, type SessionIndex, type SessionMeta } from './sessions.ts';
+import type { OmoChildren } from './omo-children.ts';
+import { sendOmoChild } from './omo-message.ts';
 
 export const HOST_SOCKET = process.env.OMO_HOST_SOCKET || join(homedir(), '.omo/agent/rpc/rpc.sock');
 
@@ -156,7 +158,7 @@ export type RelayBridge = {
   removeClient(c: BridgeClient): void;
   message(c: BridgeClient, raw: string): Promise<void>;
 };
-export type BridgeOptions = { socket: string; index: SessionIndex; archive: ArchiveStore; trashDir: string; fallbackModels: () => Promise<any[]> };
+export type BridgeOptions = { socket: string; index: SessionIndex; archive: ArchiveStore; trashDir: string; fallbackModels: () => Promise<any[]>; children?: OmoChildren };
 
 const YES = '예', NO = '아니오';
 const clip = (s: string, n = 4000) => (s.length > n ? `${s.slice(0, n)}\n… (${s.length - n}자 생략)` : s);
@@ -798,6 +800,10 @@ export class HostBridge extends EventEmitter {
         return out;
       }
       case 'thread/unsubscribe': c.subs.delete(id); return {};
+      case 'agent/message': {
+        if (!this.opts.children) throw new HostError('omo 하위 에이전트 저장소가 설정되어 있지 않습니다');
+        return sendOmoChild({ children: this.opts.children, index: this.opts.index }, (type, params) => this.#req(type, params, 120_000), p);
+      }
       case 'turn/start': return this.#prompt(await this.#attachFor(c, id), inputText(p.input));
       case 'turn/steer': {
         const s = await this.#attachFor(c, id);

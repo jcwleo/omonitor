@@ -10,6 +10,7 @@ import { basename, dirname, isAbsolute, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { engineOf, ensureHost, HOST_SOCKET, HostBridge, probeHost } from './host.ts';
 import { OpencodeBridge, opencodeBin, opencodeInstalled, runningVersion } from './opencode.ts';
+import { OmoChildren } from './omo-children.ts';
 import { PushError, PushService, watchSessions } from './push.ts';
 import { ArchiveStore, SessionIndex, TOOL_IMAGE_TYPES, toolImages } from './sessions.ts';
 import { TerminalError, TerminalManager } from './terminal.ts';
@@ -42,7 +43,9 @@ const wsReason = (s: string) => {
 
 // ── saved sessions, read from their files without loading them into the omo host ──
 const sessions = new SessionIndex(SESSIONS_DIR);
+const children = new OmoChildren(join(AGENT_DIR, 'projects'));
 const threadPath = (threadId: string) => sessions.pathOf(threadId);
+const historyPath = async (threadId: string) => await threadPath(threadId) || await children.pathOf(threadId);
 
 // ── Claude subscription models, for a model list that leaves them out ──
 // app-server's model/list never saw providers registered by builtin extensions, such as anthropic-subscription (Claude
@@ -473,7 +476,7 @@ async function parseHistory(path: string, threadId: string) {
   return turns;
 }
 async function readHistory(threadId: string) {
-  const path = await threadPath(threadId);
+  const path = await historyPath(threadId);
   return path ? (await parseHistory(path, threadId)).slice(-HISTORY_TURNS) : [];
 }
 // Todo calls across the whole session, for threads whose app-server history lost its tool items after a restart.
@@ -498,7 +501,7 @@ async function activityTimes() {
 // The shape matches omo.task.updated so the store's parseTasks reads both.
 function spawnedTask(d: any, at: string) {
   const task = {
-    task_id: d.task_id, name: d.name, task_summary: d.task_summary, agent_type: d.subagent_type ?? d.agent_type, category: d.category,
+    task_id: d.task_id, child_session_id: d.child_session_id, name: d.name, task_summary: d.task_summary, agent_type: d.subagent_type ?? d.agent_type, category: d.category,
     model: d.resolved_model?.display ?? d.model,
   };
   // A foreground task (run_in_background: false) or one that failed to start is already over when the task tool
@@ -509,7 +512,7 @@ function spawnedTask(d: any, at: string) {
 function finishedTask(d: any) {
   const ok = d.status === 'completed';
   return {
-    task_id: d.task_id, name: d.name, agent_type: d.agent_type, category: d.category, model: d.resolved_model?.display ?? d.model, live_progress: null,
+    task_id: d.task_id, child_session_id: d.child_session_id, name: d.name, agent_type: d.agent_type, category: d.category, model: d.resolved_model?.display ?? d.model, live_progress: null,
     final_response: ok ? String(d.final_response || '완료') : '', error_message: ok ? '' : String(d.error_message || d.error || d.reason || (d.status === 'cancelled' ? '취소됨' : d.status || '실패')),
     run_stats: { duration_ms: d.duration_ms ?? d.run_stats?.runtime_ms, tool_calls: d.run_stats?.tool_calls },
   };
@@ -545,6 +548,25 @@ async function threadMeta(threadId: string) {
       // New wake messages wrap the producer's completion records; older sessions store the array directly.
       const details = Array.isArray(e.details) ? e.details : e.details?.producerDetails;
       if (Array.isArray(details)) for (const c of details) if (c?.customType === 'senpi-task.completion') for (const d of c.details || []) if (d?.task_id) agents.set(d.task_id, { ...agents.get(d.task_id), ...finishedTask(d) });
+    }
+  }
+  if (agents.size) {
+    const childRecords = await children.forParent(threadId);
+    for (const [taskId, agent] of agents) {
+      const child = childRecords.get(taskId);
+      if (!child) { delete agent.child_session_id; continue; }
+      agent.child_session_id = child.childId;
+      switch (child.status) {
+        case 'running': case 'pending':
+          Object.assign(agent, { live_progress: agent.live_progress || { activity: '실행 중' }, final_response: '', error_message: '' });
+          break;
+        case 'completed':
+          Object.assign(agent, { live_progress: null, final_response: agent.final_response || '완료', error_message: '' });
+          break;
+        case 'failed': case 'cancelled':
+          Object.assign(agent, { live_progress: null, final_response: '', error_message: agent.error_message || (child.status === 'cancelled' ? '취소됨' : '실패') });
+          break;
+      }
     }
   }
   let usage = null;
@@ -651,7 +673,7 @@ async function openHere(target: string, cwd: string): Promise<OpenResult> {
 const TOOL_IMAGE_PATH = /^\/tool-images\/([^/]+)\/([^/]+)\/(\d+)$/;
 async function toolImage(threadId: string, callId: string, n: number) {
   let img = bridge.toolImage(threadId, callId, n) ?? (await opencode.toolImage(threadId, callId, n));
-  const path = img ? null : await threadPath(threadId);
+  const path = img ? null : await historyPath(threadId);
   if (path) {
     // Only the result's own line is parsed: a long session file holds tens of megabytes of other entries.
     const text = await readSession(path);
@@ -955,6 +977,7 @@ async function serveStatic(pathname: string) {
 
 const terminals = new TerminalManager();
 const bridge = new HostBridge({
+  children,
   socket: HOST_SOCKET, index: sessions, archive: new ArchiveStore(join(homedir(), '.omonitor/archived.json')), trashDir: join(homedir(), '.omonitor/trash'),
   fallbackModels: async () => (await askOmo('get_available_models'))?.models || [],
 });

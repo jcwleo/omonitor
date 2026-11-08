@@ -634,6 +634,13 @@ export class MockClient {
     },
     'thread/settings/update'({ threadId, model, effort }) { const t = this._th(threadId); if (model) t.settings.model = model; if (effort) t.settings.effort = effort; return {}; },
     'model/list'() { return { data: this.models, nextCursor: null }; },
+    'agent/message'({ threadId, parentThreadId, text }) {
+      const parent = this._th(parentThreadId);
+      if (!parent.tasks.some((task) => task.child_session_id === threadId)) throw new Error('이 세션의 서브에이전트가 아닙니다');
+      if (typeof text !== 'string' || !text.trim()) throw new Error('보낼 메시지를 입력하세요');
+      const t = this._th(threadId), turn = this._curTurn(t), input = txt(text.trim());
+      return turn ? this.h['turn/steer'].call(this, { threadId, expectedTurnId: turn.id, input }) : this.h['turn/start'].call(this, { threadId, input });
+    },
     'turn/start'({ threadId, input }) {
       const t = this._th(threadId);
       if (this._curTurn(t)) throw { code: -32600, message: '이미 진행 중인 턴이 있습니다' };

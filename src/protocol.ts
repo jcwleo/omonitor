@@ -77,6 +77,8 @@ export type TodoStatus = 'pending' | 'in_progress' | 'completed' | 'abandoned';
 export interface TodoState { phases: { name: string; tasks: { text: string; status: TodoStatus }[] }[]; raw: string | null }
 
 // ── subagents (extension_event name === 'omo.task.updated'); every field optional ──
+/** agent/message: deliver directly to a child of this parent; viewing history never invokes this method. */
+export interface AgentMessageParams { readonly threadId: string; readonly parentThreadId: string; readonly text: string }
 export interface OmoTask {
   task_id?: string; name?: string; task_summary?: string; description?: string; agent_type?: string; category?: string; model?: string;
   child_session_id?: string; run_stats?: Record<string, number>; live_progress?: { activity?: string; started_at?: number; current_tool?: string };

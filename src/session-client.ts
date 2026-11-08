@@ -199,7 +199,7 @@ export class RealClient implements SessionClient {
     };
     ws.onmessage = (ev) => this.onMessage(String(ev.data));
     ws.onclose = () => {
-      for (const [, p] of this.pending) p.reject({ code: -32000, message: `연결이 끊겨 ${p.method} 요청이 취소되었습니다` });
+      for (const [, p] of this.pending) p.reject({ code: -32000, message: `연결이 끊겨 ${p.method} 요청이 취소되었습니다`, ...(p.method === 'agent/message' && { data: { deliveryUncertain: true } }) });
       this.pending.clear();
       if (this.closedByUser) { this.emit('connection', { state: 'closed' }); return; }
       if (!this.everOpened && onFirstFail && this.attempt >= 2) { onFirstFail(new Error('backend unreachable')); }
