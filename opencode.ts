@@ -629,6 +629,10 @@ export class OpencodeBridge extends EventEmitter {
     }
     switch (type) {
       case 'session.deleted': this.#drop(s); return;
+      case 'session.moved':
+        s.cwd = d.location.directory;
+        if (!s.parentID) void this.#threadOf(s).then((thread) => this.#notifyAll('thread/started', { thread }));
+        return;
       case 'session.renamed':
         s.title = d.title || null;
         if (s.parentID) this.#tasksChanged(s.parentID); else this.#notifyAll('thread/name/updated', { threadId: s.id, threadName: s.title || s.preview.slice(0, 40) });
