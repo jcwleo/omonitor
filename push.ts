@@ -152,7 +152,7 @@ const clip = (s: string, n = 140) => {
 export function watchSessions(opts: {
   bridge: {
     on(event: 'settled', fn: (threadId: string) => void): unknown;
-    on(event: 'question', fn: (q: { threadId: string; requestId: string; kind: 'question' | 'approval'; text: string }) => void): unknown;
+    on(event: 'question', fn: (q: { threadId: string; requestId: string; kind: 'question' | 'approval'; text: string; subagent?: string }) => void): unknown;
     isRunning(threadId: string): boolean;
   };
   enabled: () => Promise<boolean>;
@@ -195,9 +195,10 @@ export function watchSessions(opts: {
     void (async () => {
       if (!(await opts.enabled())) return;
       const ask = q.kind === 'question';
+      const text = q.text || (ask ? '답을 기다립니다' : '승인을 기다립니다');
       await opts.relay({
-        threadId: q.threadId, requestId: q.requestId, kind: q.kind, title: `${await opts.nameOf(q.threadId)} · ${ask ? '질문' : '승인 요청'}`.slice(0, 200),
-        body: (q.text || (ask ? '답을 기다립니다' : '승인을 기다립니다')).slice(0, 500),
+        threadId: q.threadId, requestId: q.requestId, kind: q.kind, title: `${await opts.nameOf(q.threadId)} · ${q.subagent ? '서브에이전트 ' : ''}${ask ? '질문' : '승인 요청'}`.slice(0, 200),
+        body: (q.subagent ? `${q.subagent}: ${text}` : text).slice(0, 500),
       });
     })().catch((e) => console.error('[push] 질문 알림을 보내지 못했습니다:', e?.message || e));
   });

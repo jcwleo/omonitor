@@ -194,10 +194,12 @@ type Sess = {
   createdAt: number; updatedAt: number; idleAt: number | null; startedAt: number | null; archived: boolean; outcome: string | null;
   running: boolean; turn: Turn | null; seq: number; inbox: Map<string, string>; tools: Map<string, { name: string; input: any }>; compacting: { id: string; own: boolean } | null;
 };
-type Req = { id: string; threadId: string; kind: 'permission' | 'form'; form?: any; msg: any };
+// threadId is the session the dashboard shows the request in; sessionId owns it and takes the answer. They differ for a
+// subagent: no dashboard follows a child session, so its request waits in the top-level session above it.
+type Req = { id: string; threadId: string; sessionId: string; kind: 'permission' | 'form'; form?: any; msg: any };
 
-// Events: 'settled' (threadId) when a session's run ends, 'question' ({ threadId, requestId, kind, text }) when one waits
-// for an answer. Child sessions (subagents) are tracked for their parent's agents tab and never reach the board.
+// Events: 'settled' (threadId) when a session's run ends, 'question' ({ threadId, requestId, kind, text, subagent? }) when
+// one waits for an answer. Child sessions (subagents) are tracked for their parent's agents tab and never reach the board.
 export class OpencodeBridge extends EventEmitter {
   url = '';
   version = '';
@@ -589,7 +591,7 @@ export class OpencodeBridge extends EventEmitter {
     const was = s.running;
     Object.assign(s, { running: false, outcome, updatedAt: Date.now(), idleAt: Date.now(), compacting: null });
     s.tools.clear();
-    for (const r of [...this.#reqs.values()]) if (r.threadId === s.id) this.#resolve(r);
+    for (const r of [...this.#reqs.values()]) if (r.sessionId === s.id) this.#resolve(r);
     if (s.parentID) { s.turn = null; this.#tasksChanged(s.parentID); return; }
     if (s.turn && error) s.turn.error = { message: error };
     this.#pushStatus(s);
@@ -599,7 +601,7 @@ export class OpencodeBridge extends EventEmitter {
   }
   #drop(s: Sess) {
     this.#byId.delete(s.id);
-    for (const r of [...this.#reqs.values()]) if (r.threadId === s.id) this.#resolve(r);
+    for (const r of [...this.#reqs.values()]) if (r.sessionId === s.id || r.threadId === s.id) this.#resolve(r);
     if (s.parentID) { this.#tasksChanged(s.parentID); return; }
     if (s.turn) this.#endTurn(s, 'interrupted');
     this.#notifyAll('thread/deleted', { threadId: s.id });
@@ -741,25 +743,32 @@ export class OpencodeBridge extends EventEmitter {
   #permission(p: any, fresh: boolean) {
     const s = p?.sessionID && this.#byId.get(p.sessionID);
     if (!s || this.#reqs.has(p.id)) return;
+    const { top, subagent } = this.#askedIn(s);
     const file = FILE_ACTIONS.has(p.action);
     const resources: string[] = (p.resources || []).map(String);
     const reason = [`${ACTION_KO[p.action] || p.action} 권한을 요청합니다`, p.message, p.save?.length && `'세션 동안 허용'을 누르면 opencode가 ${p.save.join(', ')} 규칙을 저장합니다`].filter(Boolean).join(' · ');
     const params = {
-      threadId: s.id, turnId: s.turn?.id || '', itemId: p.source?.id || p.id, reason,
+      threadId: top.id, turnId: top.turn?.id || '', itemId: p.source?.id || p.id, reason, ...(subagent && { subagent }),
       ...(file ? { changes: resources.map((path) => ({ path, kind: 'update', diff: '' })) } : { command: resources.join('\n') || p.action }),
     };
-    this.#ask({ id: p.id, threadId: s.id, kind: 'permission', msg: { id: p.id, method: file ? 'item/fileChange/requestApproval' : 'item/commandExecution/requestApproval', params } },
-      fresh && { kind: 'approval', text: resources.join(' ') || reason });
+    this.#ask({ id: p.id, threadId: top.id, sessionId: s.id, kind: 'permission', msg: { id: p.id, method: file ? 'item/fileChange/requestApproval' : 'item/commandExecution/requestApproval', params } },
+      fresh && { kind: 'approval', text: resources.join(' ') || reason, ...(subagent && { subagent: subagent.name }) });
   }
   #form(f: any, fresh: boolean) {
     const s = f?.sessionID && this.#byId.get(f.sessionID);
     if (!s || this.#reqs.has(f.id)) return;
+    const { top, subagent } = this.#askedIn(s);
     const questions = formQuestions(f);
-    const params = { threadId: s.id, turnId: s.turn?.id || '', itemId: f.metadata?.tool?.id || f.id, questions, waitForAnswer: true };
-    this.#ask({ id: f.id, threadId: s.id, kind: 'form', form: f, msg: { id: f.id, method: 'item/tool/requestUserInput', params } },
-      fresh && { kind: 'question', text: questions[0]?.question || f.title || '' });
+    const params = { threadId: top.id, turnId: top.turn?.id || '', itemId: f.metadata?.tool?.id || f.id, questions, waitForAnswer: true, ...(subagent && { subagent }) };
+    this.#ask({ id: f.id, threadId: top.id, sessionId: s.id, kind: 'form', form: f, msg: { id: f.id, method: 'item/tool/requestUserInput', params } },
+      fresh && { kind: 'question', text: questions[0]?.question || f.title || '', ...(subagent && { subagent: subagent.name }) });
   }
-  #ask(r: Req, alert: false | { kind: 'question' | 'approval'; text: string }) {
+  #askedIn(s: Sess) {
+    let top = s;
+    for (let up; top.parentID && (up = this.#byId.get(top.parentID));) top = up;
+    return { top, subagent: top === s ? null : { id: s.id, name: s.title || s.agent || '하위 에이전트', agent: s.agent || 'agent' } };
+  }
+  #ask(r: Req, alert: false | { kind: 'question' | 'approval'; text: string; subagent?: string }) {
     this.#reqs.set(r.id, r);
     for (const c of this.#clients) if (c.subs.has(r.threadId)) this.#send(c, r.msg);
     const s = this.#byId.get(r.threadId);
@@ -775,7 +784,7 @@ export class OpencodeBridge extends EventEmitter {
   async #answer(id: string, result: any) {
     const r = this.#reqs.get(id);
     if (!r) return;
-    const base = `/api/session/${enc(r.threadId)}`;
+    const base = `/api/session/${enc(r.sessionId)}`;
     try {
       if (r.kind === 'permission') await this.#api('POST', `${base}/permission/${enc(id)}/reply`, { decision: DECISION[result?.decision] || 'reject' });
       else {

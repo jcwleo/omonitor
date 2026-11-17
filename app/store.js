@@ -249,6 +249,12 @@ export const REQ_KIND = {
   'item/fileChange/requestApproval': '파일 변경 승인',
   'item/tool/requestUserInput': '질문',
 };
+// A subagent's request waits in its top-level session with params.subagent naming the child (opencode.ts).
+export function reqKind(r) {
+  const p = r.params || {};
+  if (r.method === 'item/tool/requestUserInput') return `${p.subagent ? '서브에이전트 ' : ''}질문 ${(p.questions || []).length}개`;
+  return p.subagent ? '서브에이전트 승인' : REQ_KIND[r.method] || '승인 요청';
+}
 
 // ── branch and worktree (T.git, from the backend's git summary) ──
 // One neutral pill for every kind, so it never competes with the status pill; the icon tells a worktree (accent folder)
@@ -337,7 +343,7 @@ export function viewSession(T, reqs, now) {
   if (r) {
     const p = r.params || {};
     o.reqId = r.id;
-    o.reqKind = r.method === 'item/tool/requestUserInput' ? `질문 ${(p.questions || []).length}개` : REQ_KIND[r.method] || '승인 요청';
+    o.reqKind = reqKind(r);
     o.reqCode = p.command || (p.changes || []).map((ch) => `${ch.kind === 'delete' ? '삭제' : ch.kind === 'add' ? '추가' : '수정'} ${ch.path}`).join(', ') || '';
     o.reqText = (p.questions || []).map((q) => q.question).join(' · ');
     o.reqShort = o.reqCode || (p.questions || []).map((q) => q.header || q.question).join(' · ');
@@ -680,10 +686,12 @@ export class Store {
     this.emit();
   }
   alert(T, r) {
-    const title = `${T?.name || '세션'} · ${REQ_KIND[r.method] || '요청'}`;
+    const sub = r.params?.subagent;
+    const title = `${T?.name || '세션'} · ${sub ? reqKind(r) : REQ_KIND[r.method] || '요청'}`;
     // With Web Push on, this device already gets the request through the backend (relay below).
     if (this.s.notify.browser && !this.s.notify.push && typeof Notification !== 'undefined' && Notification.permission === 'granted' && document.hidden) {
-      try { new Notification(title, { body: r.params?.command || r.params?.questions?.[0]?.question || '' }); } catch {}
+      const body = r.params?.command || r.params?.questions?.[0]?.question || '';
+      try { new Notification(title, { body: sub ? `${sub.name}: ${body}` : body }); } catch {}
     }
     if (this.s.notify.sound) {
       try {
@@ -699,8 +707,9 @@ export class Store {
     const send = this.c.backend?.pushRequest;
     if (!send || !r.params?.threadId) return;
     const q = r.method === 'item/tool/requestUserInput';
+    const sub = r.params.subagent;
     const body = (q ? r.params.questions?.[0]?.question : r.params.command || r.params.reason) || (q ? '답을 기다립니다' : '승인을 기다립니다');
-    send({ threadId: r.params.threadId, requestId: r.id, kind: q ? 'question' : 'approval', title: `${T?.name || '세션'} · ${q ? '질문' : '승인 요청'}`.slice(0, 200), body: String(body).slice(0, 500) })
+    send({ threadId: r.params.threadId, requestId: r.id, kind: q ? 'question' : 'approval', title: `${T?.name || '세션'} · ${sub ? '서브에이전트 ' : ''}${q ? '질문' : '승인 요청'}`.slice(0, 200), body: String(sub ? `${sub.name}: ${body}` : body).slice(0, 500) })
       .catch((e) => console.warn('[omonitor] 푸시 알림을 요청하지 못했습니다:', e?.message || e));
   }
   turnFor(T, turnId) {

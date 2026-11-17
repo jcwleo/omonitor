@@ -1447,9 +1447,10 @@ class Component extends DCLogic {
     const T = st.T(r.params?.threadId) || {};
     const p = r.params || {};
     const isQ = r.method === 'item/tool/requestUserInput';
+    const waits = isQ ? '답을 기다립니다' : '승인을 기다립니다';
     return {
-      id: r.id, key: r.id, kind: isQ ? `질문 ${(p.questions || []).length}개` : S.REQ_KIND[r.method] || '승인 요청', cwd: S.shortPath(T.cwd || ''), showSession: false,
-      sessionName: isQ ? '에이전트가 답을 기다립니다' : '에이전트가 승인을 기다립니다',
+      id: r.id, key: r.id, kind: S.reqKind(r), cwd: S.shortPath(T.cwd || ''), showSession: false,
+      sessionName: p.subagent ? `${p.subagent.agent} · ${p.subagent.name} 서브에이전트가 ${waits}` : `에이전트가 ${waits}`,
       ago: S.ago(now - r.receivedAt), countdown: S.countdown(r, now), isApproval: !isQ, isQuestion: isQ, collapsible: false, open: true,
       reason: p.reason || '', hasReason: !!p.reason, code: p.command || '', hasCommand: !!p.command,
       files: (p.changes || []).map((c) => {
