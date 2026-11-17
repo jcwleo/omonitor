@@ -137,9 +137,12 @@ export interface OmoRestartResult { restart: string }
 export interface OpenResult { opened: 'browser' | 'app' | 'finder' }
 /** One limit window of a subscription plan; percent is 0-100 and resetsAt is in ms. */
 export interface UsageWindow { label: string; percent: number; resetsAt: number | null }
-/** A Claude or ChatGPT login of omo. expired: the token ran out and waits for omo to refresh it. */
-export interface UsageAccount { provider: 'claude' | 'chatgpt'; name: string; plan: string | null; windows: UsageWindow[]; error?: string; expired?: boolean }
-/** GET /api/usage: plan usage read with omo's tokens from auth.json (cached by the backend: Claude 3 minutes, ChatGPT 30 seconds). */
+export type UsageProvider = 'claude' | 'chatgpt';
+export interface UsageAuthAccount { provider: UsageProvider; connected: boolean; email: string | null; expiresAt: number | null }
+export interface UsageLogin { provider: UsageProvider; id: string; url: string; expiresAt: number; mode: 'callback' | 'paste'; status: 'pending' | 'exchanging' | 'complete' | 'error'; error?: string }
+export interface UsageAuthState { accounts: UsageAuthAccount[]; pending: UsageLogin[] }
+export interface UsageAccount { provider: UsageProvider; name: string; plan: string | null; windows: UsageWindow[]; source?: 'omonitor'; error?: string; expired?: boolean; errorCode?: 'expired' | 'authentication' | 'credentials' | 'unavailable' }
+/** GET /api/usage: omonitor-owned logins; Claude cached for 3 minutes, ChatGPT for 30 seconds. */
 export interface PlanUsage { checkedAt: number; accounts: UsageAccount[] }
 /** POST /api/omo/update: `omo update`, then the omo host restart above. restartError means the update went in but the restart failed. */
 export interface OmoUpdateResult { update: string; restart?: string; restartError?: string }

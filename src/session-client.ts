@@ -1,6 +1,6 @@
 // SessionClient — the only thing the UI talks to. MockClient (app/mock-client.js) and RealClient
 // below implement the same contract, so swapping them needs no UI change.
-import type { RequestId, RpcNotification, ServerRequest, Skill, Item, InitializeParams, Turn, Model, OmoVersion, OmoUpdateResult, OmoRestartResult, OpenResult, OpencodeVersion, OpencodeUpdateResult, OmonitorVersion, OmonitorUpdateResult, PlanUsage, GitSummary } from './protocol';
+import type { RequestId, RpcNotification, ServerRequest, Skill, Item, InitializeParams, Turn, Model, OmoVersion, OmoUpdateResult, OmoRestartResult, OpenResult, OpencodeVersion, OpencodeUpdateResult, OmonitorVersion, OmonitorUpdateResult, PlanUsage, UsageAuthState, UsageLogin, UsageProvider, GitSummary } from './protocol';
 
 export type ConnectionState = 'connecting' | 'open' | 'reconnecting' | 'closed';
 export interface ConnectionEvent { state: ConnectionState; attempt?: number; retryInMs?: number; reconnected?: boolean }
@@ -33,8 +33,17 @@ export interface SessionClient {
     pushRequest(body: { threadId: string; requestId: string | number; kind: 'question' | 'approval'; title: string; body: string }): Promise<{ sent: number }>;
     /** Models of extension-registered providers (Claude subscription) that model/list does not return. */
     extraModels(): Promise<Model[]>;
-    /** Claude and ChatGPT plan usage of omo's logins; app-server's account/rateLimits/read does not serve them. */
+    /** Claude and ChatGPT plan usage of omonitor's own logins (usageAuth); app-server's account/rateLimits/read does not serve them. */
     usage(): Promise<PlanUsage>;
+    /** omonitor's own usage logins, one per provider and the same for both engines; tokens never reach the browser. */
+    usageAuth(): Promise<UsageAuthState>;
+    /** Starts a browser login; the page opens its url only from a user's tap. */
+    usageLogin(provider: UsageProvider): Promise<UsageLogin>;
+    /** Claude: the code#state its page shows. ChatGPT: the full redirected URL, when its local callback did not catch it. */
+    usageComplete(provider: UsageProvider, id: string, input: string): Promise<{ ok: true }>;
+    usageCancel(provider: UsageProvider, id: string): Promise<{ ok: true }>;
+    /** Forgets omonitor's stored login only; the account's other logins stay signed in. */
+    usageLogout(provider: UsageProvider): Promise<{ ok: true }>;
     /** Branch and worktree of each session (its folder, or the worktree its tool calls named) and the worktrees of their repos. */
     gitSummary(threads: { id: string; cwd: string; path: string }[]): Promise<GitSummary>;
     omoVersion(): Promise<OmoVersion>;
@@ -125,6 +134,11 @@ export class RealClient implements SessionClient {
       if (!r.ok) throw new Error(await r.text());
       return r.json();
     },
+    usageAuth: (): Promise<UsageAuthState> => this.usageAuthCall(''),
+    usageLogin: (provider: UsageProvider): Promise<UsageLogin> => this.usageAuthCall(`/${provider}/start`, null),
+    usageComplete: (provider: UsageProvider, id: string, input: string): Promise<{ ok: true }> => this.usageAuthCall(`/${provider}/complete`, { id, input }),
+    usageCancel: (provider: UsageProvider, id: string): Promise<{ ok: true }> => this.usageAuthCall(`/${provider}/cancel`, { id }),
+    usageLogout: (provider: UsageProvider): Promise<{ ok: true }> => this.usageAuthCall(`/${provider}/logout`, null),
     omoVersion: async (): Promise<OmoVersion> => {
       const r = await fetch('/api/omo/version', { headers: this.hdr() });
       if (!r.ok) throw new Error(await r.text());
@@ -172,6 +186,15 @@ export class RealClient implements SessionClient {
     },
   };
   private hdr() { return this.opts.sessionKey ? { 'x-mc-key': this.opts.sessionKey } : undefined; }
+  /** Usage logins are engine-independent; body undefined sends a GET, null a POST without a body. */
+  private async usageAuthCall<R>(path: string, body?: Record<string, string> | null): Promise<R> {
+    const r = await fetch(`/api/usage/auth${path}`, {
+      method: body === undefined ? 'GET' : 'POST', cache: 'no-store', body: body ? JSON.stringify(body) : undefined,
+      headers: { ...this.hdr(), ...(body ? { 'content-type': 'application/json' } : {}) },
+    });
+    if (!r.ok) throw new Error((await r.text()) || `HTTP ${r.status}`);
+    return r.json();
+  }
 
   on(ev: 'notification' | 'serverRequest' | 'connection', cb: any) { this.ls[ev].add(cb); return () => this.ls[ev].delete(cb); }
   private emit(ev: keyof RealClient['ls'], p: unknown) { this.ls[ev].forEach((f) => { try { (f as any)(p); } catch (e) { console.error(e); } }); }

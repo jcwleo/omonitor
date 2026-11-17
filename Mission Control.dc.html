@@ -383,6 +383,7 @@ html[data-vt]::view-transition-old(root),html[data-vt]::view-transition-new(root
 <button data-press="row" onClick="{{ togglePush }}" disabled="{{ pushDisabled }}" title="작업이 끝나거나 멈추거나 질문·승인을 기다리면 이 기기로 알립니다" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:8px;min-height:44px;padding:0 12px;font-size:13.5px;opacity:{{ pushOpacity }}">푸시 알림<span style="font-size:12px;color:var(--fg3)">이 기기</span><span style="margin-left:auto;width:30px;height:18px;flex:none;border-radius:999px;background:{{ pushTrack }};position:relative;transition:background .15s"><span style="position:absolute;top:2px;left:2px;translate:{{ pushX }};width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3);transition:translate .15s var(--ease-out)"></span></span></button>
 <sc-if value="{{ pushHasHint }}"><div style="padding:0 12px 8px;font-size:12px;line-height:1.45;color:var(--fg3)">{{ pushHint }}</div></sc-if>
 <sc-if value="{{ pushOn }}"><button onClick="{{ testPush }}" style="all:unset;cursor:pointer;align-self:flex-start;min-height:40px;padding:0 12px;font-size:13px;color:var(--acc-fg)">테스트 알림 보내기</button></sc-if>
+<button data-press="row" type="button" onClick="{{ openAccounts }}" aria-haspopup="dialog" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:8px;min-height:44px;padding:0 12px;font-size:13.5px">구독 계정<span style="margin-left:auto;min-width:0;color:var(--fg2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ acctHint }}</span><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="flex:none;color:var(--fg3);stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round"><path d="m9 6 6 6-6 6"></path></svg></button>
 <sc-if value="{{ isMock }}"><div style="font-size:12px;font-weight:500;color:var(--fg3);padding:9px 12px 3px;border-top:1px solid var(--line-soft);margin-top:4px">데모</div>
 <button data-press="row" onClick="{{ cycleSpeed }}" style="all:unset;cursor:pointer;display:flex;align-items:center;min-height:44px;padding:0 12px;font-size:13.5px">시뮬레이터 속도<span style="margin-left:auto;font-family:var(--mono);color:var(--fg2)">{{ speedLabel }}</span></button>
 <button data-press="row" onClick="{{ simDisconnect }}" style="all:unset;cursor:pointer;display:flex;align-items:center;min-height:44px;padding:0 12px;font-size:13.5px">연결 끊김 시뮬레이션</button></sc-if>
@@ -464,6 +465,7 @@ html[data-vt]::view-transition-old(root),html[data-vt]::view-transition-new(root
 <button data-press="row" onClick="{{ togglePush }}" disabled="{{ pushDisabled }}" title="작업이 끝나거나 멈추거나 질문·승인을 기다리면 이 기기로 알립니다" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:8px;min-height:40px;padding:0 10px;border-radius:var(--r-md);font-size:13.5px;color:var(--fg);opacity:{{ pushOpacity }}" style-hover="background:var(--hover)">푸시 알림<span style="font-size:12px;color:var(--fg3)">이 기기</span><span style="margin-left:auto;width:30px;height:18px;flex:none;border-radius:999px;background:{{ pushTrack }};position:relative;transition:background .15s"><span style="position:absolute;top:2px;left:2px;translate:{{ pushX }};width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3);transition:translate .15s var(--ease-out)"></span></span></button>
 <sc-if value="{{ pushHasHint }}"><div style="padding:0 10px 6px;font-size:12px;line-height:1.45;color:var(--fg3)">{{ pushHint }}</div></sc-if>
 <sc-if value="{{ pushOn }}"><button onClick="{{ testPush }}" style="all:unset;cursor:pointer;align-self:flex-start;min-height:32px;margin:0 10px 4px;font-size:12.5px;color:var(--acc-fg)" style-hover="color:var(--fg)">테스트 알림 보내기</button></sc-if>
+<button data-press="row" type="button" onClick="{{ openAccounts }}" aria-haspopup="dialog" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:8px;min-height:40px;padding:0 10px;border-radius:var(--r-md);font-size:13.5px;color:var(--fg)" style-hover="background:var(--hover)">구독 계정<span style="margin-left:auto;min-width:0;font-size:12.5px;color:var(--fg2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ acctHint }}</span><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="flex:none;color:var(--fg3);stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round"><path d="m9 6 6 6-6 6"></path></svg></button>
 </div>
 </div>
 </sc-if>
@@ -486,6 +488,8 @@ html[data-vt]::view-transition-old(root),html[data-vt]::view-transition-new(root
 </div>
 </div>
 </sc-if>
+
+<sc-if value="{{ acctOpen }}"><mc-usage-login ref="{{ acctRef }}"></mc-usage-login></sc-if>
 
 <sc-if value="{{ agentChatOpen }}">
 <dialog class="agent-chat" ref="{{ agentChatRef }}" aria-labelledby="agent-chat-title" onCancel="{{ closeAgentChat }}">
@@ -556,12 +560,13 @@ class Component extends DCLogic {
   state = { v: 0, now: Date.now(), w: window.innerWidth, view: 'board', selId: null, backTo: 'board', theme: null, drawer: false, drawerMounted: false,
     pal: null, sheet: null, dialog: null, viewer: null, menu: false, selMode: false, sel: {}, multiText: '', grouped: false, groupOpen: {}, lg: true, lgC: {}, lgOpen: {}, lgWt: {}, panels: { left: false, right: false }, colC: {}, secC: { archived: true },
     exp: {}, agentOpen: {}, doneOpen: null, runFold: false, escArmed: null, allC: false, rtab: 'todo', ptab: 'tl', q: '', lf: 'all', focus: -1, pf: null, speedIdx: 0,
-    goalDraft: '', goalBudgetDraft: '', fatal: null, nb: false, ns: false, ocVer: null, ocUpdating: false, ocRestarting: false, omonitorVer: null, omonitorUpdating: false, panelWidths: {}, termLive: {}, terms: [], termPolicy: null, termErr: '', prefs: false, push: { ready: false, on: false, busy: false, why: '' } };
+    goalDraft: '', goalBudgetDraft: '', fatal: null, nb: false, ns: false, ocVer: null, ocUpdating: false, ocRestarting: false, omonitorVer: null, omonitorUpdating: false, panelWidths: {}, termLive: {}, terms: [], termPolicy: null, termErr: '', prefs: false, acct: false, acctAuth: null, push: { ready: false, on: false, busy: false, why: '' } };
   tlRef = React.createRef();
   detailRef = React.createRef();
   sheetFileRef = React.createRef();
   agentChatRef = React.createRef();
   agentHistoryRef = React.createRef();
+  acctRef = React.createRef();
   agentDrafts = {};
   agentSending = new Set();
   stick = true;
@@ -711,7 +716,10 @@ class Component extends DCLogic {
       const t = e.touches[0];
       this.edge = e.touches.length === 1 && this.swipeBack && t.clientX <= EDGE_PX ? { x: t.clientX, y: t.clientY, dx: 0, v: 0, at: e.timeStamp, on: false, back: this.swipeBack } : null;
       this.dragOk = e.touches.length !== 1;
-      for (let el = e.target; el && el !== document.body && !this.dragOk; el = el.parentElement) {
+      // The composed path also walks into open shadow roots, where the 구독 계정 sheet keeps its scrolling body.
+      for (const el of e.composedPath()) {
+        if (el === document.body || this.dragOk) break;
+        if (!(el instanceof Element)) continue;
         if (el.isContentEditable || el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') this.dragOk = true;
         else {
           const s = getComputedStyle(el);
@@ -808,7 +816,8 @@ class Component extends DCLogic {
       this.versionTick = setInterval(() => { this.checkOpencodeVersion(); this.checkOmonitorVersion(); }, 30 * 60 * 1000);
       // Plan usage: every minute while the page is visible and after each finished turn (the backend caches Claude for 3 minutes, ChatGPT for 30s).
       this.checkUsage();
-      this.usageTick = setInterval(() => { if (document.visibilityState === 'visible') this.checkUsage(); }, 60 * 1000);
+      this.checkAccounts();
+      this.usageTick = setInterval(() => { if (document.visibilityState === 'visible') { this.checkUsage(); this.checkAccounts(); } }, 60 * 1000);
       // Branches and worktrees: every 20s while the page is visible, and shortly after a turn ends or a session starts.
       this.store.refreshGit();
       this.gitTick = setInterval(() => { if (document.visibilityState === 'visible') this.store.refreshGit(); }, 20 * 1000);
@@ -963,6 +972,13 @@ class Component extends DCLogic {
     this.trackShown();
     const agentDialog = this.agentChatRef.current;
     if (this.state.agentChat && agentDialog && !agentDialog.open) agentDialog.showModal();
+    const acct = this.acctRef.current;
+    if (this.state.acct && acct?.show && !acct.shown) acct.show({ backend: this.client.backend, onAuth: this.onAcctAuth, onClose: () => { this.accountsRestoreFocus = true; this.setState({ acct: false }); } });
+    if (!this.state.acct && this.accountsRestoreFocus) {
+      this.accountsRestoreFocus = false;
+      const opener = this.state.w < 700 ? document.querySelector('path[d="M4 6h16"]')?.closest('button') : document.querySelector('button[aria-label="설정"]');
+      opener?.focus({ preventScroll: true });
+    }
     const agentHistory = this.agentHistoryRef.current;
     if (agentHistory !== this.agentHistoryEl) {
       this.agentHistoryObserver?.disconnect();
@@ -1082,6 +1098,24 @@ class Component extends DCLogic {
   async checkUsage() {
     try { const usage = await this.client?.backend?.usage?.(); if (usage) this.setState({ usage }); }
     catch (e) { console.warn('[omonitor] 요금제 사용량을 읽지 못했습니다:', e?.message || e); }
+  }
+  // 구독 계정: the dialog module (app/usage-login.js) loads on first open, so a failed load only costs this dialog.
+  async openAccounts() {
+    this.setState({ prefs: false, drawer: false });
+    try { (await (this.usageLoginMod ??= import(new URL('app/usage-login.js', location.href).href))).defineUsageLogin(); }
+    catch (e) { this.usageLoginMod = null; this.store?.toast(`구독 계정 화면을 열지 못했습니다: ${e?.message || e}`, 'error'); return; }
+    this.setState({ acct: true });
+  }
+  // Every state the dialog reads; a login or logout that changed an account reloads the plan usage at once.
+  onAcctAuth = (acctAuth) => {
+    const key = (st) => JSON.stringify((st?.accounts || []).map((a) => [a.provider, a.connected, a.email, a.expiresAt]));
+    const changed = !!this.state.acctAuth && key(this.state.acctAuth) !== key(acctAuth);
+    this.setState({ acctAuth });
+    if (changed) this.checkUsage();
+  };
+  async checkAccounts() {
+    try { const acctAuth = await this.client?.backend?.usageAuth?.(); if (acctAuth) this.setState({ acctAuth }); }
+    catch (e) { console.warn('[omonitor] 구독 계정 상태를 읽지 못했습니다:', e?.message || e); }
   }
   async runOpencodeUpdate() {
     const st = this.store;
@@ -1296,6 +1330,8 @@ class Component extends DCLogic {
   // button reached with Tab keeps its own Enter, and a held Enter does not confirm. Esc closes the image viewer the same
   // way, and no other key reaches the screen behind it.
   modalKey(e) {
+    // The 구독 계정 dialog takes its own Esc and Enter (its keys arrive retargeted to the mc-usage-login host).
+    if (this.state.acct) return;
     if (this.state.agentChat) {
       if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); this.closeAgentChat(); }
       return;
@@ -1312,7 +1348,7 @@ class Component extends DCLogic {
     if (!e.repeat) this.dlgOk();
   }
   key(e) {
-    if (this.state.agentChat) return;
+    if (this.state.agentChat || this.state.acct) return;
     if (e.composedPath().some((el) => el.tagName === 'MC-TERMINAL')) return;
     const tag = document.activeElement?.tagName;
     const typing = tag === 'INPUT' || tag === 'TEXTAREA';
@@ -1785,7 +1821,7 @@ class Component extends DCLogic {
     const backPatch = (x) => (isPhone ? { view: x.backTo || 'board', selId: null } : { selId: null });
     const goBack = () => this.setState(backPatch);
     // The left-edge swipe (onTouchStart) does the back button's job, unless something is open over the conversation.
-    this.swipeBack = T && !isDesk && !(s.pal || s.sheet || s.dialog || s.menu || s.viewer || s.agentChat) ? goBack : null;
+    this.swipeBack = T && !isDesk && !(s.pal || s.sheet || s.dialog || s.menu || s.viewer || s.agentChat || s.acct) ? goBack : null;
     if (!isDesk && !T) { vals.showList = true; vals.listW = '100%'; }
     if (!isDesk && T) vals.showList = false;
     // The session list only folds on desktop with a session open, where it sits beside the conversation.
@@ -2119,7 +2155,7 @@ class Component extends DCLogic {
     };
     const resetIn = (at) => { const t = left(at); return t === '곧' ? t : `${t} 후`; };
     const usageAccts = (s.usage?.accounts || []).map((a) => ({
-      name: a.name, hasError: !!a.error, errShort: a.expired ? '갱신 대기' : '확인 불가',
+      name: a.name, hasError: !!a.error, errShort: ({ authentication: '인증 거절', credentials: '로그인 확인' })[a.errorCode] || (a.expired ? '갱신 대기' : '확인 불가'),
       title: [`${a.name}${a.plan ? ` · ${a.plan}` : ''}`, ...(a.error ? [a.error] : a.windows.map((w) => `${w.label} ${Math.round(w.percent)}%${w.resetsAt ? ` · ${resetIn(w.resetsAt)} 초기화` : ''}`))].join('\n'),
       wins: a.windows.filter((w, i) => i < 2 || w.percent >= 70).map((w) => ({
         label: w.label, pct: `${Math.round(w.percent)}%`, frac: String(w.percent / 100), hasLeft: !!w.resetsAt, left: w.resetsAt ? left(w.resetsAt) : '',
@@ -2132,6 +2168,9 @@ class Component extends DCLogic {
     const usageW = usageAccts.reduce((n, a) => n + 76 + a.wins.reduce((m, w) => m + (w.hasLeft ? 160 : 88), 0), 0);
     const usageInline = !isPhone && usageAccts.length > 0 && s.w >= (s.view === 'board' ? 900 : 680) + usageW + (vals.engineInline ? 160 : 0);
     Object.assign(vals, { hasUsage: usageAccts.length > 0, usageAccts, usageInline, usageRow: !isPhone && usageAccts.length > 0 && !usageInline });
+    // The 구독 계정 row in settings names the logins the usage reads with (app/usage-login.js manages them).
+    const acctOn = (s.acctAuth?.accounts || []).filter((a) => a.connected).map((a) => (a.provider === 'claude' ? 'Claude' : 'ChatGPT'));
+    Object.assign(vals, { acctOpen: s.acct, acctRef: this.acctRef, openAccounts: () => this.openAccounts(), acctHint: s.acctAuth ? acctOn.join(' · ') || '연결 안 됨' : '' });
 
     // ── command palette ──
     const pal = s.pal;

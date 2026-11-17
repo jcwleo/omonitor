@@ -16,6 +16,9 @@ import { ArchiveStore, SessionIndex, TOOL_IMAGE_TYPES, toolImages } from './sess
 import { TerminalError, TerminalManager } from './terminal.ts';
 import type { SocketData } from './terminal.ts';
 import { applySelf, checkSelf, isServiceProcess } from './update.ts';
+import { createPlanUsage } from './usage.ts';
+import { UsageAuth } from './usage-auth.ts';
+import { UsageAuthStore } from './usage-auth-store.ts';
 import type { GitRepo, GitSummary, GitWorktree, OmonitorUpdateResult, OmonitorVersion, OmoVersion, OpencodeVersion, OpenResult, ThreadGit } from './src/protocol.ts';
 
 const MOCK = process.argv.includes('--mock');
@@ -232,83 +235,8 @@ async function updateOmonitor(): Promise<OmonitorUpdateResult> {
 }
 const omonitorUpdate = () => (selfUpdating ??= updateOmonitor().finally(() => { selfUpdating = null; }));
 
-// ── plan usage of the Claude and ChatGPT subscriptions omo signs in with ──
-// app-server's account/rateLimits/read always fails (it serves only a Codex login) and omo keeps no rate-limit headers,
-// so usage comes from the endpoints behind Claude Code's /usage and Codex's /status, called with omo's own tokens from
-// auth.json. Neither is a public API. Tokens are never refreshed here: a refresh rotates the refresh token and would
-// leave omo's copy dead, so an expired token shows as an error until omo refreshes it on its next request.
-// Dashboards polling at once share one upstream call per provider per USAGE_CACHE_MS.
-type UsageWindow = { label: string; percent: number; resetsAt: number | null };
-type UsageAccount = { provider: 'claude' | 'chatgpt'; name: string; plan: string | null; windows: UsageWindow[]; error?: string; expired?: boolean };
-// Anthropic's endpoint answers 429 to calls about 30s apart (anthropics/claude-code#31637), so Claude is read at most
-// every 3 minutes, and a failed read waits as long as a good one.
-const USAGE_CACHE_MS: Record<UsageAccount['provider'], number> = { claude: 3 * 60 * 1000, chatgpt: 30 * 1000 };
-class UsageExpired extends Error { constructor() { super('토큰이 만료됐습니다. omo가 다음 요청 때 갱신합니다'); } }
-const usageCache = new Map<UsageAccount['provider'], { at: number; data: Promise<UsageAccount[]> }>();
-
-async function usageGet(url: string, headers: Record<string, string>) {
-  const res = await fetch(url, { headers: { ...headers, 'user-agent': 'omonitor/0.1.0', accept: 'application/json' }, signal: AbortSignal.timeout(8000) });
-  if (res.status === 401) throw new UsageExpired();
-  if (!res.ok) throw new Error(`사용량을 읽지 못했습니다 (HTTP ${res.status})`);
-  return res.json();
-}
-const usagePct = (n: unknown) => Math.max(0, Math.min(100, Number(n) || 0));
-const usageAt = (s: unknown) => (typeof s === 'string' && Date.parse(s)) || null;
-// Claude reports limits[] (5-hour session, weekly, weekly per model); older replies have only the named windows.
-function claudeWindows(u: any): UsageWindow[] {
-  if (Array.isArray(u?.limits) && u.limits.length) {
-    return u.limits.map((l: any) => ({
-      label: l.kind === 'session' ? '5시간' : l.kind === 'weekly_all' ? '주간' : l.scope?.model?.display_name ? `주간 ${l.scope.model.display_name}` : String(l.kind),
-      percent: usagePct(l.percent), resetsAt: usageAt(l.resets_at),
-    }));
-  }
-  return ([['five_hour', '5시간'], ['seven_day', '주간'], ['seven_day_opus', '주간 Opus'], ['seven_day_sonnet', '주간 Sonnet']] as const)
-    .filter(([k]) => u?.[k]).map(([k, label]) => ({ label, percent: usagePct(u[k].utilization), resetsAt: usageAt(u[k].resets_at) }));
-}
-const windowLabel = (sec: number) => (sec === 604800 ? '주간' : sec % 86400 === 0 ? `${sec / 86400}일` : sec % 3600 === 0 ? `${sec / 3600}시간` : `${Math.round(sec / 60)}분`);
-function chatgptWindows(u: any): UsageWindow[] {
-  return [u?.rate_limit?.primary_window, u?.rate_limit?.secondary_window].filter(Boolean).map((w: any) => ({
-    label: windowLabel(Number(w.limit_window_seconds) || 0), percent: usagePct(w.used_percent), resetsAt: w.reset_at ? w.reset_at * 1000 : null,
-  }));
-}
-async function usageOf(provider: UsageAccount['provider'], name: string, read: () => Promise<{ plan: string | null; windows: UsageWindow[] }>): Promise<UsageAccount> {
-  try { return { provider, name, ...(await read()) }; }
-  catch (e: any) { return { provider, name, plan: null, windows: [], error: String(e?.message || e), expired: e instanceof UsageExpired }; }
-}
-const readAuth = async () => JSON.parse(await readFile(join(AGENT_DIR, 'auth.json'), 'utf8').catch(() => '{}'));
-async function claudeUsage() {
-  const auth = await readAuth();
-  const now = Date.now();
-  // anthropic-subscription keeps one slot per login in accounts[]; its top-level token is a placeholder.
-  const claude = auth[SUBSCRIPTION] ?? auth['claude-sdk-oauth'];
-  const slots = (Array.isArray(claude?.accounts) ? claude.accounts : claude ? [claude] : []).filter((a: any) => a?.access && a.access !== 'claude-sdk-oauth-managed');
-  return Promise.all(slots.map((a: any) => usageOf('claude', slots.length > 1 && a.name ? `Claude ${a.name}` : 'Claude', async () => {
-    if (a.expires && a.expires <= now) throw new UsageExpired();
-    return { plan: null, windows: claudeWindows(await usageGet('https://api.anthropic.com/api/oauth/usage', { authorization: `Bearer ${a.access}`, 'anthropic-beta': 'oauth-2025-04-20' })) };
-  })));
-}
-async function chatgptUsage() {
-  const auth = await readAuth();
-  const now = Date.now();
-  const gpt = auth['chatgpt-subscription'] ?? auth['openai-codex'];
-  if (!gpt?.access) return [];
-  return [await usageOf('chatgpt', 'ChatGPT', async () => {
-    if (gpt.expires && gpt.expires <= now) throw new UsageExpired();
-    const u = await usageGet('https://chatgpt.com/backend-api/wham/usage', { authorization: `Bearer ${gpt.access}`, ...(gpt.accountId ? { 'chatgpt-account-id': gpt.accountId } : {}) });
-    return { plan: typeof u?.plan_type === 'string' ? u.plan_type : null, windows: chatgptWindows(u) };
-  })];
-}
-function cachedUsage(provider: UsageAccount['provider'], read: () => Promise<UsageAccount[]>) {
-  const hit = usageCache.get(provider);
-  if (hit && Date.now() - hit.at < USAGE_CACHE_MS[provider]) return hit.data;
-  const data = read();
-  usageCache.set(provider, { at: Date.now(), data });
-  return data;
-}
-async function planUsage() {
-  const [claude, chatgpt] = await Promise.all([cachedUsage('claude', claudeUsage), cachedUsage('chatgpt', chatgptUsage)]);
-  return { checkedAt: Date.now(), accounts: [...claude, ...chatgpt] };
-}
+const usageAuth = new UsageAuth(await UsageAuthStore.open(process.env.OMONITOR_USAGE_DIR || join(homedir(), '.omonitor/usage-auth')));
+const planUsage = createPlanUsage(usageAuth);
 
 // ── slash palette: the commands and skills omo runs for `/name` and `/skill:name` ──
 // A turn starting with a `/name` omo has not registered is refused as an unknown command, so the palette lists what the
@@ -960,6 +888,7 @@ const STATIC = new Set([
   '/manifest.webmanifest', '/app/icon-180.png', '/app/icon-512.png', '/app/icon-maskable-512.png',
   '/app/terminal.js', '/app/terminals.js', '/app/terminal-input.js', '/app/terminal-clipboard.js',
   '/app/terminal-reports.js', '/app/terminal-keys.js', '/app/terminal.css', '/app/push.js', '/sw.js', '/app/git-graph.js',
+  '/app/usage-login.js',
 ]);
 const VENDOR = new Map([
   ['/vendor/xterm.js', join(ROOT, 'node_modules/@xterm/xterm/lib/xterm.mjs')],
@@ -1027,6 +956,7 @@ const server = Bun.serve<SocketData>({
     }
     if (url.pathname.startsWith('/api/')) {
       if (!keyOk(req, url)) return new Response('bad key', { status: 401 });
+      if (url.pathname === '/api/usage/auth' || url.pathname.startsWith('/api/usage/auth/')) return usageAuth.http(req, url);
       if (url.pathname === '/api/terminal' || url.pathname.startsWith('/api/terminals/') || url.pathname === '/api/terminals') {
         try { return await terminals.http(req, url); }
         catch (error) {
@@ -1123,7 +1053,7 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const) {
     });
   });
 }
-process.once('exit', () => { void terminals.shutdown(); });
+process.once('exit', () => { usageAuth.close(); void terminals.shutdown(); });
 
 if (!MOCK) {
   bridge.start();

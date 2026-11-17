@@ -279,6 +279,9 @@ export class MockClient {
       { id: 'kimi-k3', displayName: 'Kimi K3', supportedReasoningEfforts: ['low', 'medium', 'max'] },
     ];
     this.seedRequests();
+    // omonitor's own usage logins, faked in the page (nothing is sent anywhere): see _loginStart/_loginComplete.
+    this.auth = { claude: { connected: true, email: 'me@example.com', expiresAt: Date.now() + 8 * H }, chatgpt: { connected: true, email: 'me@example.com', expiresAt: Date.now() + 9 * D } };
+    this.logins = new Map();
     this.backend = {
       listSkills: async () => { await sleep(200); return SKILLS; },
       restoreTodos: async (threadId) => {
@@ -297,8 +300,16 @@ export class MockClient {
         return { checkedAt: Date.now(), accounts: [
           { provider: 'claude', name: 'Claude', plan: null, windows: [{ label: '5시간', percent: 38, resetsAt: at(2.4) }, { label: '주간', percent: 74, resetsAt: at(61) }, { label: '주간 Opus', percent: 12, resetsAt: at(61) }] },
           { provider: 'chatgpt', name: 'ChatGPT', plan: 'pro', windows: [{ label: '5시간', percent: 9, resetsAt: at(4.1) }, { label: '주간', percent: 93, resetsAt: at(30) }] },
-        ] };
+        ].map((a) => this.auth[a.provider].connected ? a : { ...a, plan: null, windows: [], errorCode: 'credentials', error: '설정의 구독 계정에서 로그인하세요' }) };
       },
+      usageAuth: async () => {
+        await sleep(150);
+        return { accounts: ['claude', 'chatgpt'].map((provider) => ({ provider, ...this.auth[provider] })), pending: [...this.logins.values()].map((f) => ({ ...f.view })) };
+      },
+      usageLogin: async (provider) => { await sleep(250); return this._loginStart(provider); },
+      usageComplete: (provider, id, input) => this._loginComplete(provider, id, input),
+      usageCancel: async (provider, id) => { await sleep(150); this._loginFlow(provider, id); this._loginEnd(provider); return { ok: true }; },
+      usageLogout: async (provider) => { await sleep(250); this._loginEnd(provider); this.auth[provider] = { connected: false, email: null, expiresAt: null }; return { ok: true }; },
       gitSummary: async (threads) => { await sleep(250); return mockGit(threads); },
       // The simulator opens nothing on the Mac: a URL goes to a browser tab as before, a file path only reports back.
       open: async (target) => {
@@ -344,6 +355,50 @@ export class MockClient {
     if (t.id !== 'th_pay') return;
     t.used = Math.min(200000, (t.used || 121400) + add);
     this._notify('thread/tokenUsage/updated', { threadId: t.id, tokenUsage: { total: { totalTokens: t.used }, modelContextWindow: 200000 } });
+  }
+  // A pretend browser login with the real backend's states. Claude finishes with a pasted code#state; ChatGPT's local
+  // callback "arrives" 8s after start, or a pasted http://localhost:1455/auth/callback?code=… finishes it (?error=…
+  // plays a refused login). Input starting with "fail" plays a failed token exchange.
+  _loginStart(provider) {
+    this._loginEnd(provider);
+    const view = { provider, id: nid('login'), url: `${provider === 'claude' ? 'https://claude.ai' : 'https://auth.openai.com'}/oauth/authorize?client_id=omonitor-simulator&state=${nid('st')}`, expiresAt: Date.now() + 10 * M, mode: provider === 'chatgpt' ? 'callback' : 'paste', status: 'pending' };
+    const f = { view, timers: [setTimeout(() => Object.assign(view, { status: 'error', error: '로그인 요청이 만료됐습니다. 다시 로그인하세요' }), 10 * M)] };
+    if (provider === 'chatgpt') f.timers.push(setTimeout(() => { if (view.status === 'pending') this._loginExchange(f, true); }, 8000));
+    this.logins.set(provider, f);
+    return { ...view };
+  }
+  _loginFlow(provider, id) {
+    const f = this.logins.get(provider);
+    if (!f || f.view.id !== id) throw new Error('로그인 요청을 찾지 못했습니다');
+    return f;
+  }
+  _loginEnd(provider) { this.logins.get(provider)?.timers.forEach(clearTimeout); this.logins.delete(provider); }
+  async _loginExchange(f, ok) {
+    f.view.status = 'exchanging';
+    await sleep(1200);
+    if (this.logins.get(f.view.provider) !== f) return '로그인 요청이 취소됐습니다';
+    f.timers.forEach(clearTimeout);
+    if (!ok) return Object.assign(f.view, { status: 'error', error: '인증 교환에 실패했습니다 (HTTP 400). 구독 계정에서 다시 로그인하세요' }).error;
+    this.auth[f.view.provider] = { connected: true, email: 'me@example.com', expiresAt: Date.now() + 8 * H };
+    f.view.status = 'complete';
+    return null;
+  }
+  async _loginComplete(provider, id, input) {
+    await sleep(200);
+    const f = this._loginFlow(provider, id), text = input.trim();
+    if (f.view.status !== 'pending') throw new Error('이미 처리된 로그인 요청입니다');
+    const mismatch = '승인 코드가 이 로그인 요청과 일치하지 않습니다. 다시 로그인하세요';
+    if (provider === 'claude' && !/^[^#\s]+#[^#\s]+$/.test(text)) throw new Error(mismatch);
+    if (provider === 'chatgpt') {
+      let url;
+      try { url = new URL(text); } catch (e) { if (e instanceof TypeError) throw new Error('로그인 후 이동한 주소 전체를 붙여넣으세요'); throw e; }
+      if (url.origin !== 'http://localhost:1455' || url.pathname !== '/auth/callback') throw new Error('ChatGPT 로그인 콜백 주소가 아닙니다');
+      if (url.searchParams.has('error')) throw new Error('ChatGPT 로그인이 취소됐습니다');
+      if (!url.searchParams.get('code')) throw new Error(mismatch);
+    }
+    const failed = await this._loginExchange(f, !text.startsWith('fail'));
+    if (failed) throw new Error(failed);
+    return { ok: true };
   }
   setSpeed(s) { this.speed = s; }
   on(ev, cb) { this.ls[ev].add(cb); return () => this.ls[ev].delete(cb); }

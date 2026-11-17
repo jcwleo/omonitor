@@ -15,6 +15,16 @@ export class RealClient {
     const hdr = () => (opts.sessionKey ? { 'x-mc-key': opts.sessionKey } : {});
     // The backend serves session data of the engine the dashboard shows.
     const api = (p) => { const u = new URL(p, location.href); if (opts.engine === 'opencode') u.searchParams.set('engine', 'opencode'); return u.href; };
+    // omonitor's own Claude and ChatGPT logins for plan usage. They are the same for both engines, so the URL carries no
+    // engine; tokens never leave the backend. body undefined = GET, null = POST without a body.
+    const usageAuth = async (path, body) => {
+      const r = await fetch(new URL(`api/usage/auth${path}`, location.href).href, {
+        method: body === undefined ? 'GET' : 'POST', cache: 'no-store', body: body ? JSON.stringify(body) : undefined,
+        headers: { ...hdr(), ...(body && { 'content-type': 'application/json' }) },
+      });
+      if (!r.ok) throw new Error((await r.text()) || `HTTP ${r.status}`);
+      return r.json();
+    };
     this.backend = {
       listSkills: async () => {
         const r = await fetch(api('api/skills'), { headers: hdr() });
@@ -77,12 +87,21 @@ export class RealClient {
         if (!r.ok) throw new Error(await r.text());
         return r.json();
       },
-      // Plan usage of the Claude and ChatGPT logins omo uses → { checkedAt, accounts: [{ provider, name, plan, windows, error? }] }.
+      // Plan usage of omonitor's own Claude and ChatGPT logins.
       usage: async () => {
         const r = await fetch(api('api/usage'), { headers: hdr() });
         if (!r.ok) throw new Error(await r.text());
         return r.json();
       },
+      // → { accounts: [{ provider, connected, email, expiresAt }], pending: [UsageLogin] } (UsageAuthState, src/protocol.ts).
+      usageAuth: () => usageAuth(''),
+      // Starts a browser login → UsageLogin; the page opens its url only from a user's tap.
+      usageLogin: (provider) => usageAuth(`/${provider}/start`, null),
+      // Claude: the code#state its page shows; ChatGPT: the full redirected URL when the local callback did not catch it.
+      usageComplete: (provider, id, input) => usageAuth(`/${provider}/complete`, { id, input }),
+      usageCancel: (provider, id) => usageAuth(`/${provider}/cancel`, { id }),
+      // Forgets omonitor's stored login only; the account's other logins stay signed in.
+      usageLogout: (provider) => usageAuth(`/${provider}/logout`, null),
       omoVersion: async () => {
         const r = await fetch(api('api/omo/version'), { headers: hdr() });
         if (!r.ok) throw new Error(await r.text());
