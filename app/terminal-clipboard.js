@@ -78,7 +78,7 @@ function readSelection(xterm) {
 export function stripTerminalExecutingTrailingLineBreaks(text) {
     return text.replace(/(?:\r\n|\r|\n)+$/, '');
 }
-async function writeClipboardText(text) {
+export async function writeClipboardText(text) {
     if (navigator.clipboard?.writeText) {
         try {
             await navigator.clipboard.writeText(text);

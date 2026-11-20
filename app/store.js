@@ -438,7 +438,8 @@ function viewItem(i) {
     case 'userMessage': {
       const { skills, text: asked } = foldSkills((i.content || []).map((c) => c.text).filter(Boolean).join('\n'));
       const { text, images } = splitImages(asked);
-      return { ...base, isUser: true, text, hasText: !!text, hasSkills: skills.length > 0, skills: skills.map((name) => ({ key: name, name })), hasImages: images.length > 0,
+      // prompt: the message as typed (skills as /skill: tokens, pictures apart), for copying it or sending it again.
+      return { ...base, isUser: true, text, prompt: [...skills.map((name) => `/skill:${name}`), text].filter(Boolean).join(' '), hasText: !!text, hasSkills: skills.length > 0, skills: skills.map((name) => ({ key: name, name })), hasImages: images.length > 0,
         images: images.map((m, k) => ({ ...m, key: String(k), hasUrl: !!m.url, noUrl: !m.url, name: m.path.split('/').pop() })) };
     }
     case 'agentMessage': return { ...base, isAgent: true, text: i.text || '' };
@@ -771,6 +772,17 @@ export class Store {
         u.items = u.items.map((x) => (x.id === p.itemId ? { ...x, content: [((x.content || [])[0] || '') + p.delta] } : x));
       } break;
       case 'turn/diff/updated': if (T) T.diff = p.diff || ''; break;
+      // A revert was staged, cleared or committed. The conversation from the reverted message on leaves at once; the
+      // reloaded history (which ends before a staged revert) confirms it, and brings the turns back when it is cleared.
+      case 'thread/revert/updated': if (T) {
+        T.revert = p.revert || null;
+        const at = T.revert ? T.turns.findIndex((u) => (u.items || []).some((i) => i.type === 'userMessage' && i.id === T.revert.messageId)) : -1;
+        if (at >= 0) {
+          const k = T.turns[at].items.findIndex((i) => i.id === T.revert.messageId);
+          T.turns = [...T.turns.slice(0, at), ...(k > 0 ? [{ ...T.turns[at], items: T.turns[at].items.slice(0, k) }] : [])];
+        }
+        if (T.historyLoaded) this.loadHistory(T.id).catch(() => {});
+      } break;
       case 'error': {
         const msg = p.error?.message || p.message || (typeof p.error === 'string' ? p.error : '');
         // omo also reports extension diagnostics here ({ extensionPath, event, error }); they carry no threadId.
@@ -837,7 +849,11 @@ export class Store {
     return T.id;
   }
   async rename(id, name) { await this.guard(this.c.request('thread/name/set', { threadId: id, name }), '이름을 바꾸지 못했습니다'); this.T(id).name = name; this.emit(); }
-  async fork(id) { const r = await this.guard(this.c.request('thread/fork', { threadId: id }), '복제 실패'); this.merge({ ...r.thread, subscribed: true }); this.emit(); return r.thread.id; }
+  // before: a user message the copy ends just before.
+  async fork(id, before) { const r = await this.guard(this.c.request('thread/fork', { threadId: id, ...(before && { before }) }), '복제 실패'); this.merge({ ...r.thread, subscribed: true }); this.emit(); return r.thread.id; }
+  // Takes the conversation back to just before a user message, file changes included, until the next message.
+  async revert(id, messageId) { await this.guard(this.c.request('thread/revert', { threadId: id, messageId }), '되돌리지 못했습니다'); }
+  async unrevert(id) { await this.guard(this.c.request('thread/revert/clear', { threadId: id }), '되살리지 못했습니다'); }
   async archive(id) { await this.guard(this.c.request('thread/archive', { threadId: id }), '보관 실패'); Object.assign(this.T(id), { archived: true, subscribed: false }); this.emit(); }
   async unarchive(id) { await this.guard(this.c.request('thread/unarchive', { threadId: id }), '보관 해제 실패'); this.T(id).archived = false; this.emit(); }
   async unsubscribe(id) {

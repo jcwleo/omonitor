@@ -306,7 +306,8 @@ html[data-vt]::view-transition-old(root),html[data-vt]::view-transition-new(root
 <sc-if value="{{ selTerminal }}"><div style="border-radius:var(--r);background:var(--tint);padding:10px 12px;display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--fg2);line-height:1.5"><span><span style="border-radius:999px;background:var(--sel);color:var(--fg);padding:1px 8px;font-size:12px;margin-right:6px">터미널 세션</span>터미널에서 켠 세션입니다. 대시보드는 아직 구독하지 않아 실시간 상태를 모릅니다.</span><button class="btn btn-secondary" onClick="{{ takeoverSel }}" style="align-self:flex-start;min-height:40px;font-size:13px;color:var(--acc-fg)">대시보드로 이어 받기…</button></div></sc-if>
 <sc-if value="{{ selNotSubNote }}"><div style="border-radius:var(--r);background:var(--tint);padding:8px 12px;display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--fg2)"><span style="flex:1">구독하지 않은 세션이라 실시간 알림이 오지 않고, 승인 요청은 자동으로 거절됩니다.</span><button class="btn btn-secondary" onClick="{{ subscribeSel }}" style="min-height:36px;font-size:12.5px;color:var(--fg)">구독</button></div></sc-if>
 <sc-if value="{{ selLost }}"><div style="border-radius:var(--r);background:var(--tint);padding:8px 12px;display:flex;flex-wrap:wrap;align-items:center;gap:7px;font-size:12.5px;color:var(--fg2);line-height:1.5"><span style="flex:1 1 240px">app-server가 재시작되어 이전 턴은 메시지만 남았습니다. todo와 도구 기록이 없습니다.</span><button class="btn btn-secondary" onClick="{{ restoreSel }}" style="min-height:36px;font-size:12.5px;color:var(--acc-fg);white-space:nowrap">세션 파일에서 todo 복원</button></div></sc-if>
-<sc-for list="{{ selItems }}" as="it" hint-placeholder-count="6"><dc-import name="McItem" it="{{ it }}" agent-name="{{ agentName }}" on-image="{{ openImage }}" on-open="{{ openHere }}" hint-size="100%,36px"></dc-import></sc-for>
+<sc-for list="{{ selItems }}" as="it" hint-placeholder-count="6"><dc-import name="McItem" it="{{ it }}" agent-name="{{ agentName }}" on-image="{{ openImage }}" on-open="{{ openHere }}" on-user="{{ onUserMsg }}" hint-size="100%,36px"></dc-import></sc-for>
+<sc-if value="{{ hasRevert }}"><div role="status" style="border:1px solid var(--line);border-radius:var(--r);background:var(--card);padding:9px 12px;display:flex;flex-direction:column;gap:7px;font-family:var(--font-body)"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="flex:none;color:var(--acc-fg);stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round"><path d="M9 14 4 9l5-5"></path><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"></path></svg><span style="flex:1 1 180px;font-size:13.5px;font-weight:500;color:var(--fg)">{{ revertTitle }}</span><button class="btn btn-secondary" onClick="{{ unrevertSel }}" disabled="{{ revertBusy }}" style="min-height:36px;font-size:12.5px;color:var(--acc-fg)">되살리기</button></div><sc-if value="{{ revertHasFiles }}"><div style="display:flex;flex-direction:column;gap:2px;padding-left:24px"><sc-for list="{{ revertFiles }}" as="f"><div style="display:flex;align-items:center;gap:6px;min-width:0;font:12px var(--mono)"><span style="flex:none;font:12px var(--font-body);color:var(--fg3)">{{ f.kind }}</span><span title="{{ f.path }}" style="flex:0 1 auto;min-width:0;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ f.path }}</span><sc-if value="{{ f.hasAdd }}"><span style="flex:none;color:var(--add-fg)">+{{ f.add }}</span></sc-if><sc-if value="{{ f.hasDel }}"><span style="flex:none;color:var(--err-fg)">−{{ f.del }}</span></sc-if></div></sc-for></div></sc-if><span style="padding-left:24px;font-size:12px;line-height:1.45;color:var(--fg3)">다음 메시지를 보내면 확정됩니다. 그 전까지는 되살릴 수 있습니다.</span></div></sc-if>
 <sc-if value="{{ hasSelReqs }}"><div style="display:flex;flex-direction:column;gap:8px;padding:6px 0 4px"><sc-for list="{{ selReqs }}" as="r"><dc-import name="McRequestCard" r="{{ r }}" hint-size="100%,220px"></dc-import></sc-for></div></sc-if>
 <sc-if value="{{ selItemsEmpty }}"><div style="padding:14px 0;font-size:13px;color:var(--fg3);text-align:center">아직 기록이 없습니다. 아래에서 첫 메시지를 보내세요.</div></sc-if>
 </div>
@@ -396,7 +397,7 @@ html[data-vt]::view-transition-old(root),html[data-vt]::view-transition-new(root
 <sc-if value="{{ palOpen }}">
 <div onClick="{{ closePalette }}" style="animation:mcFade var(--dur-fast) ease-out;position:absolute;inset:0;z-index:50;background:rgba(0,0,0,.45);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);display:flex;justify-content:center;align-items:flex-start;padding:{{ palPad }}">
 <div onClick="{{ stop }}" style="animation:mcPop var(--dur) var(--ease-out);transform-origin:50% 0;width:min(560px,100%);background:var(--bg2);border:1px solid var(--line2);border-radius:var(--r-lg);overflow:hidden;box-shadow:var(--shadow-lg);display:flex;flex-direction:column;max-height:70vh">
-<input class="input" autofocus="{{ true }}" value="{{ palQ }}" onChange="{{ onPalQ }}" onKeyDown="{{ palKey }}" placeholder="세션 이동 · 명령 실행" style="min-height:50px;font-size:15.5px;border:0;border-bottom:1px solid var(--line-soft);border-radius:0;padding:0 14px;background:transparent;color:var(--fg)">
+<input class="input" autofocus="{{ true }}" value="{{ palQ }}" onChange="{{ onPalQ }}" onKeyDown="{{ palKey }}" placeholder="{{ palPlaceholder }}" style="min-height:50px;font-size:15.5px;border:0;border-bottom:1px solid var(--line-soft);border-radius:0;padding:0 14px;background:transparent;color:var(--fg)">
 <div style="overflow:auto;padding:4px">
 <sc-for list="{{ palItems }}" as="p"><sc-if value="{{ p.head }}"><div style="font-size:12px;font-weight:500;color:var(--fg3);padding:6px 10px 2px">{{ p.label }}</div></sc-if><sc-if value="{{ p.row }}"><button onMouseDown="{{ p.onTap }}" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:7px;width:100%;box-sizing:border-box;min-height:40px;padding:0 10px;border-radius:var(--r-md);background:{{ p.bg }}"><span style="width:6px;height:6px;border-radius:50%;background:{{ p.dot }};flex:none"></span><span style="font-size:13.5px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ p.label }}</span><span style="font:12px var(--mono);color:var(--fg3);white-space:nowrap">{{ p.hint }}</span></button></sc-if></sc-for>
 <sc-if value="{{ palEmpty }}"><div style="padding:10px;font-size:12.5px;color:var(--fg3)">결과가 없습니다</div></sc-if>
@@ -474,6 +475,14 @@ html[data-vt]::view-transition-old(root),html[data-vt]::view-transition-new(root
 <div onClick="{{ closeMenu }}" style="animation:mcFade var(--dur-fast) ease-out;position:absolute;inset:0;z-index:45;background:{{ menuScrim }};display:flex;justify-content:{{ menuJustify }};align-items:{{ menuAlign }};padding:{{ menuPad }}">
 <div onClick="{{ stop }}" style="animation:{{ menuAnim }};transform-origin:100% 0;width:{{ menuW }};background:var(--bg2);border:1px solid var(--line2);border-radius:{{ menuRadius }};box-shadow:var(--shadow-lg);display:flex;flex-direction:column;padding:4px 4px {{ menuPadBottom }}">
 <sc-for list="{{ menuItems }}" as="m"><button data-press="row" onClick="{{ m.onTap }}" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:7px;min-height:44px;padding:0 10px;border-radius:var(--r-md);font-size:13.5px;color:{{ m.fg }};border-top:{{ m.sep }}" style-hover="background:var(--hover)">{{ m.label }}<span style="margin-left:auto;font-size:12px;color:var(--fg3)">{{ m.hint }}</span></button></sc-for>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ umOpen }}">
+<div onClick="{{ closeUm }}" style="animation:mcFade var(--dur-fast) ease-out;position:absolute;inset:0;z-index:45;background:{{ umScrim }}">
+<div data-umenu="1" role="menu" aria-label="메시지 동작" onClick="{{ stop }}" onKeyDown="{{ umKey }}" style="animation:{{ umAnim }};transform-origin:{{ umOrigin }};position:absolute;left:{{ umL }};top:{{ umT }};right:{{ umR }};bottom:{{ umB }};width:{{ umW }};box-sizing:border-box;background:var(--bg2);border:1px solid var(--line2);border-radius:{{ umRadius }};box-shadow:var(--shadow-lg);display:flex;flex-direction:column;padding:4px 4px {{ umPadBottom }}">
+<sc-for list="{{ umItems }}" as="m"><button role="menuitem" data-press="row" onClick="{{ m.onTap }}" disabled="{{ m.disabled }}" style="all:unset;cursor:{{ m.cursor }};display:flex;flex-direction:column;justify-content:center;gap:1px;min-height:48px;padding:4px 10px;box-sizing:border-box;border-radius:var(--r-md);opacity:{{ m.opacity }}" style-hover="background:var(--hover)"><span style="font-size:13.5px;color:var(--fg)">{{ m.label }}</span><span style="font-size:12px;line-height:1.4;color:var(--fg3)">{{ m.hint }}</span></button></sc-for>
 </div>
 </div>
 </sc-if>
@@ -558,7 +567,7 @@ function loadViewed() {
 }
 class Component extends DCLogic {
   state = { v: 0, now: Date.now(), w: window.innerWidth, view: 'board', selId: null, backTo: 'board', theme: null, drawer: false, drawerMounted: false,
-    pal: null, sheet: null, dialog: null, viewer: null, menu: false, selMode: false, sel: {}, multiText: '', grouped: false, groupOpen: {}, lg: true, lgC: {}, lgOpen: {}, lgWt: {}, panels: { left: false, right: false }, colC: {}, secC: { archived: true },
+    pal: null, sheet: null, dialog: null, viewer: null, menu: false, umenu: null, selMode: false, sel: {}, multiText: '', grouped: false, groupOpen: {}, lg: true, lgC: {}, lgOpen: {}, lgWt: {}, panels: { left: false, right: false }, colC: {}, secC: { archived: true },
     exp: {}, agentOpen: {}, doneOpen: null, runFold: false, escArmed: null, allC: false, rtab: 'todo', ptab: 'tl', q: '', lf: 'all', focus: -1, pf: null, speedIdx: 0,
     goalDraft: '', goalBudgetDraft: '', fatal: null, nb: false, ns: false, ocVer: null, ocUpdating: false, ocRestarting: false, omonitorVer: null, omonitorUpdating: false, panelWidths: {}, termLive: {}, terms: [], termPolicy: null, termErr: '', prefs: false, acct: false, acctAuth: null, push: { ready: false, on: false, busy: false, why: '' } };
   tlRef = React.createRef();
@@ -791,10 +800,10 @@ class Component extends DCLogic {
       let picked = 'omo';
       try { picked = localStorage.getItem('mc.engine') || 'omo'; } catch {}
       this.engine = this.engines.opencode && picked === 'opencode' ? 'opencode' : 'omo';
-      const [mod, S, terminal, push, TM, gitGraph] = await Promise.all([import(`${base}app/${real ? 'real' : 'mock'}-client.js`), import(`${base}app/store.js`), import(`${base}app/terminal.js`), import(`${base}app/push.js`), import(`${base}app/terminals.js`), import(`${base}app/git-graph.js`)]);
+      const [mod, S, terminal, push, TM, gitGraph, clip] = await Promise.all([import(`${base}app/${real ? 'real' : 'mock'}-client.js`), import(`${base}app/store.js`), import(`${base}app/terminal.js`), import(`${base}app/push.js`), import(`${base}app/terminals.js`), import(`${base}app/git-graph.js`), import(`${base}app/terminal-clipboard.js`)]);
       terminal.defineTerminal();
       gitGraph.defineGitGraph();
-      Object.assign(this, { TM, S, mod, cfg, runtimes: {} });
+      Object.assign(this, { TM, S, mod, cfg, clip, runtimes: {} });
       const rt = this.engineRuntime(this.engine);
       Object.assign(this, { client: rt.client, store: rt.store });
       this.setState({ v: 1 });
@@ -993,6 +1002,10 @@ class Component extends DCLogic {
     const renaming = this.state.dialog?.kind === 'rename';
     if (renaming && !this._renaming) { const el = document.querySelector('[data-dlg-input]'); el?.focus(); el?.select(); }
     this._renaming = renaming;
+    // A message menu opened from the keyboard takes the focus, so arrows and Enter work in it.
+    const um = this.state.umenu;
+    if (um?.keyboard && this._umFocused !== um) document.querySelector('[data-umenu] button:not([disabled])')?.focus();
+    this._umFocused = um;
     const pin = () => {
       const el = document.querySelector('[data-tl]');
       if (!el || !this.stick) return;
@@ -1051,6 +1064,55 @@ class Component extends DCLogic {
     const d = this.drafts.get(id);
     if (d) this.drafts.set(id, { ...d, images: d.images.map((m) => (m.id === imgId ? { ...m, ...patch } : m)) });
   }
+  // ── actions on one of the user's messages (opencode2), as opencode's TUI offers them ──
+  // The menu opens where the message was tapped (under it from the keyboard), or as a sheet on a phone.
+  draftRevs = new Map();
+  openUserMenu = (it, at) => {
+    const root = document.querySelector('.mc')?.getBoundingClientRect();
+    if (!root) return;
+    this.setState({ umenu: { id: this.state.selId, key: it.key, prompt: it.prompt || '', images: it.images || [], x: at.x - root.left, y: at.y - root.top, keyboard: !!at.keyboard } });
+  };
+  // A reverted or forked message goes back in the message box after what is already typed there, pictures included.
+  restorePrompt(id, um) {
+    const d = this.draftOf(id);
+    const images = um.images.filter((m) => m.url).map((m) => ({ id: Math.random().toString(36).slice(2), preview: m.url, status: 'ready', path: m.path, error: '' }));
+    this.saveDraft(id, { text: [d.text, um.prompt].filter(Boolean).join('\n\n'), images: [...d.images, ...images] });
+    this.draftRevs.set(id, (this.draftRevs.get(id) || 0) + 1);
+    this.focusComposer();
+  }
+  async revertTo(um) {
+    this.setState({ umenu: null });
+    try { await this.store.revert(um.id, um.key); } catch { return; }
+    this.restorePrompt(um.id, um);
+    this.stick = true;
+    this.setState((s) => ({ v: s.v + 1 }));
+  }
+  async forkAt(um) {
+    this.setState({ umenu: null });
+    let id;
+    try { id = await this.store.fork(um.id, um.key); } catch { return; }
+    this.restorePrompt(id, um);
+    this.openSession(id);
+  }
+  async copyPrompt(um) {
+    this.setState({ umenu: null });
+    const text = um.prompt || um.images.map((m) => m.path).join('\n');
+    try { await this.clip.writeClipboardText(text); this.store.toast('메시지를 복사했습니다', 'info'); }
+    catch (e) { this.store.toast(`복사하지 못했습니다: ${e?.message || e}`); }
+  }
+  // The timeline scrolls to a message and lights it up; it stops following new output until scrolled back down.
+  jumpTo(key) {
+    this.stick = false;
+    this.setState({ ptab: 'tl' }, () => requestAnimationFrame(() => {
+      const el = document.querySelector(`[data-tl] [data-umsg="${CSS.escape(key)}"]`);
+      if (!el) return;
+      el.scrollIntoView({ block: 'center', behavior: REDUCE.matches ? 'auto' : 'smooth' });
+      el.focus({ preventScroll: true });
+      el.animate({ boxShadow: ['0 0 0 2px var(--acc)', '0 0 0 2px transparent'] }, { duration: 1800, easing: 'ease-in' });
+    }));
+  }
+  openPrompts(id) { this.setState({ menu: false, pal: { q: '', idx: 0, mode: 'prompts', id } }); }
+  refocusUser(key) { requestAnimationFrame(() => document.querySelector(`[data-tl] [data-umsg="${CSS.escape(key)}"]`)?.focus({ preventScroll: true })); }
   // Models starred in the composer's model menu; once any is starred, the model lists show only those until "모든 모델 보기".
   toggleFavModel(id) {
     const favs = this.state.favModels || [];
@@ -1221,7 +1283,7 @@ class Component extends DCLogic {
     this.focusComposer(focus);
     // Back (button or edge swipe) returns to where the session was opened: the board, or the session list (the session
     // view with nothing selected). Moving between sessions keeps the original origin.
-    const update = (s) => ({ view: 'session', selId: id, backTo: s.view !== 'session' ? s.view : s.selId ? s.backTo : 'session', ptab: 'tl', pal: null, drawer: false });
+    const update = (s) => ({ view: 'session', selId: id, backTo: s.view !== 'session' ? s.view : s.selId ? s.backTo : 'session', ptab: 'tl', pal: null, umenu: null, drawer: false });
     // Desktop cross-fades into the session screen; phone and tablet push the conversation in over the screen it was
     // opened from. Moving between sessions inside the session screen just switches.
     const s = this.state, desk = this.layout() === 'desktop';
@@ -1359,6 +1421,7 @@ class Component extends DCLogic {
       if (s.dialog) return this.setState({ dialog: null });
       if (s.sheet) { this.dropSheetImages(s.sheet); return this.setState({ sheet: null }); }
       if (s.menu) return this.setState({ menu: false });
+      if (s.umenu) { if (s.umenu.keyboard) this.refocusUser(s.umenu.key); return this.setState({ umenu: null }); }
       if (s.prefs) return this.setState({ prefs: false });
       if (s.drawer) return this.setState({ drawer: false });
       if (s.selMode) return this.setState({ selMode: false, sel: {} });
@@ -1850,7 +1913,13 @@ class Component extends DCLogic {
       const goalBudgetN = Number(String(s.goalBudgetDraft).replace(/[^\d]/g, '')) || undefined;
       const mkTab = (cur, set) => ([k, label, count]) => ({ label, count, fg: cur === k ? 'var(--fg)' : 'var(--fg3)', bg: cur === k ? 'var(--sel)' : 'transparent', onTap: () => this.setState({ [set]: k }) });
       Object.assign(vals, {
-        sel, selItems: items, selItemsEmpty: items.length === 0, agentName: this.engine === 'opencode' ? 'opencode' : 'sisyphus',
+        sel, selItems: items, selItemsEmpty: items.length === 0 && !T.revert, agentName: this.engine === 'opencode' ? 'opencode' : 'sisyphus',
+        onUserMsg: this.engine === 'opencode' ? this.openUserMenu : null,
+        // opencode2's staged revert: what it took back, until the next message commits it or 되살리기 clears it.
+        hasRevert: !!T.revert, revertTitle: T.revert?.count ? `메시지 ${T.revert.count}개를 되돌렸습니다` : '메시지를 되돌렸습니다',
+        revertHasFiles: !!T.revert?.files?.length, revertBusy: s.unreverting === T.id,
+        revertFiles: (T.revert?.files || []).map((f) => ({ key: f.path, path: f.path, kind: { added: '추가', deleted: '삭제', modified: '수정' }[f.status] || f.status, add: f.add, del: f.del, hasAdd: f.add > 0, hasDel: f.del > 0 })),
+        unrevertSel: () => { this.setState({ unreverting: T.id }); st.unrevert(T.id).catch(() => {}).finally(() => this.setState({ unreverting: null })); },
         // Questions and approvals for this session are answered right in its timeline.
         selReqs: st.reqsFor(T.id).sort((a, b) => a.receivedAt - b.receivedAt).map((r) => this.requestView(r, now)),
         hasSelReqs: st.reqsFor(T.id).length > 0,
@@ -1924,7 +1993,7 @@ class Component extends DCLogic {
         composer: {
           running, activity: live ? [live.label, live.elapsed].filter(Boolean).join(' · ') : sel.col === 'working' ? sel.actLabel : '', model: T.settings?.model, effort: T.settings?.effort, models: st.s.models, favModels: s.favModels || [], onFavModel: (id) => this.toggleFavModel(id), skills: st.s.skills, usage: T.usage || null,
           padBottom: isPhone ? 'max(10px, env(safe-area-inset-bottom))' : '10px',
-          threadId: T.id, draft: this.draftOf(T.id), onDraft: (id, d) => this.saveDraft(id, d), patchDraftImage: (id, imgId, patch) => this.patchDraftImage(id, imgId, patch),
+          threadId: T.id, draft: this.draftOf(T.id), draftRev: this.draftRevs.get(T.id) || 0, onDraft: (id, d) => this.saveDraft(id, d), patchDraftImage: (id, imgId, patch) => this.patchDraftImage(id, imgId, patch),
           takeFocus: () => { const w = this.wantFocus; this.wantFocus = false; return w; },
           onSend: (text, images = []) => { const msg = S.withImages(text, images); this.stick = true; if (this.needsTakeover(T)) return this.confirm('takeover', T.id, { text: msg }); st.send(T.id, msg).catch(() => {}); },
           onUpload: st.c.backend?.upload ? (file) => st.upload(file) : null, imageFiles: S.imageFiles,
@@ -1938,6 +2007,7 @@ class Component extends DCLogic {
         { label: '이름 변경', hint: '', fg: 'var(--fg)', sep: 'none', onTap: () => this.confirm('rename', T.id, { input: T.name || '' }) },
         { label: '복제 (fork)', hint: '', fg: 'var(--fg)', sep: 'none', onTap: async () => { this.setState({ menu: false }); const id = await st.fork(T.id); this.openSession(id); } },
         { label: '컨텍스트 압축', hint: '', fg: 'var(--fg)', sep: 'none', onTap: () => { this.setState({ menu: false }); st.compact(T.id).catch(() => {}); } },
+        ...(this.engine === 'opencode' ? [{ label: '발화로 이동…', hint: '내 메시지 목록', fg: 'var(--fg)', sep: 'none', onTap: () => this.openPrompts(T.id) }] : []),
         T.archived ? { label: '보관 해제', hint: '', fg: 'var(--fg)', sep, onTap: () => { this.setState({ menu: false }); st.unarchive(T.id); } } : { label: '보관', hint: '', fg: 'var(--fg)', sep, onTap: () => { this.setState({ menu: false }); st.archive(T.id).then(() => this.archiveTerm(T.id), () => {}); } },
         T.subscribed ? { label: '구독 해제', hint: '실시간 알림 끔', fg: 'var(--fg)', sep: 'none', onTap: () => this.confirm('unsubscribe', T.id) } : { label: '구독', hint: '실시간 알림 켬', fg: 'var(--fg)', sep: 'none', onTap: () => { if (this.needsTakeover(T)) return this.confirm('takeover', T.id); this.setState({ menu: false }); st.resume(T.id); } },
         { label: '삭제…', hint: '', fg: 'var(--err-fg)', sep, onTap: () => this.confirm('delete', T.id) },
@@ -1948,6 +2018,34 @@ class Component extends DCLogic {
       menuScrim: isPhone ? 'rgba(10,11,12,.5)' : 'transparent', menuJustify: isPhone ? 'stretch' : 'flex-end', menuAlign: isPhone ? 'flex-end' : 'flex-start',
       menuPad: isPhone ? '0' : `calc(${54 + (vals.connBanner ? 40 : 0) + 44}px + env(safe-area-inset-top)) ${isDesk ? 330 : 310}px 0 0`, menuW: isPhone ? '100%' : '240px', menuAnim: isPhone ? 'mcSheet var(--dur-slow) var(--ease-out)' : 'mcPop var(--dur) var(--ease-out)', menuRadius: isPhone ? 'var(--r-lg) var(--r-lg) 0 0' : 'var(--r)', menuPadBottom: isPhone ? 'max(12px, env(safe-area-inset-bottom))' : '4px',
     });
+    // A user message's menu: beside the tap on wide screens (kept inside the window, above it near the bottom), a sheet
+    // on a phone. Reverting needs the session to be idle; the server refuses it mid-turn.
+    const um = T && s.umenu?.id === T.id ? s.umenu : null;
+    if (um) {
+      const busy = T.status?.type === 'active', W = 296, H = 190, root = document.querySelector('.mc');
+      const rw = root?.clientWidth || s.w, rh = root?.clientHeight || window.innerHeight;
+      const left = Math.max(8, Math.min(um.x, rw - W - 8)), below = um.y + 6 + H <= rh - 8;
+      const close = () => { if (um.keyboard) this.refocusUser(um.key); this.setState({ umenu: null }); };
+      const item = (label, hint, run, disabled = false) => ({ label, hint, disabled, cursor: disabled ? 'default' : 'pointer', opacity: disabled ? '0.55' : '1', onTap: disabled ? () => {} : run });
+      Object.assign(vals, {
+        umOpen: true, closeUm: close, umScrim: isPhone ? 'rgba(10,11,12,.5)' : 'transparent',
+        umL: isPhone ? '0' : `${left}px`, umR: isPhone ? '0' : 'auto', umT: isPhone ? 'auto' : below ? `${um.y + 6}px` : 'auto', umB: isPhone ? '0' : below ? 'auto' : `${rh - um.y + 6}px`,
+        umW: isPhone ? 'auto' : `${W}px`, umOrigin: below ? '0 0' : '0 100%', umAnim: isPhone ? 'mcSheet var(--dur-slow) var(--ease-out)' : 'mcPop var(--dur) var(--ease-out)',
+        umRadius: isPhone ? 'var(--r-lg) var(--r-lg) 0 0' : 'var(--r)', umPadBottom: isPhone ? 'max(12px, env(safe-area-inset-bottom))' : '4px',
+        umItems: [
+          item('되돌리기', busy ? '작업 중에는 되돌릴 수 없습니다' : '이 메시지부터 대화와 파일 변경을 되돌립니다', () => this.revertTo(um), busy),
+          item('복사', '메시지 내용을 클립보드에 복사합니다', () => this.copyPrompt(um)),
+          item('여기서 분기', '이 메시지 전까지를 새 세션으로 엽니다', () => this.forkAt(um)),
+        ],
+        umKey: (e) => {
+          if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+          e.preventDefault();
+          const btns = [...e.currentTarget.querySelectorAll('button:not([disabled])')];
+          const i = btns.indexOf(document.activeElement);
+          btns[(i + (e.key === 'ArrowDown' ? 1 : -1) + btns.length) % btns.length]?.focus();
+        },
+      });
+    } else Object.assign(vals, { umOpen: false, umItems: [] });
 
     const chat = s.agentChat;
     const chatTask = chat && st.T(chat.parentId)?.tasks?.find((a) => a.id === chat.taskId);
@@ -2182,19 +2280,29 @@ class Component extends DCLogic {
         ['세션 화면으로 이동', '⌥2 · g s', () => this.go('session')], ['터미널 관리로 이동', '⌥3 · g t', () => this.go('terminals')], [`테마: ${theme === 'dark' ? '라이트로' : '다크로'} 전환`, '', () => this.setStateVT({ theme: theme === 'dark' ? 'light' : 'dark' })],
         ['여러 세션에 메시지 보내기', '', () => this.setState({ view: 'board', selMode: true, sel: {} })],
         ...(this.engines?.opencode ? [[`엔진: ${this.engine === 'opencode' ? 'omo' : 'opencode2'}로 전환`, '', () => this.switchEngine(this.engine === 'opencode' ? 'omo' : 'opencode')]] : []),
+        ...(this.engine === 'opencode' && s.view === 'session' && T ? [['발화로 이동…', '이 세션의 내 메시지', () => this.openPrompts(T.id)]] : []),
         ...(this.mode === 'mock' ? [['연결 끊김 시뮬레이션', '데모', () => this.client.simulateDisconnect()]] : []),
       ].filter(([l]) => !q || l.toLowerCase().includes(q)).map(([label, hint, run]) => ({ label, hint, dot: 'transparent', run }));
       const sess = allViews.filter((v) => !q || `${v.name} ${v.cwd} ${v.statusLabel}`.toLowerCase().includes(q)).map((v) => ({ label: v.name, hint: `${v.projectName} · ${v.statusLabel}`, dot: v.statusColor, run: () => this.openSession(v.id) }));
-      const flat = [...sess, ...actions];
+      // 발화로 이동 (opencode2): the user's messages in the open session, newest first; one is scrolled to when picked.
+      const PT = pal.mode === 'prompts' ? st.T(pal.id) : null;
+      const turnOf = new Map((PT?.turns || []).flatMap((u, n) => (u.items || []).filter((i) => i.type === 'userMessage').map((i) => [i.id, { n: n + 1, at: u.askedAt || 0 }])));
+      const prompts = PT ? S.viewItems(PT, now).filter((x) => x.isUser && (!q || x.prompt.toLowerCase().includes(q))).reverse().map((x) => {
+        const t = turnOf.get(x.key) || {};
+        return { label: (x.prompt || `이미지 ${x.images.length}장`).replace(/\s+/g, ' '), hint: [t.n && `턴 ${t.n}`, t.at && S.clock(t.at, now)].filter(Boolean).join(' · '), dot: 'var(--acc)', run: () => this.jumpTo(x.key) };
+      }) : [];
+      const flat = PT ? prompts : [...sess, ...actions];
       const idx = Math.min(pal.idx, Math.max(0, flat.length - 1));
       let k = 0;
       const row = (x) => { const i = k++; return { row: true, ...x, bg: i === idx ? 'var(--sel)' : 'transparent', onTap: (e) => { e.preventDefault(); this.setState({ pal: null }); x.run(); } }; };
       const items = [];
-      if (sess.length) { items.push({ head: true, label: '세션' }); sess.forEach((x) => items.push(row(x))); }
-      if (actions.length) { items.push({ head: true, label: '동작' }); actions.forEach((x) => items.push(row(x))); }
+      if (prompts.length) { items.push({ head: true, label: '내 메시지' }); prompts.forEach((x) => items.push(row(x))); }
+      if (!PT && sess.length) { items.push({ head: true, label: '세션' }); sess.forEach((x) => items.push(row(x))); }
+      if (!PT && actions.length) { items.push({ head: true, label: '동작' }); actions.forEach((x) => items.push(row(x))); }
       Object.assign(vals, {
         palOpen: true, palQ: pal.q, palItems: items, palEmpty: flat.length === 0, palPad: isPhone ? '8px' : '12vh 16px 16px',
-        onPalQ: (e) => this.setState({ pal: { q: e.target.value, idx: 0 } }),
+        palPlaceholder: PT ? '내 메시지 검색 · 고르면 그 자리로 이동' : '세션 이동 · 명령 실행',
+        onPalQ: (e) => this.setState({ pal: { ...pal, q: e.target.value, idx: 0 } }),
         palKey: (e) => {
           if (e.nativeEvent?.isComposing || e.keyCode === 229) return; // keys that finish a Hangul syllable belong to the IME
           if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); if (!flat.length) return; this.setState({ pal: { ...pal, idx: (idx + (e.key === 'ArrowDown' ? 1 : -1) + flat.length) % flat.length } }); }

@@ -67,10 +67,11 @@ class Component extends DCLogic {
   componentWillUnmount() { this.mounted = false; }
   // The parent asks for the cursor here when a session is opened.
   takeFocus() { if (this.props.c?.takeFocus?.()) this.taRef.current?.focus({ preventScroll: true }); }
+  // draftRev changes when the parent rewrote the draft itself (a reverted message put back in the box).
   componentDidUpdate() {
     this.takeFocus();
     const id = this.props.c?.threadId;
-    if (this.draftFor !== id) { this.loadDraft(); return; }
+    if (this.draftFor !== id || this.draftRev !== (this.props.c?.draftRev || 0)) { this.loadDraft(); return; }
     const { text, images } = this.state;
     if (this.saved.text !== text || this.saved.images !== images) { this.saved = { text, images }; this.props.c?.onDraft?.(id, this.saved); }
   }
@@ -78,6 +79,7 @@ class Component extends DCLogic {
     const d = this.props.c?.draft || {};
     const text = d.text || '', images = d.images || [];
     this.draftFor = this.props.c?.threadId;
+    this.draftRev = this.props.c?.draftRev || 0;
     this.saved = { text, images };
     this.setState({ text, images, wide: text.includes('\n'), idx: 0 }, () => requestAnimationFrame(() => this.fit()));
   }

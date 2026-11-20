@@ -189,9 +189,12 @@ const DECISION: Record<string, string> = { accept: 'once', acceptForSession: 'al
 
 type Model = { id: string; providerID: string; variant?: string };
 type Turn = { id: string; status: string; items: any[]; error?: { message: string } };
+// A staged revert (Session.Revert): the user message it starts at and the files it put back. count is how many of the
+// user's messages it takes back, read once for the dashboard.
+type Revert = { messageID: string; files?: any[]; count?: number };
 type Sess = {
   id: string; parentID: string | null; title: string | null; preview: string; previewRead: boolean; cwd: string; agent: string | null; model: Model | null;
-  createdAt: number; updatedAt: number; idleAt: number | null; startedAt: number | null; archived: boolean; outcome: string | null;
+  createdAt: number; updatedAt: number; idleAt: number | null; startedAt: number | null; archived: boolean; outcome: string | null; revert: Revert | null;
   running: boolean; turn: Turn | null; seq: number; inbox: Map<string, string>; tools: Map<string, { name: string; input: any }>; compacting: { id: string; own: boolean } | null;
 };
 // threadId is the session the dashboard shows the request in; sessionId owns it and takes the answer. They differ for a
@@ -258,9 +261,14 @@ export class OpencodeBridge extends EventEmitter {
   }
 
   // ── backend REST (server.ts) ──
+  // A staged revert keeps its messages on the server until the next prompt commits it; the conversation ends before
+  // them, as in the TUI. A boundary missing from the window is older than all of it.
   async history(id: string) {
     await this.ready();
-    return historyTurns(await this.#messages(id), this.#byId.get(id)?.cwd || '', id).slice(-HISTORY_TURNS);
+    const s = this.#byId.get(id);
+    let msgs = await this.#messages(id);
+    if (s?.revert) { const at = msgs.findIndex((m) => m.id === s.revert!.messageID); msgs = at >= 0 ? msgs.slice(0, at) : []; }
+    return historyTurns(msgs, s?.cwd || '', id).slice(-HISTORY_TURNS);
   }
   // An image a tool returned, for server.ts's /tool-images route: key is "<message id>:<call id>". Only sessions this
   // bridge holds are looked up, so omo's ids fall through untouched.
@@ -424,13 +432,14 @@ export class OpencodeBridge extends EventEmitter {
     let s = this.#byId.get(info.id);
     if (!s) {
       s = { id: info.id, parentID: null, title: null, preview: '', previewRead: false, cwd: '', agent: null, model: null, createdAt: 0, updatedAt: 0, idleAt: null, startedAt: null,
-        archived: false, outcome: null, running: false, turn: null, seq: 0, inbox: new Map(), tools: new Map(), compacting: null };
+        archived: false, outcome: null, revert: null, running: false, turn: null, seq: 0, inbox: new Map(), tools: new Map(), compacting: null };
       this.#byId.set(info.id, s);
     }
     const t = info.time || {};
     Object.assign(s, {
       parentID: info.parentID || null, title: info.title || null, cwd: info.location?.directory || s.cwd, agent: info.agent || s.agent, model: info.model || s.model,
       createdAt: t.created || s.createdAt, updatedAt: Math.max(t.updated || 0, s.updatedAt), idleAt: t.idle ?? s.idleAt, archived: !!t.archived, outcome: info.outcome ?? s.outcome,
+      revert: info.revert?.messageID === s.revert?.messageID ? s.revert : info.revert || null,
     });
     return s;
   }
@@ -506,8 +515,25 @@ export class OpencodeBridge extends EventEmitter {
     }
     return {
       id: s.id, name: s.title, preview: s.preview, cwd: s.cwd, path: '', source: 'appServer', status: this.#status(s),
-      createdAt: s.createdAt, updatedAt: s.updatedAt || s.createdAt, archived: s.archived,
+      createdAt: s.createdAt, updatedAt: s.updatedAt || s.createdAt, archived: s.archived, revert: await this.#revertOf(s),
     };
+  }
+  // → { messageId, count, files: [{ path, status, add, del }] } or null; count stays null when the messages cannot be read.
+  async #revertOf(s: Sess) {
+    const r = s.revert;
+    if (!r) return null;
+    if (r.count == null) {
+      const page = await this.#api('GET', `/api/session/${enc(s.id)}/message?order=desc&limit=200&type=user`).catch(() => null);
+      if (page) { const users = page.data || []; const at = users.findIndex((m: any) => m.id === r.messageID); r.count = at >= 0 ? at + 1 : users.length; }
+    }
+    return { messageId: r.messageID, count: r.count ?? null, files: (r.files || []).map((f: any) => ({ path: String(f.file), status: String(f.status), add: f.additions || 0, del: f.deletions || 0 })) };
+  }
+  // Staged, cleared or committed (by a prompt) here or in another client. A newer change that lands while the count is
+  // read sends its own notice.
+  async #revertChanged(s: Sess) {
+    const r = s.revert;
+    const revert = await this.#revertOf(s);
+    if (s.revert === r && this.#byId.get(s.id) === s) this.#notifyAll('thread/revert/updated', { threadId: s.id, revert });
   }
   // A session made without a model keeps none of its own and runs on the server's default model, so that is what the
   // composer shows.
@@ -656,6 +682,8 @@ export class OpencodeBridge extends EventEmitter {
     switch (type) {
       case 'session.inbox.enqueued': if (d.item?.type === 'user') s.inbox.set(d.inboxID, promptText(d.item.payload)); return;
       case 'session.inbox.cancelled': s.inbox.delete(d.inboxID); return;
+      case 'session.revert.staged': s.revert = d.revert || null; void this.#revertChanged(s); return;
+      case 'session.revert.cleared': case 'session.revert.committed': s.revert = null; void this.#revertChanged(s); return;
       // A prompt joins the conversation when it is delivered: at once when idle, between steps while running. The
       // message keeps the inbox id, which is how history names it too.
       case 'session.inbox.delivered': {
@@ -913,8 +941,17 @@ export class OpencodeBridge extends EventEmitter {
         if (this.#byId.get(id) === s) this.#drop(s);
         return {};
       }
+      // Takes back the conversation from one of the user's messages on and the file changes made since, until the next
+      // prompt commits it; thread/revert/clear puts both back. The change reaches the dashboards as thread/revert/updated.
+      case 'thread/revert': {
+        if (this.#sess(id).running) throw new OpencodeError('작업 중인 세션은 되돌릴 수 없습니다. 턴이 끝난 뒤 다시 시도하세요');
+        await this.#api('POST', `/api/session/${enc(id)}/revert/stage`, { messageID: String(p.messageId || '') }, 120_000);
+        return {};
+      }
+      case 'thread/revert/clear': this.#sess(id); await this.#api('DELETE', `/api/session/${enc(id)}/revert`, undefined, 120_000); return {};
+      // before (a user message id): the copy ends just before that message.
       case 'thread/fork': {
-        const r = await this.#api('POST', `/api/session/${enc(id)}/fork`, {});
+        const r = await this.#api('POST', `/api/session/${enc(id)}/fork`, p.before ? { before: String(p.before) } : {});
         const s = this.#upsert(r.data || r);
         this.#subscribe(c, s);
         return this.#opened(s);
