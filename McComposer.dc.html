@@ -52,7 +52,7 @@
 </x-dc>
 <script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:400,&quot;height&quot;:200},&quot;c&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;ComposerProps&quot;}}">
 const GROUP = { command: '명령', skill: '스킬', keyword: '키워드' };
-const PROVIDER = { 'anthropic-subscription': 'CLAUDE 구독', anthropic: 'CLAUDE', 'chatgpt-subscription': 'CHATGPT 구독', openai: 'OPENAI' };
+const PROVIDER = { anthropic: 'CLAUDE', openai: 'OPENAI' };
 // Touch devices default to newline; virtual keyboards can emit the same codes as physical keyboards.
 const TOUCH_KEYBOARD = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
 const HANGUL = /[\u1100-\u11ff\u3130-\u318f\uac00-\ud7a3]/;

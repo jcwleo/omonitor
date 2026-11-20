@@ -4,7 +4,7 @@ import headless from '@xterm/headless';
 import serialize from '@xterm/addon-serialize';
 import { z } from 'zod';
 import type { ServerWebSocket } from 'bun';
-import type { BridgeClient, RelayBridge } from './host.ts';
+import type { BridgeClient, RelayBridge } from './opencode.ts';
 
 const sessionId = z.string().min(1).max(256).regex(/^[\w.-]+$/);
 const terminalId = z.uuid();

@@ -134,7 +134,6 @@ html[data-vt]::view-transition-old(root),html[data-vt]::view-transition-new(root
 <sc-if value="{{ notPhone }}" hint-placeholder-val="{{ true }}">
 <div style="view-transition-name:mc-head;flex:none;display:flex;align-items:center;gap:12px;padding:0 10px 0 14px;min-height:48px;border-bottom:1px solid var(--line-soft)">
 <div style="font:600 15px var(--font-heading);white-space:nowrap">omonitor</div>
-<sc-if value="{{ engineInline }}"><div role="group" aria-label="엔진" style="flex:none;display:flex;gap:2px;padding:2px;border-radius:var(--r-md);background:var(--tint)"><sc-for list="{{ engineOpts }}" as="e" hint-placeholder-count="2"><button data-press="btn" onClick="{{ e.onTap }}" aria-pressed="{{ e.on }}" title="{{ e.title }}" style="all:unset;cursor:pointer;display:flex;align-items:center;min-height:32px;padding:0 9px;border-radius:var(--r-sm);font-size:12.5px;font-weight:500;color:{{ e.fg }};background:{{ e.bg }};box-shadow:{{ e.shadow }}" style-hover="color:var(--fg)">{{ e.label }}</button></sc-for></div></sc-if>
 <div style="display:flex;gap:2px;padding:2px;border-radius:var(--r-md);background:var(--tint)">
 <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="3"><button data-press="btn" onClick="{{ t.onTap }}" title="{{ t.title }}" style="all:unset;cursor:pointer;position:relative;isolation:isolate;display:flex;align-items:center;gap:5px;min-height:32px;padding:0 10px;border-radius:var(--r-sm);font-size:13px;font-weight:500;color:{{ t.fg }}" style-hover="color:var(--fg)"><span aria-hidden="true" style="position:absolute;inset:0;z-index:-1;border-radius:inherit;background:{{ t.bg }};box-shadow:{{ t.shadow }};view-transition-name:{{ t.vtn }}"></span>{{ t.label }}<sc-if value="{{ t.hasKey }}"><span style="font:11.5px var(--mono);color:var(--fg3)">{{ t.key }}</span></sc-if><sc-if value="{{ t.hasBadge }}"><span style="animation:{{ badgeAnim }};font:600 11px/16px var(--font-ui);background:var(--warn);color:var(--on-warn);padding:0 5px;min-width:16px;box-sizing:border-box;border-radius:999px;text-align:center">{{ t.badge }}</span></sc-if></button></sc-for>
 </div>
@@ -159,7 +158,6 @@ html[data-vt]::view-transition-old(root),html[data-vt]::view-transition-new(root
 <button data-press="btn" onClick="{{ openDrawer }}" style="all:unset;cursor:pointer;width:44px;height:44px;display:grid;place-items:center;color:var(--fg)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="stroke-width:1.5;stroke-linecap:round"><path d="M4 6h16"></path><path d="M4 12h16"></path><path d="M4 18h16"></path></svg></button>
 <span style="font:600 20.5px/1 var(--font-heading)">{{ phoneTitle }}</span>
 <span style="font:12.5px var(--mono);color:{{ phoneCountColor }};margin-left:6px">{{ phoneCount }}</span>
-<sc-if value="{{ engineChip }}"><button data-press="btn" onClick="{{ openDrawer }}" title="엔진 전환은 메뉴에서" style="all:unset;cursor:pointer;margin-left:6px;padding:2px 7px;border-radius:999px;background:var(--acc-tint);color:var(--acc-fg);font-size:11.5px;font-weight:500">{{ engineLabel }}</button></sc-if>
 <button data-press="btn" type="button" onClick="{{ reloadPage }}" title="페이지 새로고침" aria-label="페이지 새로고침" style="all:unset;cursor:pointer;flex:none;width:44px;height:44px;display:grid;place-items:center;color:var(--fg2)" style-hover="background:var(--hover)"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round"><path d="M20 7v5h-5"></path><path d="M20 12a8 8 0 1 0-2.3 5.7M20 7l-2.3-2.7"></path></svg></button>
 <sc-if value="{{ vBoard }}"><button data-press="btn" onClick="{{ toggleGroup }}" style="all:unset;cursor:pointer;margin-left:auto;min-height:44px;padding:0 6px;font-size:12.5px;color:{{ groupFg }};display:flex;align-items:center">프로젝트별</button><button data-press="btn" onClick="{{ toggleAllC }}" style="all:unset;cursor:pointer;min-height:44px;padding:0 6px;font-size:12.5px;color:var(--fg2);display:flex;align-items:center">{{ allCLabel }}</button><button data-press="btn" onClick="{{ toggleSelMode }}" style="all:unset;cursor:pointer;min-height:44px;padding:0 7px 0 4px;font-size:12.5px;color:{{ selModeFg }};display:flex;align-items:center">{{ selModeShort }}</button></sc-if>
 </div>
@@ -303,9 +301,7 @@ html[data-vt]::view-transition-old(root),html[data-vt]::view-transition-new(root
 <sc-if value="{{ showTimeline }}" hint-placeholder-val="{{ true }}">
 <div data-tl="1" onScroll="{{ onTlScroll }}" style="flex:1;overflow:auto;min-height:0">
 <div style="max-width:820px;margin:0 auto;padding:6px 10px 12px;display:flex;flex-direction:column;gap:6px">
-<sc-if value="{{ selTerminal }}"><div style="border-radius:var(--r);background:var(--tint);padding:10px 12px;display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--fg2);line-height:1.5"><span><span style="border-radius:999px;background:var(--sel);color:var(--fg);padding:1px 8px;font-size:12px;margin-right:6px">터미널 세션</span>터미널에서 켠 세션입니다. 대시보드는 아직 구독하지 않아 실시간 상태를 모릅니다.</span><button class="btn btn-secondary" onClick="{{ takeoverSel }}" style="align-self:flex-start;min-height:40px;font-size:13px;color:var(--acc-fg)">대시보드로 이어 받기…</button></div></sc-if>
 <sc-if value="{{ selNotSubNote }}"><div style="border-radius:var(--r);background:var(--tint);padding:8px 12px;display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--fg2)"><span style="flex:1">구독하지 않은 세션이라 실시간 알림이 오지 않고, 승인 요청은 자동으로 거절됩니다.</span><button class="btn btn-secondary" onClick="{{ subscribeSel }}" style="min-height:36px;font-size:12.5px;color:var(--fg)">구독</button></div></sc-if>
-<sc-if value="{{ selLost }}"><div style="border-radius:var(--r);background:var(--tint);padding:8px 12px;display:flex;flex-wrap:wrap;align-items:center;gap:7px;font-size:12.5px;color:var(--fg2);line-height:1.5"><span style="flex:1 1 240px">app-server가 재시작되어 이전 턴은 메시지만 남았습니다. todo와 도구 기록이 없습니다.</span><button class="btn btn-secondary" onClick="{{ restoreSel }}" style="min-height:36px;font-size:12.5px;color:var(--acc-fg);white-space:nowrap">세션 파일에서 todo 복원</button></div></sc-if>
 <sc-for list="{{ selItems }}" as="it" hint-placeholder-count="6"><dc-import name="McItem" it="{{ it }}" agent-name="{{ agentName }}" on-image="{{ openImage }}" on-open="{{ openHere }}" on-user="{{ onUserMsg }}" hint-size="100%,36px"></dc-import></sc-for>
 <sc-if value="{{ hasRevert }}"><div role="status" style="border:1px solid var(--line);border-radius:var(--r);background:var(--card);padding:9px 12px;display:flex;flex-direction:column;gap:7px;font-family:var(--font-body)"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="flex:none;color:var(--acc-fg);stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round"><path d="M9 14 4 9l5-5"></path><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"></path></svg><span style="flex:1 1 180px;font-size:13.5px;font-weight:500;color:var(--fg)">{{ revertTitle }}</span><button class="btn btn-secondary" onClick="{{ unrevertSel }}" disabled="{{ revertBusy }}" style="min-height:36px;font-size:12.5px;color:var(--acc-fg)">되살리기</button></div><sc-if value="{{ revertHasFiles }}"><div style="display:flex;flex-direction:column;gap:2px;padding-left:24px"><sc-for list="{{ revertFiles }}" as="f"><div style="display:flex;align-items:center;gap:6px;min-width:0;font:12px var(--mono)"><span style="flex:none;font:12px var(--font-body);color:var(--fg3)">{{ f.kind }}</span><span title="{{ f.path }}" style="flex:0 1 auto;min-width:0;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ f.path }}</span><sc-if value="{{ f.hasAdd }}"><span style="flex:none;color:var(--add-fg)">+{{ f.add }}</span></sc-if><sc-if value="{{ f.hasDel }}"><span style="flex:none;color:var(--err-fg)">−{{ f.del }}</span></sc-if></div></sc-for></div></sc-if><span style="padding-left:24px;font-size:12px;line-height:1.45;color:var(--fg3)">다음 메시지를 보내면 확정됩니다. 그 전까지는 되살릴 수 있습니다.</span></div></sc-if>
 <sc-if value="{{ hasSelReqs }}"><div style="display:flex;flex-direction:column;gap:8px;padding:6px 0 4px"><sc-for list="{{ selReqs }}" as="r"><dc-import name="McRequestCard" r="{{ r }}" hint-size="100%,220px"></dc-import></sc-for></div></sc-if>
@@ -319,11 +315,9 @@ html[data-vt]::view-transition-old(root),html[data-vt]::view-transition-new(root
 <sc-if value="{{ rTodo }}"><div style="display:contents">
 <sc-if value="{{ hasAsk }}"><button onClick="{{ toggleAsk }}" title="{{ askHint }}" style="all:unset;cursor:pointer;display:flex;flex-direction:column;gap:3px;width:100%;box-sizing:border-box;margin-bottom:12px;padding:9px 11px;border-radius:var(--r);background:var(--msg)"><span style="font-size:12px;font-weight:600;color:var(--fg3)">최근 요청</span><span style="font-size:13.5px;line-height:1.5;color:var(--fg);white-space:pre-wrap;word-break:break-word;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:{{ askClamp }};overflow:hidden">{{ askText }}</span></button></sc-if>
 <sc-for list="{{ todoPhases }}" as="g"><div style="display:flex;flex-direction:column;margin-bottom:8px;padding:3px;border:1px solid var(--line);border-radius:var(--r);background:var(--card)"><div style="display:flex;align-items:center;gap:7px;min-height:40px;padding:0 8px 0 7px"><span style="width:16px;height:16px;flex:none;box-sizing:border-box;border-radius:50%;display:grid;place-items:center;font-size:{{ g.glyphSize }};font-weight:700;background:{{ g.iconBg }};border:1.5px solid {{ g.iconBd }};color:{{ g.iconFg }}">{{ g.glyph }}</span><span style="flex:1;min-width:0;font:600 14px/1.3 var(--font-heading);color:{{ g.nameFg }};word-break:break-word">{{ g.name }}</span><span style="flex:none;font:500 11.5px var(--mono);color:var(--fg2);background:var(--sel);border-radius:999px;padding:1px 7px">{{ g.count }}</span></div><div style="height:2px;margin:0 6px;border-radius:999px;background:var(--line-soft);overflow:hidden"><div style="height:100%;width:{{ g.pct }};background:var(--acc);transition:width .4s var(--ease-out)"></div></div><div style="display:flex;flex-direction:column;gap:1px;padding:3px 0 1px"><sc-for list="{{ g.tasks }}" as="t"><div style="display:flex;align-items:center;gap:8px;min-height:38px;padding:4px 7px;box-sizing:border-box;border-radius:var(--r-md);background:{{ t.rowBg }}"><span style="width:16px;height:16px;flex:none;box-sizing:border-box;border-radius:5px;display:grid;place-items:center;font-size:11px;font-weight:700;background:{{ t.bg }};border:1px solid {{ t.bd }};color:{{ t.gc }};transition:background .35s,transform .35s;transform:scale({{ t.scale }})">{{ t.glyph }}</span><span style="font-size:13.5px;line-height:1.4;color:{{ t.tc }};font-weight:{{ t.fw }};text-decoration:{{ t.deco }}">{{ t.text }}</span></div></sc-for></div></div></sc-for>
-<sc-if value="{{ todoRawShow }}"><div style="font-size:12px;color:var(--fg3);margin-bottom:4px">todo 인자를 해석하지 못해 결과 텍스트를 그대로 보여줍니다</div><div style="font:12px/1.5 var(--mono);white-space:pre-wrap;background:var(--tint);border-radius:var(--r-md);padding:8px 10px">{{ todoRaw }}</div></sc-if>
 <sc-if value="{{ todoNone }}"><div style="font-size:13px;color:var(--fg3);padding:6px 0">이 세션에는 todo가 없습니다.</div></sc-if>
 </div></sc-if>
 <sc-if value="{{ rAgents }}"><div style="display:contents"><sc-if value="{{ agentsNone }}"><div style="font-size:13px;color:var(--fg3);padding:6px 0;margin-bottom:6px">실행 중인 서브에이전트가 없습니다.</div></sc-if><sc-for list="{{ agentGroups }}" as="ag"><div style="display:flex;flex-direction:column;margin-bottom:8px;padding:3px;border:1px solid var(--line);border-radius:var(--r);background:var(--card)"><button data-press="row" onClick="{{ ag.onHead }}" aria-expanded="{{ ag.expanded }}" title="{{ ag.hint }}" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:6px;min-height:{{ ag.h }};padding:0 8px 0 5px;box-sizing:border-box;border-radius:var(--r-md);min-width:0" style-hover="background:var(--hover)"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="flex:none;color:var(--fg3);stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;transition:transform .2s;transform:rotate({{ ag.rot }})"><path d="m6 9 6 6 6-6"></path></svg><sc-if value="{{ ag.isRun }}"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="flex:none;color:var(--acc-fg);stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round"><path d="M12 8V4H8"></path><rect width="16" height="12" x="4" y="8" rx="2"></rect><path d="M2 14h2"></path><path d="M20 14h2"></path><path d="M15 13v2"></path><path d="M9 13v2"></path></svg></sc-if><sc-if value="{{ ag.isDone }}"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="flex:none;color:var(--fg3);stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round"><circle cx="12" cy="12" r="10"></circle><path d="m9 12 2 2 4-4"></path></svg></sc-if><span style="font:600 13.5px var(--font-heading);color:var(--fg)">{{ ag.title }}</span><span style="flex:none;font:500 11.5px var(--mono);color:var(--fg2);background:var(--sel);border-radius:999px;padding:1px 7px">{{ ag.count }}</span></button><sc-if value="{{ ag.open }}"><div style="display:flex;flex-direction:column;border-top:1px solid var(--line-soft);margin-top:3px;padding-top:2px;animation:mcDrop var(--dur) var(--ease-out)"><sc-for list="{{ ag.rows }}" as="a"><div style="display:flex;flex-direction:column;border-top:{{ a.sep }}"><button onClick="{{ a.onToggle }}" title="{{ a.hint }}" style="all:unset;cursor:pointer;display:flex;flex-direction:column;gap:3px;padding:7px 8px;box-sizing:border-box;width:100%;min-width:0;border-radius:var(--r-md)" style-hover="background:var(--hover)"><div style="display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;box-sizing:border-box;border-radius:50%;flex:none;background:{{ a.fill }};border:1.5px solid {{ a.color }}"></span><span style="font:12px var(--mono);color:var(--fg2)">{{ a.type }}</span><span style="margin-left:auto;font-size:12px;color:var(--fg3)">{{ a.stateLabel }}</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="flex:none;color:var(--fg3);stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;transition:transform .2s;transform:rotate({{ a.chevRot }})"><path d="m6 9 6 6 6-6"></path></svg></div><span style="font-size:13.5px;line-height:1.4;white-space:{{ a.nameWs }};overflow:hidden;text-overflow:ellipsis">{{ a.name }}</span></button><sc-if value="{{ a.open }}"><div style="animation:mcDrop var(--dur) var(--ease-out);display:flex;flex-direction:column;gap:4px;padding:0 8px 8px 21px"><sc-if value="{{ a.hasSummary }}"><span style="font-size:12.5px;line-height:1.45;color:var(--fg2)">{{ a.summary }}</span></sc-if><sc-if value="{{ a.hasModel }}"><span style="font:12px var(--mono);color:var(--fg3)">{{ a.model }}</span></sc-if><span style="font-size:12.5px;color:var(--fg3)">{{ a.act }}</span><sc-if value="{{ a.hasFinal }}"><div style="font-size:12.5px;line-height:1.5;color:var(--fg2);border-left:1px solid var(--line2);padding-left:6px;white-space:pre-wrap;word-break:break-word">{{ a.final }}</div></sc-if><sc-if value="{{ a.hasChild }}"><button onClick="{{ a.onChild }}" style="all:unset;cursor:pointer;font-size:12.5px;color:var(--acc-fg);min-height:32px;display:flex;align-items:center">자식 세션 열기 ›</button></sc-if></div></sc-if></div></sc-for></div></sc-if></div></sc-for></div></sc-if>
-<sc-if value="{{ rGoal }}"><div style="display:contents"><sc-if value="{{ hasGoal }}"><div style="display:flex;flex-direction:column;gap:7px"><div style="display:flex;align-items:center;gap:6px"><span style="font-size:12px;font-weight:500;padding:3px 9px;border-radius:999px;color:{{ goalColor }};background:color-mix(in oklab, {{ goalColor }} 14%, transparent)">{{ goalStatus }}</span></div><div style="font-size:14.5px;line-height:1.5">{{ goalText }}</div><sc-if value="{{ goalHasBudget }}"><div style="display:flex;flex-direction:column;gap:3px"><div style="height:4px;border-radius:999px;overflow:hidden;background:var(--line);position:relative"><div style="position:absolute;inset:0 auto 0 0;width:100%;transform-origin:0 50%;scale:{{ goalPct }} 1;background:var(--acc);transition:scale .4s var(--ease-out)"></div></div><span style="font:12px var(--mono);color:var(--fg3)">{{ goalBudget }}</span></div></sc-if><div style="display:flex;gap:4px;flex-wrap:wrap"><sc-for list="{{ goalActions }}" as="b"><button class="btn btn-secondary" onClick="{{ b.onTap }}" style="min-height:40px;font-size:12.5px;color:{{ b.fg }}">{{ b.label }}</button></sc-for></div></div></sc-if><sc-if value="{{ noGoal }}"><div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:13px;color:var(--fg2)">목표를 정하면 에이전트가 완료될 때까지 이어서 작업합니다.</span><textarea class="input" value="{{ goalDraft }}" onChange="{{ onGoalDraft }}" placeholder="예: 결제 테스트 100% 통과" style="min-height:70px;font-size:13.5px;color:var(--fg)"></textarea><div style="display:flex;gap:4px;align-items:center"><input class="input" value="{{ goalBudgetDraft }}" onChange="{{ onGoalBudgetDraft }}" placeholder="토큰 예산 (선택)" style="flex:1;min-height:40px;font:12.5px var(--mono);color:var(--fg)"><button class="btn btn-primary" disabled="{{ goalDraftEmpty }}" onClick="{{ saveGoal }}" style="min-height:40px;font-size:13.5px">목표 설정</button></div></div></sc-if></div></sc-if>
 <sc-if value="{{ rDiff }}"><div style="display:flex;flex-direction:column;gap:6px"><div style="font-size:12px;color:var(--fg3)">이번 턴 동안 누적된 변경</div><sc-for list="{{ diffItems }}" as="it"><dc-import name="McItem" it="{{ it }}" hint-size="100%,120px"></dc-import></sc-for><sc-if value="{{ diffNone }}"><div style="font-size:13px;color:var(--fg3)">이번 턴에 변경 사항이 없습니다.</div></sc-if></div></sc-if>
 </div></sc-if>
 <sc-if value="{{ showComposer }}"><dc-import name="McComposer" c="{{ composer }}" hint-size="100%,110px"></dc-import></sc-if>
@@ -339,11 +333,9 @@ html[data-vt]::view-transition-old(root),html[data-vt]::view-transition-new(root
 <sc-if value="{{ rTodo }}"><div style="display:contents">
 <sc-if value="{{ hasAsk }}"><button onClick="{{ toggleAsk }}" title="{{ askHint }}" style="all:unset;cursor:pointer;display:flex;flex-direction:column;gap:3px;width:100%;box-sizing:border-box;margin-bottom:12px;padding:9px 11px;border-radius:var(--r);background:var(--msg)"><span style="font-size:12px;font-weight:600;color:var(--fg3)">최근 요청</span><span style="font-size:13.5px;line-height:1.5;color:var(--fg);white-space:pre-wrap;word-break:break-word;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:{{ askClamp }};overflow:hidden">{{ askText }}</span></button></sc-if>
 <sc-for list="{{ todoPhases }}" as="g"><div style="display:flex;flex-direction:column;margin-bottom:8px;padding:3px;border:1px solid var(--line);border-radius:var(--r);background:var(--card)"><div style="display:flex;align-items:center;gap:7px;min-height:36px;padding:0 8px 0 7px"><span style="width:16px;height:16px;flex:none;box-sizing:border-box;border-radius:50%;display:grid;place-items:center;font-size:{{ g.glyphSize }};font-weight:700;background:{{ g.iconBg }};border:1.5px solid {{ g.iconBd }};color:{{ g.iconFg }}">{{ g.glyph }}</span><span style="flex:1;min-width:0;font:600 13.5px/1.3 var(--font-heading);color:{{ g.nameFg }};word-break:break-word">{{ g.name }}</span><span style="flex:none;font:500 11.5px var(--mono);color:var(--fg2);background:var(--sel);border-radius:999px;padding:1px 7px">{{ g.count }}</span></div><div style="height:2px;margin:0 6px;border-radius:999px;background:var(--line-soft);overflow:hidden"><div style="height:100%;width:{{ g.pct }};background:var(--acc);transition:width .4s var(--ease-out)"></div></div><div style="display:flex;flex-direction:column;gap:1px;padding:3px 0 1px"><sc-for list="{{ g.tasks }}" as="t"><div style="display:flex;align-items:center;gap:8px;min-height:32px;padding:4px 7px;box-sizing:border-box;border-radius:var(--r-md);background:{{ t.rowBg }}"><span style="width:15px;height:15px;flex:none;box-sizing:border-box;border-radius:5px;display:grid;place-items:center;font-size:11px;font-weight:700;background:{{ t.bg }};border:1px solid {{ t.bd }};color:{{ t.gc }};transition:background .35s,transform .35s;transform:scale({{ t.scale }})">{{ t.glyph }}</span><span style="font-size:13px;line-height:1.4;color:{{ t.tc }};font-weight:{{ t.fw }};text-decoration:{{ t.deco }}">{{ t.text }}</span></div></sc-for></div></div></sc-for>
-<sc-if value="{{ todoRawShow }}"><div style="font-size:12px;color:var(--fg3);margin-bottom:4px">todo 인자를 해석하지 못해 결과 텍스트를 그대로 보여줍니다</div><div style="font:12px/1.5 var(--mono);white-space:pre-wrap;background:var(--tint);border-radius:var(--r-md);padding:8px 10px">{{ todoRaw }}</div></sc-if>
 <sc-if value="{{ todoNone }}"><div style="font-size:13px;color:var(--fg3);padding:6px 0">이 세션에는 todo가 없습니다.</div></sc-if>
 </div></sc-if>
 <sc-if value="{{ rAgents }}"><div style="display:contents"><sc-if value="{{ agentsNone }}"><div style="font-size:13px;color:var(--fg3);padding:6px 0;margin-bottom:6px">실행 중인 서브에이전트가 없습니다.</div></sc-if><sc-for list="{{ agentGroups }}" as="ag"><div style="display:flex;flex-direction:column;margin-bottom:8px;padding:3px;border:1px solid var(--line);border-radius:var(--r);background:var(--card)"><button data-press="row" onClick="{{ ag.onHead }}" aria-expanded="{{ ag.expanded }}" title="{{ ag.hint }}" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:6px;min-height:{{ ag.h }};padding:0 8px 0 5px;box-sizing:border-box;border-radius:var(--r-md);min-width:0" style-hover="background:var(--hover)"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="flex:none;color:var(--fg3);stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;transition:transform .2s;transform:rotate({{ ag.rot }})"><path d="m6 9 6 6 6-6"></path></svg><sc-if value="{{ ag.isRun }}"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="flex:none;color:var(--acc-fg);stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round"><path d="M12 8V4H8"></path><rect width="16" height="12" x="4" y="8" rx="2"></rect><path d="M2 14h2"></path><path d="M20 14h2"></path><path d="M15 13v2"></path><path d="M9 13v2"></path></svg></sc-if><sc-if value="{{ ag.isDone }}"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="flex:none;color:var(--fg3);stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round"><circle cx="12" cy="12" r="10"></circle><path d="m9 12 2 2 4-4"></path></svg></sc-if><span style="font:600 13.5px var(--font-heading);color:var(--fg)">{{ ag.title }}</span><span style="flex:none;font:500 11.5px var(--mono);color:var(--fg2);background:var(--sel);border-radius:999px;padding:1px 7px">{{ ag.count }}</span></button><sc-if value="{{ ag.open }}"><div style="display:flex;flex-direction:column;border-top:1px solid var(--line-soft);margin-top:3px;padding-top:2px;animation:mcDrop var(--dur) var(--ease-out)"><sc-for list="{{ ag.rows }}" as="a"><div style="display:flex;flex-direction:column;border-top:{{ a.sep }}"><button onClick="{{ a.onToggle }}" title="{{ a.hint }}" style="all:unset;cursor:pointer;display:flex;flex-direction:column;gap:3px;padding:7px 8px;box-sizing:border-box;width:100%;min-width:0;border-radius:var(--r-md)" style-hover="background:var(--hover)"><div style="display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;box-sizing:border-box;border-radius:50%;flex:none;background:{{ a.fill }};border:1.5px solid {{ a.color }}"></span><span style="font:12px var(--mono);color:var(--fg2)">{{ a.type }}</span><span style="margin-left:auto;font-size:12px;color:var(--fg3)">{{ a.stateLabel }}</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="flex:none;color:var(--fg3);stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;transition:transform .2s;transform:rotate({{ a.chevRot }})"><path d="m6 9 6 6 6-6"></path></svg></div><span style="font-size:13.5px;line-height:1.4;white-space:{{ a.nameWs }};overflow:hidden;text-overflow:ellipsis">{{ a.name }}</span></button><sc-if value="{{ a.open }}"><div style="animation:mcDrop var(--dur) var(--ease-out);display:flex;flex-direction:column;gap:4px;padding:0 8px 8px 21px"><sc-if value="{{ a.hasSummary }}"><span style="font-size:12.5px;line-height:1.45;color:var(--fg2)">{{ a.summary }}</span></sc-if><sc-if value="{{ a.hasModel }}"><span style="font:12px var(--mono);color:var(--fg3)">{{ a.model }}</span></sc-if><span style="font-size:12.5px;color:var(--fg3)">{{ a.act }}</span><sc-if value="{{ a.hasFinal }}"><div style="font-size:12.5px;line-height:1.5;color:var(--fg2);border-left:1px solid var(--line2);padding-left:6px;white-space:pre-wrap;word-break:break-word">{{ a.final }}</div></sc-if><sc-if value="{{ a.hasChild }}"><button onClick="{{ a.onChild }}" style="all:unset;cursor:pointer;font-size:12.5px;color:var(--acc-fg);min-height:32px;display:flex;align-items:center">자식 세션 열기 ›</button></sc-if></div></sc-if></div></sc-for></div></sc-if></div></sc-for></div></sc-if>
-<sc-if value="{{ rGoal }}"><div style="display:contents"><sc-if value="{{ hasGoal }}"><div style="display:flex;flex-direction:column;gap:7px"><div style="display:flex;align-items:center;gap:6px"><span style="font-size:12px;font-weight:500;padding:3px 9px;border-radius:999px;color:{{ goalColor }};background:color-mix(in oklab, {{ goalColor }} 14%, transparent)">{{ goalStatus }}</span></div><div style="font-size:14.5px;line-height:1.5">{{ goalText }}</div><sc-if value="{{ goalHasBudget }}"><div style="display:flex;flex-direction:column;gap:3px"><div style="height:4px;border-radius:999px;overflow:hidden;background:var(--line);position:relative"><div style="position:absolute;inset:0 auto 0 0;width:100%;transform-origin:0 50%;scale:{{ goalPct }} 1;background:var(--acc);transition:scale .4s var(--ease-out)"></div></div><span style="font:12px var(--mono);color:var(--fg3)">{{ goalBudget }}</span></div></sc-if><div style="display:flex;gap:4px;flex-wrap:wrap"><sc-for list="{{ goalActions }}" as="b"><button class="btn btn-secondary" onClick="{{ b.onTap }}" style="min-height:36px;font-size:12.5px;color:{{ b.fg }}">{{ b.label }}</button></sc-for></div></div></sc-if><sc-if value="{{ noGoal }}"><div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:13px;color:var(--fg2)">목표를 정하면 에이전트가 완료될 때까지 이어서 작업합니다.</span><textarea class="input" value="{{ goalDraft }}" onChange="{{ onGoalDraft }}" placeholder="예: 결제 테스트 100% 통과" style="min-height:70px;font-size:13.5px;color:var(--fg)"></textarea><div style="display:flex;gap:4px;align-items:center"><input class="input" value="{{ goalBudgetDraft }}" onChange="{{ onGoalBudgetDraft }}" placeholder="토큰 예산 (선택)" style="flex:1;min-height:36px;font:12.5px var(--mono);color:var(--fg)"><button class="btn btn-primary" disabled="{{ goalDraftEmpty }}" onClick="{{ saveGoal }}" style="min-height:36px;font-size:13.5px">목표 설정</button></div></div></sc-if></div></sc-if>
 <sc-if value="{{ rDiff }}"><div style="display:flex;flex-direction:column;gap:6px"><div style="font-size:12px;color:var(--fg3)">이번 턴 동안 누적된 변경</div><sc-for list="{{ diffItems }}" as="it"><dc-import name="McItem" it="{{ it }}" hint-size="100%,120px"></dc-import></sc-for><sc-if value="{{ diffNone }}"><div style="font-size:13px;color:var(--fg3)">이번 턴에 변경 사항이 없습니다.</div></sc-if></div></sc-if>
 </div>
 </div>
@@ -373,7 +365,6 @@ html[data-vt]::view-transition-old(root),html[data-vt]::view-transition-new(root
 <div style="position:absolute;top:0;bottom:0;left:0;width:300px;max-width:86vw;background:var(--side);border-right:1px solid var(--line);border-radius:0 var(--r-lg) var(--r-lg) 0;transform:translateX({{ drawerX }});transition:transform .26s cubic-bezier(.2,.8,.2,1);z-index:41;display:flex;flex-direction:column;padding:max(7px, env(safe-area-inset-top)) 0 14px;overflow:auto;box-sizing:border-box">
 <div style="display:flex;align-items:center;padding:0 4px 0 12px"><span style="font:600 19.5px var(--font-heading)">omonitor</span><button data-press="btn" onClick="{{ closeDrawer }}" style="all:unset;cursor:pointer;margin-left:auto;width:44px;height:44px;display:grid;place-items:center;color:var(--fg2)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="stroke-width:1.5;stroke-linecap:round"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></button></div>
 <div style="padding:0 12px 7px;font:12px var(--mono);color:var(--fg3)">127.0.0.1 · <span style="color:{{ connDot }}">{{ connLabel }}</span></div>
-<sc-if value="{{ engineToggle }}"><div style="display:flex;align-items:center;gap:8px;min-height:44px;padding:0 12px;font-size:13.5px">엔진<div role="group" aria-label="엔진" style="margin-left:auto;display:flex;gap:2px;padding:2px;border-radius:var(--r-md);background:var(--tint)"><sc-for list="{{ engineOpts }}" as="e" hint-placeholder-count="2"><button data-press="btn" onClick="{{ e.onTap }}" aria-pressed="{{ e.on }}" title="{{ e.title }}" style="all:unset;cursor:pointer;display:flex;align-items:center;min-height:36px;padding:0 10px;border-radius:var(--r-sm);font-size:13px;font-weight:500;color:{{ e.fg }};background:{{ e.bg }};box-shadow:{{ e.shadow }}">{{ e.label }}</button></sc-for></div></div></sc-if>
 <div style="font-size:12px;font-weight:500;color:var(--fg3);padding:7px 12px 3px;border-top:1px solid var(--line-soft)">프로젝트</div>
 <button data-press="row" onClick="{{ clearProjectFilter }}" style="all:unset;cursor:pointer;display:flex;align-items:center;min-height:44px;padding:0 12px;font-size:13.5px;background:{{ allProjBg }}">전체</button>
 <sc-for list="{{ projects }}" as="p"><button data-press="row" onClick="{{ p.onTap }}" style="all:unset;cursor:pointer;display:flex;align-items:center;min-height:44px;padding:0 12px;background:{{ p.bg }};color:{{ p.fg }}"><span style="font:12.5px var(--mono)">{{ p.name }}</span><span style="margin-left:auto;font:12px var(--mono);color:var(--fg3)">{{ p.count }}</span></button></sc-for>
@@ -443,7 +434,7 @@ html[data-vt]::view-transition-old(root),html[data-vt]::view-transition-new(root
 <div style="display:flex;flex-direction:column;gap:4px">
 <div style="display:flex;align-items:center;gap:6px;min-height:20px"><span style="font-size:12px;color:var(--fg2)">모델 · effort</span><sc-if value="{{ sheetModelToggle }}"><button onClick="{{ onSheetModelToggle }}" style="all:unset;cursor:pointer;margin-left:auto;min-height:28px;padding:0 6px;display:flex;align-items:center;border-radius:var(--r-sm);font-size:12px;color:var(--acc-fg)" style-hover="background:var(--hover)">{{ sheetModelToggleLabel }}</button></sc-if></div>
 <select class="input" value="{{ sheetModel }}" onChange="{{ onSheetModel }}" style="min-height:44px;font:13.5px var(--font-ui);color:var(--fg)">
-<option value="">기본 ({{ engineLabel }} 설정)</option>
+<option value="">기본 (opencode2 설정)</option>
 <sc-for list="{{ sheetModelGroups }}" as="g"><optgroup label="{{ g.label }}"><sc-for list="{{ g.items }}" as="m"><option value="{{ m.id }}">{{ m.label }}</option></sc-for></optgroup></sc-for>
 </select>
 <sc-if value="{{ sheetHasEfforts }}"><div style="display:flex;gap:3px;flex-wrap:wrap"><sc-for list="{{ sheetEfforts }}" as="e"><button data-press="btn" onClick="{{ e.onTap }}" style="all:unset;cursor:pointer;min-height:36px;padding:0 12px;box-sizing:border-box;border-radius:999px;display:flex;align-items:center;font:12.5px var(--mono);border:1px solid {{ e.bd }};background:{{ e.bg }};color:{{ e.fg }}">{{ e.label }}</button></sc-for></div></sc-if>
@@ -459,7 +450,6 @@ html[data-vt]::view-transition-old(root),html[data-vt]::view-transition-new(root
 <sc-if value="{{ prefsOpen }}">
 <div onClick="{{ closePrefs }}" style="position:absolute;inset:0;z-index:45">
 <div onClick="{{ stop }}" style="animation:mcPop var(--dur) var(--ease-out);transform-origin:100% 0;position:absolute;top:{{ prefsTop }};right:10px;width:250px;padding:4px;box-sizing:border-box;background:var(--bg2);border:1px solid var(--line2);border-radius:var(--r);box-shadow:var(--shadow-lg);display:flex;flex-direction:column">
-<sc-if value="{{ engineToggle }}"><div style="display:flex;align-items:center;gap:8px;min-height:40px;padding:0 4px 0 10px;font-size:13.5px;color:var(--fg)">엔진<div role="group" aria-label="엔진" style="margin-left:auto;display:flex;gap:2px;padding:2px;border-radius:var(--r-md);background:var(--tint)"><sc-for list="{{ engineOpts }}" as="e" hint-placeholder-count="2"><button data-press="btn" onClick="{{ e.onTap }}" aria-pressed="{{ e.on }}" title="{{ e.title }}" style="all:unset;cursor:pointer;display:flex;align-items:center;min-height:30px;padding:0 8px;border-radius:var(--r-sm);font-size:12.5px;font-weight:500;color:{{ e.fg }};background:{{ e.bg }};box-shadow:{{ e.shadow }}" style-hover="color:var(--fg)">{{ e.label }}</button></sc-for></div></div></sc-if>
 <button data-press="row" onClick="{{ toggleTheme }}" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:8px;min-height:40px;padding:0 10px;border-radius:var(--r-md);font-size:13.5px;color:var(--fg)" style-hover="background:var(--hover)">테마<span style="margin-left:auto;font-size:12.5px;color:var(--fg2)">{{ themeLabel }}</span></button>
 <button data-press="row" onClick="{{ askNotify }}" title="{{ nbTitle }}" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:8px;min-height:40px;padding:0 10px;border-radius:var(--r-md);font-size:13.5px;color:var(--fg)" style-hover="background:var(--hover)">브라우저 알림<span style="margin-left:auto;width:30px;height:18px;flex:none;border-radius:999px;background:{{ nbTrack }};position:relative;transition:background .15s"><span style="position:absolute;top:2px;left:2px;translate:{{ nbX }};width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3);transition:translate .15s var(--ease-out)"></span></span></button>
 <button data-press="row" onClick="{{ toggleSound }}" title="새 질문·승인 요청이 오면 소리로 알립니다" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:8px;min-height:40px;padding:0 10px;border-radius:var(--r-md);font-size:13.5px;color:var(--fg)" style-hover="background:var(--hover)">알림음<span style="margin-left:auto;width:30px;height:18px;flex:none;border-radius:999px;background:{{ nsTrack }};position:relative;transition:background .15s"><span style="position:absolute;top:2px;left:2px;translate:{{ nsX }};width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3);transition:translate .15s var(--ease-out)"></span></span></button>
@@ -538,13 +528,13 @@ html[data-vt]::view-transition-old(root),html[data-vt]::view-transition-new(root
 <sc-if value="{{ showUpdateBtn }}"><button onClick="{{ onUpdateBtn }}" title="{{ updateTitle }}" style="all:unset;pointer-events:auto;cursor:pointer;display:flex;align-items:center;gap:6px;padding:5px 12px;border-radius:999px;background:{{ updateBg }};border:1px solid {{ updateBd }};font:12px var(--mono);color:{{ updateFg }};animation:{{ updateAnim }}" style-hover="background:var(--hover)"><sc-if value="{{ updateHasDot }}"><span style="width:6px;height:6px;border-radius:50%;background:{{ updateDot }};flex:none"></span></sc-if>{{ updateLabel }}</button></sc-if>
 </div>
 
-<sc-if value="{{ fatal }}"><div style="position:absolute;inset:0;display:grid;place-items:center;background:var(--bg);z-index:80"><div style="max-width:420px;padding:14px;text-align:center;display:flex;flex-direction:column;gap:6px"><span style="font:600 18.5px var(--font-heading)">대시보드를 시작하지 못했습니다</span><span style="font:12px var(--mono);color:var(--err-fg)">{{ fatal }}</span><sc-if value="{{ fatalSwitch }}"><button class="btn btn-secondary" onClick="{{ fatalSwitchTap }}" style="align-self:center;margin-top:6px;min-height:40px;color:var(--fg)">{{ fatalSwitchLabel }}</button></sc-if></div></div></sc-if>
+<sc-if value="{{ fatal }}"><div style="position:absolute;inset:0;display:grid;place-items:center;background:var(--bg);z-index:80"><div style="max-width:420px;padding:14px;text-align:center;display:flex;flex-direction:column;gap:6px"><span style="font:600 18.5px var(--font-heading)">대시보드를 시작하지 못했습니다</span><span style="font:12px var(--mono);color:var(--err-fg)">{{ fatal }}</span></div></div></sc-if>
 </div>
 </x-dc>
 <script type="text/x-dc" data-dc-script data-props="{&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;dark&quot;,&quot;light&quot;],&quot;default&quot;:&quot;dark&quot;,&quot;tsType&quot;:&quot;'dark' | 'light'&quot;,&quot;section&quot;:&quot;화면&quot;},&quot;showDemo&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;데모&quot;}}">
 const SPEEDS = [1, 2, 4, 0.5, 0];
 const GROUP_CAP = 5; // sessions per project shown in a grouped board column or session list before "더 보기"
-// Tab icon: a ring on the dashboard background; the dot turns amber while omo waits for an answer or approval.
+// Tab icon: a ring on the dashboard background; the dot turns amber while a session waits for an answer or approval.
 const tabIcon = (dot) => `data:image/svg+xml,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><defs><linearGradient id='b' x2='0' y2='1'><stop offset='0' stop-color='#34425a'/><stop offset='1' stop-color='#11151c'/></linearGradient><linearGradient id='r' x2='0' y2='1'><stop offset='0' stop-color='#e3effb'/><stop offset='1' stop-color='#86afda'/></linearGradient></defs><rect width='64' height='64' rx='14' fill='url(#b)'/><circle cx='29.25' cy='34.75' r='13.3' fill='none' stroke='url(#r)' stroke-width='6.9'/><circle cx='45.5' cy='19' r='7.2' fill='${dot}' stroke='#fff' stroke-opacity='.4' stroke-width='1'/></svg>`)}`;
 const TAB_ICON = { ok: tabIcon('#a6dbd2'), wait: tabIcon('#f2c46a') };
 // Touch-first screens get no keyboard hints and no automatic focus (it would raise the on-screen keyboard).
@@ -569,7 +559,7 @@ class Component extends DCLogic {
   state = { v: 0, now: Date.now(), w: window.innerWidth, view: 'board', selId: null, backTo: 'board', theme: null, drawer: false, drawerMounted: false,
     pal: null, sheet: null, dialog: null, viewer: null, menu: false, umenu: null, selMode: false, sel: {}, multiText: '', grouped: false, groupOpen: {}, lg: true, lgC: {}, lgOpen: {}, lgWt: {}, panels: { left: false, right: false }, colC: {}, secC: { archived: true },
     exp: {}, agentOpen: {}, doneOpen: null, runFold: false, escArmed: null, allC: false, rtab: 'todo', ptab: 'tl', q: '', lf: 'all', focus: -1, pf: null, speedIdx: 0,
-    goalDraft: '', goalBudgetDraft: '', fatal: null, nb: false, ns: false, ocVer: null, ocUpdating: false, ocRestarting: false, omonitorVer: null, omonitorUpdating: false, panelWidths: {}, termLive: {}, terms: [], termPolicy: null, termErr: '', prefs: false, acct: false, acctAuth: null, push: { ready: false, on: false, busy: false, why: '' } };
+    fatal: null, nb: false, ns: false, ocVer: null, ocUpdating: false, ocRestarting: false, omonitorVer: null, omonitorUpdating: false, panelWidths: {}, termLive: {}, terms: [], termPolicy: null, termErr: '', prefs: false, acct: false, acctAuth: null, push: { ready: false, on: false, busy: false, why: '' } };
   tlRef = React.createRef();
   detailRef = React.createRef();
   sheetFileRef = React.createRef();
@@ -587,7 +577,7 @@ class Component extends DCLogic {
   openAgentChat(a) {
     clearTimeout(this.agentChatTimer);
     this.agentStick = true;
-    const key = `${this.engine}:${a.childId}`;
+    const key = a.childId;
     this.agentChatTarget = { id: a.childId, parentId: this.state.selId, taskId: a.id, name: a.name, type: a.type, client: this.client, key };
     this.setState({ agentChat: { ...this.agentChatTarget, turns: [], loading: true, error: '', draft: this.agentDrafts[key] || '', sendError: '', sent: false } });
     this.readAgentChat();
@@ -617,7 +607,6 @@ class Component extends DCLogic {
         : await target.client.backend.history(target.id);
       if (this.agentChatTarget !== target) return;
       this.setState((s) => ({ agentChat: { ...s.agentChat, turns, loading: false, error: '' } }));
-      if (this.engine === 'omo') this.store.loadMeta(target.parentId);
     } catch (e) {
       if (this.agentChatTarget === target) this.setState((s) => ({ agentChat: { ...s.agentChat, loading: false, error: e instanceof Error ? e.message : String(e) } }));
     } finally {
@@ -795,16 +784,11 @@ class Component extends DCLogic {
       if (cfg.mode !== 'real' && cfg.mode !== 'mock') throw new Error('대시보드 서버의 실행 모드를 확인할 수 없습니다.');
       const real = cfg.mode === 'real';
       this.mode = cfg.mode;
-      // The header toggle picks the engine on screen (switchEngine); the last one picked opens first.
-      this.engines = real ? { omo: true, ...cfg.engines } : { omo: true };
-      let picked = 'omo';
-      try { picked = localStorage.getItem('mc.engine') || 'omo'; } catch {}
-      this.engine = this.engines.opencode && picked === 'opencode' ? 'opencode' : 'omo';
       const [mod, S, terminal, push, TM, gitGraph, clip] = await Promise.all([import(`${base}app/${real ? 'real' : 'mock'}-client.js`), import(`${base}app/store.js`), import(`${base}app/terminal.js`), import(`${base}app/push.js`), import(`${base}app/terminals.js`), import(`${base}app/git-graph.js`), import(`${base}app/terminal-clipboard.js`)]);
       terminal.defineTerminal();
       gitGraph.defineGitGraph();
-      Object.assign(this, { TM, S, mod, cfg, clip, runtimes: {} });
-      const rt = this.engineRuntime(this.engine);
+      Object.assign(this, { TM, S, mod, cfg, clip });
+      const rt = this.runtime();
       Object.assign(this, { client: rt.client, store: rt.store });
       this.setState({ v: 1 });
       await rt.ready;
@@ -817,9 +801,9 @@ class Component extends DCLogic {
       this.termTick = setInterval(() => { if (document.visibilityState === 'visible' && (this.state.view === 'terminals' || ++termN % 6 === 0)) this.refreshTerms(); }, 5000);
       // A tap on a push notification opens its session: an open dashboard hears it from the service worker, a closed app
       // starts at #session=<id> (sw.js).
-      navigator.serviceWorker?.addEventListener('message', (e) => { if (e.data?.type === 'omonitor:open' && e.data.threadId) this.openAlerted(e.data.threadId); });
+      navigator.serviceWorker?.addEventListener('message', (e) => { if (e.data?.type === 'omonitor:open' && e.data.threadId) this.openSession(e.data.threadId); });
       const opened = location.hash.match(/^#session=([^&]+)/);
-      if (opened) { history.replaceState(null, '', location.pathname + location.search); this.openAlerted(decodeURIComponent(opened[1])); }
+      if (opened) { history.replaceState(null, '', location.pathname + location.search); this.openSession(decodeURIComponent(opened[1])); }
       this.checkOpencodeVersion();
       this.checkOmonitorVersion();
       this.versionTick = setInterval(() => { this.checkOpencodeVersion(); this.checkOmonitorVersion(); }, 30 * 60 * 1000);
@@ -832,32 +816,27 @@ class Component extends DCLogic {
       this.gitTick = setInterval(() => { if (document.visibilityState === 'visible') this.store.refreshGit(); }, 20 * 1000);
     } catch (e) { console.error(e); this.setState({ fatal: String(e?.message || e) }); }
   }
-  // One client and store per engine. An engine connects the first time it is shown and stays connected, so switching
-  // back is instant and both engines keep alerting; the screen follows only the store on it.
-  engineRuntime(engine) {
-    if (this.runtimes[engine]) return this.runtimes[engine];
+  // The client (the backend's opencode2 relay, or the simulator) and the store behind the screen.
+  runtime() {
     const real = this.mode === 'real';
-    const client = real ? new this.mod.RealClient({ sessionKey: this.cfg.key, engine }) : new this.mod.MockClient({ speed: 1 });
+    const client = real ? new this.mod.RealClient({ sessionKey: this.cfg.key }) : new this.mod.MockClient({ speed: 1 });
     const store = new this.S.Store(client);
-    // Every store shares one notification settings object, so a switch flipped on either screen applies to both.
-    this.notifyState ??= { browser: this.notify.browser && this.notifyAllowed(), sound: !!this.notify.sound };
-    store.s.notify = this.notifyState;
-    store.subscribe((v) => { if (this.store === store) this.onStore(v); });
+    store.s.notify = { browser: this.notify.browser && this.notifyAllowed(), sound: !!this.notify.sound };
+    store.subscribe((v) => this.onStore(v));
     client.on('notification', (m) => {
       // Plan usage after each finished turn (the backend caches Claude for 3 minutes, ChatGPT for 30s).
       if (m.method === 'turn/completed') this.checkUsage();
-      if (this.store !== store || (m.method !== 'turn/completed' && m.method !== 'thread/started')) return;
+      if (m.method !== 'turn/completed' && m.method !== 'thread/started') return;
       clearTimeout(this.gitSoon);
       this.gitSoon = setTimeout(() => this.store.refreshGit(), 1500);
     });
-    const upstream = this.cfg.upstreams?.[engine] || this.cfg.upstream || '';
     const rt = { client, store, info: '', ready: null };
     rt.ready = store.init().then(() => {
-      rt.info = real ? [client.serverInfo ? `${client.serverInfo.name} ${client.serverInfo.version}` : engine === 'opencode' ? 'opencode' : 'omo host', upstream].filter(Boolean).join(' · ') : 'mock 시뮬레이터 · 실제 서버 아님';
+      rt.info = real ? [client.serverInfo ? `${client.serverInfo.name} ${client.serverInfo.version}` : 'opencode', this.cfg.upstream].filter(Boolean).join(' · ') : 'mock 시뮬레이터 · 실제 서버 아님';
     });
-    return (this.runtimes[engine] = rt);
+    return rt;
   }
-  componentWillUnmount() { this.agentChatTarget = null; clearTimeout(this.agentChatTimer); this.agentHistoryObserver?.disconnect(); window.visualViewport?.removeEventListener('resize', this.fitViewport); window.visualViewport?.removeEventListener('scroll', this.fitViewport); window.removeEventListener('scroll', this.fitViewport); document.removeEventListener('touchstart', this.onTouchStart); document.removeEventListener('touchmove', this.onTouchMove); document.removeEventListener('touchend', this.onTouchEnd); document.removeEventListener('touchcancel', this.onTouchEnd); window.removeEventListener('resize', this.onResize); window.removeEventListener('keydown', this.onKey); window.removeEventListener('keydown', this.onModalKey, true); window.removeEventListener('dragover', this.onWinDrag); window.removeEventListener('drop', this.onWinDrag); document.removeEventListener('mc-terminal-live', this.onTermLive); document.removeEventListener('visibilitychange', this.onVisibility); window.removeEventListener('storage', this.onStorage); clearInterval(this.tick); clearInterval(this.versionTick); clearInterval(this.usageTick); clearInterval(this.termTick); clearInterval(this.gitTick); clearTimeout(this.gitSoon); this.exits?.disconnect(); for (const rt of Object.values(this.runtimes || {})) rt.client.close(); }
+  componentWillUnmount() { this.agentChatTarget = null; clearTimeout(this.agentChatTimer); this.agentHistoryObserver?.disconnect(); window.visualViewport?.removeEventListener('resize', this.fitViewport); window.visualViewport?.removeEventListener('scroll', this.fitViewport); window.removeEventListener('scroll', this.fitViewport); document.removeEventListener('touchstart', this.onTouchStart); document.removeEventListener('touchmove', this.onTouchMove); document.removeEventListener('touchend', this.onTouchEnd); document.removeEventListener('touchcancel', this.onTouchEnd); window.removeEventListener('resize', this.onResize); window.removeEventListener('keydown', this.onKey); window.removeEventListener('keydown', this.onModalKey, true); window.removeEventListener('dragover', this.onWinDrag); window.removeEventListener('drop', this.onWinDrag); document.removeEventListener('mc-terminal-live', this.onTermLive); document.removeEventListener('visibilitychange', this.onVisibility); window.removeEventListener('storage', this.onStorage); clearInterval(this.tick); clearInterval(this.versionTick); clearInterval(this.usageTick); clearInterval(this.termTick); clearInterval(this.gitTick); clearTimeout(this.gitSoon); this.exits?.disconnect(); this.client?.close(); }
   // The conversation follows the finger during a back swipe. Styles go straight to the element so the drag does not
   // re-render; React leaves them alone because the template sets no transform, transition or shadow there.
   slideDetail(dx) {
@@ -970,7 +949,7 @@ class Component extends DCLogic {
     return items;
   }
   // The browser tab names the current screen and shows pending questions/approvals, so a background tab tells when
-  // omo is waiting: "(2) 보드 · omonitor" with an amber dot on the icon.
+  // a session is waiting: "(2) 보드 · omonitor" with an amber dot on the icon.
   syncTab() {
     if (this._tabTitle && document.title !== this._tabTitle) document.title = this._tabTitle;
     const link = document.querySelector('link[rel="icon"]');
@@ -1128,7 +1107,6 @@ class Component extends DCLogic {
     this.setState({ push: { ready: true, on: !!sub, busy: false, why: sup.why } });
   }
   async checkOpencodeVersion() {
-    if (!this.engines?.opencode) return;
     try { this.setState({ ocVer: (await this.client?.backend?.opencodeVersion?.()) || null }); } catch {}
   }
   async checkOmonitorVersion() { try { this.setState({ omonitorVer: (await this.client?.backend?.omonitorVersion?.()) || null }); } catch {} }
@@ -1201,7 +1179,7 @@ class Component extends DCLogic {
     this.notify = { ...this.notify, ...patch };
     try { localStorage.setItem('mc.notify', JSON.stringify(this.notify)); } catch {}
   }
-  // Folds the session view's side panels (left: session list, right: Todo/agents/goal/diff); the choice is remembered.
+  // Folds the session view's side panels (left: session list, right: Todo/agents/diff); the choice is remembered.
   togglePanel(side) {
     this.setState((x) => {
       const panels = { ...x.panels, [side]: !x.panels[side] };
@@ -1292,7 +1270,7 @@ class Component extends DCLogic {
     else this.setState(update);
     if (!T) { st?.resume(id).catch(() => {}); return; }
     // The opencode2 server holds every session, so following one has no side effects: opening it subscribes.
-    if (this.engine === 'opencode' && !T.subscribed && !T.archived) { st.resume(id, true).catch(() => {}); return; }
+    if (!T.subscribed && !T.archived) { st.resume(id, true).catch(() => {}); return; }
     if (!T.historyLoaded) st.guard(st.loadHistory(id), '세션 기록을 읽지 못했습니다').catch(() => {});
   }
   // An opened session takes typing right away (not on touch screens, see COARSE). The composer takes the request when
@@ -1312,7 +1290,7 @@ class Component extends DCLogic {
     this.setState({ escArmed: id });
     this.escT = setTimeout(() => { this.escFor = null; this.setState({ escArmed: null }); }, ESC_MS);
   }
-  // A new session starts from the model and effort of the last one created here (mc.newSession); '' is omo's default.
+  // A new session starts from the model and effort of the last one created here (mc.newSession); '' is opencode2's default.
   newSheet() { return { cwd: '', text: '', model: this.lastNew?.model || '', effort: this.lastNew?.effort || '' }; }
   confirm(kind, id, extra = {}) { this.setState({ dialog: { kind, id, input: extra.input || '', text: extra.text || '', ids: extra.ids || null }, menu: false }); }
   // The session whose conversation is on screen; it stays seen while it is there.
@@ -1325,55 +1303,11 @@ class Component extends DCLogic {
     if (this.shown) { const v = loadViewed(); v.at[this.shown] = Date.now(); this.viewed = v; try { localStorage.setItem('mc.viewed', JSON.stringify(v)); } catch {} }
     this.shown = id;
   }
-  // Done (waiting or failed) since it was last on screen. Running and waiting-for-input sessions are not done, and a terminal
-  // session is followed in its terminal. this.shown is the one that just left the screen, seen once this render commits.
+  // Done (waiting or failed) since it was last on screen. Running and waiting-for-input sessions are not done. this.shown is
+  // the one that just left the screen, seen once this render commits.
   unseen(T, o) {
-    if ((o.col !== 'idle' && o.col !== 'error') || o.terminal || T.id === this.shownId() || T.id === this.shown) return false;
+    if ((o.col !== 'idle' && o.col !== 'error') || T.id === this.shownId() || T.id === this.shown) return false;
     return (T.updatedAt || 0) > (this.viewed.at[T.id] ?? this.viewed.base);
-  }
-  // Loading a saved thread can collide with a terminal omo that has it open, and omo may auto-continue its goal/todo.
-  needsTakeover(T) { return !!T && !T.subscribed && !T.archived && T.status?.type === 'notLoaded'; }
-  // The other engine's sessions cross-fade in without a reload; an engine shown for the first time loads behind the
-  // skeleton. Each engine keeps the session that was open in it.
-  async switchEngine(engine) {
-    if (engine === this.engine || !this.engines?.[engine]) return;
-    try { localStorage.setItem('mc.engine', engine); } catch {}
-    (this.engineSel ??= {})[this.engine] = this.state.selId;
-    const rt = this.engineRuntime(engine);
-    Object.assign(this, { engine, client: rt.client, store: rt.store, info: rt.info, cols: null });
-    this.setStateVT({ selId: this.engineSel[engine] ?? null, pal: null, v: this.state.v + 1 });
-    try { await rt.ready; } catch (e) {
-      // The next switch to this engine starts over with a new connection.
-      rt.client.close();
-      delete this.runtimes[engine];
-      rt.store.toast(`세션 목록을 읽지 못했습니다: ${e?.message || e}`);
-      return;
-    }
-    if (this.store !== rt.store) return;
-    this.info = rt.info;
-    this.store.refreshGit();
-    this.setState({ v: this.state.v + 1 });
-  }
-  // A push alert can name a session of the engine not on screen; opencode2 session ids start with ses_.
-  async openAlerted(id) {
-    const engine = this.engines?.opencode && /^ses_/.test(id) ? 'opencode' : 'omo';
-    if (engine !== this.engine) await this.switchEngine(engine);
-    this.openSession(id);
-  }
-  // The engine toggle sits in the header when it fits, and always in the settings popover and the phone menu.
-  engineVals(s, isPhone) {
-    const on = !!this.engines?.opencode, cur = this.engine || 'omo';
-    const label = (k) => (k === 'opencode' ? 'opencode2' : 'omo');
-    const other = cur === 'opencode' ? 'omo' : 'opencode';
-    return {
-      engineToggle: on, engineInline: on && !isPhone && s.w >= 1100, engineChip: on && isPhone && cur === 'opencode', engineLabel: label(cur),
-      engineOpts: ['omo', 'opencode'].map((k) => ({
-        key: k, label: label(k), on: cur === k, title: cur === k ? `지금 ${label(k)} 세션을 보고 있습니다` : `${label(k)} 세션으로 전환`,
-        fg: cur === k ? 'var(--fg)' : 'var(--fg2)', bg: cur === k ? 'var(--seg)' : 'transparent', shadow: cur === k ? 'var(--seg-shadow)' : 'none', onTap: () => this.switchEngine(k),
-      })),
-      // The page failed to start, so the other engine starts with a fresh load.
-      fatalSwitch: on, fatalSwitchLabel: `${label(other)}로 전환`, fatalSwitchTap: () => { try { localStorage.setItem('mc.engine', other); } catch {} window.location.reload(); },
-    };
   }
   async sendMany(ids, text) {
     await Promise.allSettled(ids.map((id) => this.store.send(id, text)));
@@ -1484,7 +1418,7 @@ class Component extends DCLogic {
     const archivedRow = o.col === 'archived';
     const exp = this.state.exp[T.id];
     const open = exp ?? (this.state.allC ? false : !['idle', 'archived'].includes(o.col));
-    const [miniText, miniColor] = o.hasReq ? [o.reqKind, 'var(--warn)'] : o.hasError ? ['오류', 'var(--err-fg)'] : o.hasTodo ? [`${o.todoText} ${o.phaseName}`, 'var(--fg2)'] : o.lost ? ['기록 없음', 'var(--fg3)'] : o.terminal ? ['터미널', 'var(--fg2)'] : ['', 'var(--fg3)'];
+    const [miniText, miniColor] = o.hasReq ? [o.reqKind, 'var(--warn)'] : o.hasError ? ['오류', 'var(--err-fg)'] : o.hasTodo ? [`${o.todoText} ${o.phaseName}`, 'var(--fg2)'] : ['', 'var(--fg3)'];
     const selected = !!this.state.sel[T.id];
     const unseen = this.unseen(T, o);
     return Object.assign(o, {
@@ -1500,7 +1434,6 @@ class Component extends DCLogic {
       onAcceptSession: stop(() => st.respondApproval(o.reqId, 'acceptForSession')),
       onDecline: stop(() => st.respondApproval(o.reqId, 'decline')),
       onAnswer: stop(() => this.openSession(T.id)), // the question card waits in the session's timeline
-      onTakeover: stop(() => this.confirm('takeover', T.id)),
     });
   }
 
@@ -1637,7 +1570,6 @@ class Component extends DCLogic {
     const base = {
       theme, isPhone, notPhone: !isPhone, fatal: s.fatal, stop: (e) => e.stopPropagation(),
       reloadPage: () => window.location.reload(),
-      ...this.engineVals(s, isPhone),
       // With the default status bar style iOS keeps the home-screen app below the bar and the top inset is 0; the insets
       // stay for an iOS that still lays the page under it. Phone bars pad themselves; the wider layouts (iPad) start
       // below it here.
@@ -1703,10 +1635,9 @@ class Component extends DCLogic {
 
 
     const connState = conn.state;
-    const oc = this.engine === 'opencode', hostName = oc ? 'opencode 서버' : 'omo host';
     const vals = {
       ...base, loading: loading && connState !== 'closed' || loading,
-      connBanner: connState === 'reconnecting', connText: conn.firstConnect ? `${hostName}에 연결하지 못했습니다${conn.reason ? ` (${conn.reason})` : ''}. ${oc ? '\`opencode2 service status\`로 서버' : '\`omonitor status\`로 omo host'} 상태를 확인하세요 · ${Math.ceil((conn.retryInMs || 3000) / 1000)}초 후 다시 시도 (${conn.attempt || 1}회째)` : `${hostName} 연결이 끊겼습니다 · ${Math.ceil((conn.retryInMs || 3000) / 1000)}초 후 다시 연결 (${conn.attempt || 1}회째). 연결되면 구독을 복구합니다.`,
+      connBanner: connState === 'reconnecting', connText: conn.firstConnect ? `opencode 서버에 연결하지 못했습니다${conn.reason ? ` (${conn.reason})` : ''}. \`opencode2 service status\`로 서버 상태를 확인하세요 · ${Math.ceil((conn.retryInMs || 3000) / 1000)}초 후 다시 시도 (${conn.attempt || 1}회째)` : `opencode 서버 연결이 끊겼습니다 · ${Math.ceil((conn.retryInMs || 3000) / 1000)}초 후 다시 연결 (${conn.attempt || 1}회째). 연결되면 구독을 복구합니다.`,
       reconnectNow: () => this.client.reconnectNow(),
       connDot: connState === 'open' ? 'var(--acc)' : connState === 'reconnecting' || connState === 'connecting' ? 'var(--warn)' : 'var(--err)',
       connLabel: { open: '연결됨', connecting: '연결 중', reconnecting: '재연결 중', closed: '끊김' }[connState] || connState,
@@ -1764,7 +1695,6 @@ class Component extends DCLogic {
       onMultiText: (e) => this.setState({ multiText: e.target.value }), multiDisabled: !s.multiText.trim(),
       multiSend: async () => {
         const ids = Object.keys(s.sel).filter((k) => s.sel[k]); const text = s.multiText.trim();
-        if (ids.some((id) => this.needsTakeover(st.T(id)))) return this.confirm('takeoverMany', null, { ids, text });
         await this.sendMany(ids, text);
       },
     };
@@ -1904,18 +1834,13 @@ class Component extends DCLogic {
       // The latest user message is what the agent is working on now; the Todo panel shows it above the list.
       const ask = items.findLast((x) => x.isUser);
       const diff = S.diffFiles(T.diff || '');
-      // opencode2 has no goals, so its sessions get no goal tab.
-      const tabsDef = [['todo', 'Todo', sel.hasTodo ? sel.todoText : ''], ['agents', '에이전트', sel.agents.length ? String(sel.agents.length) : ''], ['goal', '목표', T.goal ? '●' : ''], ['diff', '변경', diff.length ? String(diff.length) : ''], ['git', 'Git', ''], ['terminal', '터미널', termOf.has(T.id) ? '●' : '']]
-        .filter(([k]) => k !== 'goal' || this.engine !== 'opencode');
+      const tabsDef = [['todo', 'Todo', sel.hasTodo ? sel.todoText : ''], ['agents', '에이전트', sel.agents.length ? String(sel.agents.length) : ''], ['diff', '변경', diff.length ? String(diff.length) : ''], ['git', 'Git', ''], ['terminal', '터미널', termOf.has(T.id) ? '●' : '']];
       const rtab = s.rtab, ptab = s.ptab;
       const panel = isPhone ? ptab : rtab;
-      const g = T.goal;
-      const goalBudgetN = Number(String(s.goalBudgetDraft).replace(/[^\d]/g, '')) || undefined;
       const mkTab = (cur, set) => ([k, label, count]) => ({ label, count, fg: cur === k ? 'var(--fg)' : 'var(--fg3)', bg: cur === k ? 'var(--sel)' : 'transparent', onTap: () => this.setState({ [set]: k }) });
       Object.assign(vals, {
-        sel, selItems: items, selItemsEmpty: items.length === 0 && !T.revert, agentName: this.engine === 'opencode' ? 'opencode' : 'sisyphus',
-        onUserMsg: this.engine === 'opencode' ? this.openUserMenu : null,
-        // opencode2's staged revert: what it took back, until the next message commits it or 되살리기 clears it.
+        sel, selItems: items, selItemsEmpty: items.length === 0 && !T.revert, agentName: 'opencode', onUserMsg: this.openUserMenu,
+        // A staged revert: what it took back, until the next message commits it or 되살리기 clears it.
         hasRevert: !!T.revert, revertTitle: T.revert?.count ? `메시지 ${T.revert.count}개를 되돌렸습니다` : '메시지를 되돌렸습니다',
         revertHasFiles: !!T.revert?.files?.length, revertBusy: s.unreverting === T.id,
         revertFiles: (T.revert?.files || []).map((f) => ({ key: f.path, path: f.path, kind: { added: '추가', deleted: '삭제', modified: '수정' }[f.status] || f.status, add: f.add, del: f.del, hasAdd: f.add > 0, hasDel: f.del > 0 })),
@@ -1923,15 +1848,14 @@ class Component extends DCLogic {
         // Questions and approvals for this session are answered right in its timeline.
         selReqs: st.reqsFor(T.id).sort((a, b) => a.receivedAt - b.receivedAt).map((r) => this.requestView(r, now)),
         hasSelReqs: st.reqsFor(T.id).length > 0,
-        selTerminal: S.isTerminal(T), selNotSub: !T.subscribed && !T.archived, selNotSubNote: !T.subscribed && !T.archived && T.source !== 'cli',
-        selLost: S.historyLost(T) && !todo, restoreSel: () => st.restoreTodos(T.id), subscribeSel: () => (this.needsTakeover(T) ? this.confirm('takeover', T.id) : st.resume(T.id)), takeoverSel: () => this.confirm('takeover', T.id),
+        selNotSub: !T.subscribed && !T.archived, selNotSubNote: !T.subscribed && !T.archived, subscribeSel: () => st.resume(T.id),
         goBack: () => this.navVT('pop', backPatch),
         detailHeadPad: isPhone ? `max(4px, env(safe-area-inset-top)) 4px 0 2px` : '4px 6px 4px 12px', detailTitleSize: isPhone ? '17px' : '18.5px',
         openMenu: () => this.setState({ menu: true }), renameSel: () => this.confirm('rename', T.id, { input: T.name || '' }),
         rtabs: tabsDef.map(mkTab(rtab, 'rtab')), ptabs: [['tl', '타임라인', ''], ...tabsDef].map(mkTab(ptab, 'ptab')),
         showRight: !isPhone && !s.panels.right, showRightRail: !isPhone && s.panels.right, rightW: `${sizes.right}px`,
         showTimeline: !isPhone || ptab === 'tl', phonePanel: isPhone && ptab !== 'tl',
-        rTodo: panel === 'todo', rAgents: panel === 'agents', rGoal: panel === 'goal', rDiff: panel === 'diff', rGit: panel === 'git', rTerminal: panel === 'terminal',
+        rTodo: panel === 'todo', rAgents: panel === 'agents', rDiff: panel === 'diff', rGit: panel === 'git', rTerminal: panel === 'terminal',
         terminalSessionId: T.id, terminalCwd: T.cwd || '', showComposer: !isPhone || panel !== 'terminal',
         // The Git tab shows the worktree the session works in; a cleaned-up one falls back to the session folder.
         gitCwd: T.git?.wt && !T.git.removed && !T.git.wt.missing ? T.git.worktree : T.cwd || '',
@@ -1958,7 +1882,7 @@ class Component extends DCLogic {
             gc: t.status === 'completed' ? 'var(--on-acc)' : t.status === 'abandoned' ? 'var(--fg3)' : 'var(--acc-fg)', scale: t.status === 'completed' ? '1' : '0.92',
             tc: t.status === 'completed' || t.status === 'abandoned' ? 'var(--fg3)' : t.status === 'in_progress' ? 'var(--fg)' : 'var(--fg2)', fw: t.status === 'in_progress' ? '500' : '400', deco: t.status === 'abandoned' ? 'line-through' : 'none' })) };
         }),
-        todoRaw: todo?.raw || '', todoRawShow: !!todo?.raw, todoNone: !todo || (!todo.phases.length && !todo.raw),
+        todoNone: !todo?.phases.length,
         hasAsk: !!ask, askText: ask ? [...ask.skills.map((k) => `/skill:${k.name}`), ask.text].filter(Boolean).join(' ') || `이미지 ${ask.images.length}장` : '', askClamp: s.askOpen === T.id ? 'none' : '4',
         askHint: s.askOpen === T.id ? '눌러서 접기' : '눌러서 전체 보기', toggleAsk: () => this.setState({ askOpen: s.askOpen === T.id ? null : T.id }),
         // Subagents sit in two cards, running and finished, each folded from its header; finished stays folded until opened.
@@ -1977,17 +1901,6 @@ class Component extends DCLogic {
           }) : [],
         })),
         agentsNone: !sel.agents.length,
-        hasGoal: !!g, noGoal: !g, goalText: g?.objective || '', goalStatus: { active: '진행 중', paused: '일시정지', complete: '완료' }[g?.status] || g?.status || '',
-        goalColor: g?.status === 'complete' ? 'var(--acc-fg)' : g?.status === 'paused' ? 'var(--fg3)' : 'var(--acc-fg)',
-        goalHasBudget: !!g?.tokenBudget, goalPct: `${g?.tokenBudget ? Math.min(100, ((g.tokensUsed || 0) / g.tokenBudget) * 100) : 0}%`,
-        goalBudget: g?.tokenBudget ? `${Math.round((g.tokensUsed || 0) / 1000)}k / ${Math.round(g.tokenBudget / 1000)}k 토큰` : '',
-        goalActions: g ? [
-          g.status === 'paused' ? { label: '재개', fg: 'var(--fg)', onTap: () => st.goalSet(T.id, { status: 'active' }) } : g.status === 'active' ? { label: '일시정지', fg: 'var(--fg)', onTap: () => st.goalSet(T.id, { status: 'paused' }) } : null,
-          g.status !== 'complete' ? { label: '완료로 표시', fg: 'var(--fg)', onTap: () => st.goalSet(T.id, { status: 'complete' }) } : null,
-          { label: '목표 지우기', fg: 'var(--err-fg)', onTap: () => st.goalClear(T.id) },
-        ].filter(Boolean) : [],
-        goalDraft: s.goalDraft, onGoalDraft: (e) => this.setState({ goalDraft: e.target.value }), goalBudgetDraft: s.goalBudgetDraft, onGoalBudgetDraft: (e) => this.setState({ goalBudgetDraft: e.target.value }),
-        goalDraftEmpty: !s.goalDraft.trim(), saveGoal: () => { st.goalSet(T.id, { objective: s.goalDraft.trim(), status: 'active', ...(goalBudgetN ? { tokenBudget: goalBudgetN } : {}) }); this.setState({ goalDraft: '', goalBudgetDraft: '' }); },
         diffItems: diff.map((f) => ({ key: f.path, isFile: true, files: [{ path: f.path, kind: f.isNew ? 'add' : f.isDel ? 'delete' : 'update', add: f.add, del: f.del, lines: f.text.split('\n').filter((l) => !/^(diff --git|index |--- |\+\+\+ |new file)/.test(l)) }] })),
         diffNone: diff.length === 0,
         composer: {
@@ -1995,11 +1908,10 @@ class Component extends DCLogic {
           padBottom: isPhone ? 'max(10px, env(safe-area-inset-bottom))' : '10px',
           threadId: T.id, draft: this.draftOf(T.id), draftRev: this.draftRevs.get(T.id) || 0, onDraft: (id, d) => this.saveDraft(id, d), patchDraftImage: (id, imgId, patch) => this.patchDraftImage(id, imgId, patch),
           takeFocus: () => { const w = this.wantFocus; this.wantFocus = false; return w; },
-          onSend: (text, images = []) => { const msg = S.withImages(text, images); this.stick = true; if (this.needsTakeover(T)) return this.confirm('takeover', T.id, { text: msg }); st.send(T.id, msg).catch(() => {}); },
+          onSend: (text, images = []) => { this.stick = true; st.send(T.id, S.withImages(text, images)).catch(() => {}); },
           onUpload: st.c.backend?.upload ? (file) => st.upload(file) : null, imageFiles: S.imageFiles,
           onInterrupt: () => this.confirm('interrupt', T.id), onEscape: () => this.escStop(T.id), escArmed: s.escArmed === T.id,
-          // thread/settings/update loads the session too, so an unloaded one goes through the same takeover confirmation.
-          onSettings: (patch) => { if (this.needsTakeover(T)) return this.confirm('takeover', T.id, { settings: patch }); st.setSettings(T.id, patch).catch(() => {}); },
+          onSettings: (patch) => { st.setSettings(T.id, patch).catch(() => {}); },
         },
       });
       const sep = '1px solid var(--line-soft)';
@@ -2007,9 +1919,9 @@ class Component extends DCLogic {
         { label: '이름 변경', hint: '', fg: 'var(--fg)', sep: 'none', onTap: () => this.confirm('rename', T.id, { input: T.name || '' }) },
         { label: '복제 (fork)', hint: '', fg: 'var(--fg)', sep: 'none', onTap: async () => { this.setState({ menu: false }); const id = await st.fork(T.id); this.openSession(id); } },
         { label: '컨텍스트 압축', hint: '', fg: 'var(--fg)', sep: 'none', onTap: () => { this.setState({ menu: false }); st.compact(T.id).catch(() => {}); } },
-        ...(this.engine === 'opencode' ? [{ label: '발화로 이동…', hint: '내 메시지 목록', fg: 'var(--fg)', sep: 'none', onTap: () => this.openPrompts(T.id) }] : []),
+        { label: '발화로 이동…', hint: '내 메시지 목록', fg: 'var(--fg)', sep: 'none', onTap: () => this.openPrompts(T.id) },
         T.archived ? { label: '보관 해제', hint: '', fg: 'var(--fg)', sep, onTap: () => { this.setState({ menu: false }); st.unarchive(T.id); } } : { label: '보관', hint: '', fg: 'var(--fg)', sep, onTap: () => { this.setState({ menu: false }); st.archive(T.id).then(() => this.archiveTerm(T.id), () => {}); } },
-        T.subscribed ? { label: '구독 해제', hint: '실시간 알림 끔', fg: 'var(--fg)', sep: 'none', onTap: () => this.confirm('unsubscribe', T.id) } : { label: '구독', hint: '실시간 알림 켬', fg: 'var(--fg)', sep: 'none', onTap: () => { if (this.needsTakeover(T)) return this.confirm('takeover', T.id); this.setState({ menu: false }); st.resume(T.id); } },
+        T.subscribed ? { label: '구독 해제', hint: '실시간 알림 끔', fg: 'var(--fg)', sep: 'none', onTap: () => this.confirm('unsubscribe', T.id) } : { label: '구독', hint: '실시간 알림 켬', fg: 'var(--fg)', sep: 'none', onTap: () => { this.setState({ menu: false }); st.resume(T.id); } },
         { label: '삭제…', hint: '', fg: 'var(--err-fg)', sep, onTap: () => this.confirm('delete', T.id) },
       ];
     } else vals.menuItems = [];
@@ -2076,17 +1988,14 @@ class Component extends DCLogic {
     const monV = s.omonitorVer;
     const monNews = monV ? `${monV.current} → ${monV.latest} · 새 커밋 ${monV.behind}개\n${monV.commits.map((c) => `• ${c.subject}`).join('\n')}${monV.behind > monV.commits.length ? `\n• 외 ${monV.behind - monV.commits.length}개` : ''}` : '';
     const monOpenTerms = terms.filter((t) => t.status === 'running').length;
-    const ocActive = [...(this.runtimes?.opencode?.store.s.threads.values() || [])].filter((x) => x.status?.type === 'active').length;
+    const ocActive = [...st.s.threads.values()].filter((x) => x.status?.type === 'active').length;
     const DLG = {
       delete: ['세션을 삭제할까요?', `“${dT?.name || ''}” 세션과 기록이 모두 지워집니다.${termOf.has(d?.id) ? ' 이 세션의 터미널도 함께 종료됩니다.' : ''} 되돌릴 수 없습니다.`, '삭제', 'var(--err)', async () => { await st.remove(d.id); this.setState({ selId: null, view: s.view === 'session' ? (isPhone ? 'board' : 'session') : s.view }); this.termAction(() => this.TM.closeSessionTerminal(d.id), '세션 터미널을 종료하지 못했습니다'); }],
       termClose: dTerm ? ['터미널을 종료할까요?', `“${termName(dTerm)}” 세션의 셸을 종료합니다.${dTermProgs.length ? ` 실행 중인 ${dTermProgs.join(', ')}도 함께 종료됩니다.` : ''} 화면 기록도 사라집니다.`, '종료', 'var(--err)', () => this.termAction(() => this.TM.closeTerminal(dTerm.id), '터미널을 종료하지 못했습니다')] : null,
       termCloseIdle: ['빈 셸을 모두 닫을까요?', `실행 중인 프로그램이 없고 아무도 보고 있지 않은 터미널 ${idleTerms.length}개를 닫습니다. 끝난 셸의 화면 기록도 정리합니다.`, '모두 닫기', 'var(--err)', () => this.termAction(async () => { const r = await this.TM.closeIdleTerminals(); st.toast(`터미널 ${r.closed}개를 닫았습니다`, 'info'); }, '터미널을 닫지 못했습니다')],
-      takeover: ['대시보드로 이어 받을까요?', `이 세션을 omo host로 불러옵니다. 터미널 omo가 같은 세션을 열고 있으면 omo host가 거절하니 먼저 터미널에서 끝내세요. 목표(goal)나 끝나지 않은 todo가 있으면 불러오자마자 omo가 이어서 작업할 수 있습니다.${d?.text ? ` 확인하면 메시지 “${d.text.length > 60 ? `${d.text.slice(0, 60)}…` : d.text}”를 보냅니다.` : ''}${d?.settings ? ' 확인하면 모델 설정을 바꿉니다.' : ''}`, d?.text ? '이어 받고 보내기' : '이어 받기', 'var(--acc)', async () => { await st.resume(d.id); if (d.settings) await st.setSettings(d.id, d.settings); if (d.text) await st.send(d.id, d.text); this.openSession(d.id); }],
-      takeoverMany: ['여러 세션에 보낼까요?', `선택한 세션 중 ${(d?.ids || []).filter((id) => this.needsTakeover(st.T(id))).length}개는 아직 omo host에 불러오지 않았습니다. 터미널 omo가 열고 있는 세션에는 보내지 못하고, 목표나 끝나지 않은 todo가 있으면 omo가 이어서 작업할 수 있습니다.`, '보내기', 'var(--acc)', () => this.sendMany(d.ids, d.text)],
       interrupt: ['작업을 중단할까요?', '진행 중인 턴을 멈춥니다. 대기 중인 승인 요청도 함께 취소됩니다.', '중단', 'var(--err)', () => st.interrupt(d.id)],
       unsubscribe: ['구독을 해제할까요?', '이 세션의 실시간 알림이 더 오지 않습니다. 구독자가 없으면 승인 요청은 자동으로 거절됩니다.', '해제', 'var(--acc)', () => st.unsubscribe(d.id)],
-      // thread/name/set resumes the thread, so renaming an unloaded one carries the same risks as a takeover.
-      rename: ['이름 변경', this.needsTakeover(dT) ? '이 세션은 아직 omo host에 불러오지 않았습니다. 이름을 바꾸면 세션을 불러오므로, 터미널 omo에서 열려 있으면 먼저 종료하세요. 목표나 끝나지 않은 todo가 있으면 omo가 이어서 작업할 수 있습니다.' : '', '저장', 'var(--acc)', () => d.input.trim() && st.rename(d.id, d.input.trim())],
+      rename: ['이름 변경', '', '저장', 'var(--acc)', () => d.input.trim() && st.rename(d.id, d.input.trim())],
       // A service restart may cut off opencode2 runs in progress; the opencode2 screen reconnects on its own.
       ocUpdate: ['opencode2를 업데이트할까요?', `v${s.ocVer?.current || '?'} → v${s.ocVer?.latest || '?'}로 업데이트한 뒤 opencode 서버를 새 버전으로 다시 시작합니다. 서버가 다시 시작하는 동안 작업 중인 opencode2 세션의 실행이 끊길 수 있습니다${ocActive ? ` (지금 작업 중인 세션 ${ocActive}개)` : ''}. omonitor는 자동으로 다시 연결합니다.`, '업데이트하고 재시작', 'var(--acc)', () => this.runOpencodeUpdate()],
       // Upgraded in a terminal (or a restart that did not take): the service still runs the binary it started with.
@@ -2148,7 +2057,7 @@ class Component extends DCLogic {
     const shPaths = shImgs.filter((m) => m.status === 'ready').map((m) => m.path);
     const canAttachSheet = !!(S && st?.c.backend?.upload);
     const hasFiles = (e) => [...(e.dataTransfer?.types || [])].includes('Files');
-    // Model and effort for the new session. A saved model missing from model/list falls back to '' (omo's default),
+    // Model and effort for the new session. A saved model missing from model/list falls back to '' (opencode2's default),
     // and so does an effort the chosen model does not support.
     const shModels = st?.s.models || [];
     const shModel = sh?.model && shModels.some((m) => m.id === sh.model) ? sh.model : '';
@@ -2174,7 +2083,7 @@ class Component extends DCLogic {
       sheetHasEfforts: shEfforts.length > 0,
       sheetEfforts: ['', ...shEfforts].map((e) => ({ label: e || '기본', bd: e === shEffort ? 'var(--acc)' : 'var(--line2)', bg: e === shEffort ? 'var(--acc-tint)' : 'transparent', fg: e === shEffort ? 'var(--fg)' : 'var(--fg2)', onTap: () => this.setState({ sheet: { ...sh, effort: e } }) })),
       canAttachSheet, sheetFileRef: this.sheetFileRef, pickSheetImage: () => this.sheetFileRef.current?.click(),
-      sheetPlaceholder: canAttachSheet ? '무엇을 할까요? ulw를 붙이면 계획 → 검증까지 진행합니다 · 이미지 붙여넣기' : '무엇을 할까요? ulw를 붙이면 계획 → 검증까지 진행합니다',
+      sheetPlaceholder: canAttachSheet ? '무엇을 할까요? · 이미지 붙여넣기' : '무엇을 할까요?',
       onSheetPick: (e) => { const files = S.imageFiles(e.target); e.target.value = ''; this.attachSheet(files); },
       onSheetPaste: (e) => { if (!canAttachSheet) return; const files = S.imageFiles(e.clipboardData, { textWins: true }); if (!files.length) return; e.preventDefault(); this.attachSheet(files); },
       onSheetDragOver: (e) => { if (canAttachSheet && hasFiles(e)) e.preventDefault(); },
@@ -2265,7 +2174,7 @@ class Component extends DCLogic {
     // screens, measured at 1440px; an account takes about 76px plus 88px a window, 160px with its reset time), otherwise
     // in a row under it.
     const usageW = usageAccts.reduce((n, a) => n + 76 + a.wins.reduce((m, w) => m + (w.hasLeft ? 160 : 88), 0), 0);
-    const usageInline = !isPhone && usageAccts.length > 0 && s.w >= (s.view === 'board' ? 900 : 680) + usageW + (vals.engineInline ? 160 : 0);
+    const usageInline = !isPhone && usageAccts.length > 0 && s.w >= (s.view === 'board' ? 900 : 680) + usageW;
     Object.assign(vals, { hasUsage: usageAccts.length > 0, usageAccts, usageInline, usageRow: !isPhone && usageAccts.length > 0 && !usageInline });
     // The 구독 계정 row in settings names the logins the usage reads with (app/usage-login.js manages them).
     const acctOn = (s.acctAuth?.accounts || []).filter((a) => a.connected).map((a) => (a.provider === 'claude' ? 'Claude' : 'ChatGPT'));
@@ -2279,8 +2188,7 @@ class Component extends DCLogic {
         ['새 세션', 'N', () => this.setState({ sheet: this.newSheet() })], ['보드로 이동', '⌥1 · g b', () => this.go('board')],
         ['세션 화면으로 이동', '⌥2 · g s', () => this.go('session')], ['터미널 관리로 이동', '⌥3 · g t', () => this.go('terminals')], [`테마: ${theme === 'dark' ? '라이트로' : '다크로'} 전환`, '', () => this.setStateVT({ theme: theme === 'dark' ? 'light' : 'dark' })],
         ['여러 세션에 메시지 보내기', '', () => this.setState({ view: 'board', selMode: true, sel: {} })],
-        ...(this.engines?.opencode ? [[`엔진: ${this.engine === 'opencode' ? 'omo' : 'opencode2'}로 전환`, '', () => this.switchEngine(this.engine === 'opencode' ? 'omo' : 'opencode')]] : []),
-        ...(this.engine === 'opencode' && s.view === 'session' && T ? [['발화로 이동…', '이 세션의 내 메시지', () => this.openPrompts(T.id)]] : []),
+        ...(s.view === 'session' && T ? [['발화로 이동…', '이 세션의 내 메시지', () => this.openPrompts(T.id)]] : []),
         ...(this.mode === 'mock' ? [['연결 끊김 시뮬레이션', '데모', () => this.client.simulateDisconnect()]] : []),
       ].filter(([l]) => !q || l.toLowerCase().includes(q)).map(([label, hint, run]) => ({ label, hint, dot: 'transparent', run }));
       const sess = allViews.filter((v) => !q || `${v.name} ${v.cwd} ${v.statusLabel}`.toLowerCase().includes(q)).map((v) => ({ label: v.name, hint: `${v.projectName} · ${v.statusLabel}`, dot: v.statusColor, run: () => this.openSession(v.id) }));

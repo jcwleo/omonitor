@@ -92,8 +92,7 @@ export class PushService {
     return r;
   }
 
-  // Questions and approvals reach only the omo host connections attached to the session: the backend's own connection
-  // relays the ones it sees and every dashboard relays the ones it receives, so the same request arrives more than once.
+  // The bridge and each dashboard relay the same request; notify each device only once.
   async relay(body: unknown) {
     const parsed = relayRequest.safeParse(body);
     if (!parsed.success) throw new PushError('알림 요청이 올바르지 않습니다');
@@ -133,8 +132,7 @@ export class PushService {
   }
 }
 
-// A reply may open with a quoted status block (omo's "> Ask: … For you: …" handoff); the notification starts at the
-// reply itself, unless the whole reply is quoted.
+// Skip a leading quoted status block unless the whole reply is quoted.
 const skipLeadingQuote = (s: string) => {
   const lines = s.split('\n');
   let i = 0;
@@ -145,10 +143,7 @@ const clip = (s: string, n = 140) => {
   const t = skipLeadingQuote(s).replace(/```[\s\S]*?```/g, ' ').replace(/^\s*\|?[\s:|-]*-{3,}[\s:|-]*$/gm, ' ').replace(/\|/g, ' ').replace(/[*_`#>]+/g, '').replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').replace(/\s+/g, ' ').trim();
   return t.length > n ? `${t.slice(0, n - 1)}…` : t;
 };
-// The omo host announces the end of every session's run (agent_settled) to every connection, so the backend's bridge
-// sees each one, attached or not. A goal or todo continuation starts the next run right away, so an alert waits a moment
-// and is dropped when the session runs again; the outcome is then read back from the session file, which reading does
-// not load.
+// A session may start another run as soon as it settles. Defer its alert until it stays idle.
 export function watchSessions(opts: {
   bridge: {
     on(event: 'settled', fn: (threadId: string) => void): unknown;
@@ -159,8 +154,6 @@ export function watchSessions(opts: {
   notify: (message: PushMessage) => Promise<unknown>;
   relay: (body: unknown) => Promise<unknown>;
   lastTurn: (threadId: string) => Promise<any | null>;
-  // Whether work the session started since `since` (ms) is still out and will wake it again when it reports back.
-  pendingWork: (threadId: string, since: number) => Promise<boolean>;
   nameOf: (threadId: string) => Promise<string>;
   settleMs?: number;
 }) {
@@ -180,9 +173,6 @@ export function watchSessions(opts: {
     }
     // An interrupted turn was stopped by the user, so it needs no alert.
     if (turn?.status !== 'completed') return;
-    // A run that ends while a detached eval cell, a monitor or a background subagent it started is still out is woken
-    // again when that work reports back, so the finish is the run that ends with nothing left out.
-    if (await opts.pendingWork(id, turn.askedAt ?? 0)) return;
     const last = [...(turn.items || [])].reverse().find((i: any) => i.type === 'agentMessage' && i.text?.trim());
     await opts.notify({ kind: 'done', title, body: last ? clip(last.text) : '작업을 마쳤습니다', threadId: id });
   }

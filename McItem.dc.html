@@ -46,9 +46,9 @@
 </sc-for>
 </sc-if>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:520,&quot;height&quot;:200},&quot;it&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;ItemView&quot;},&quot;agentName&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;sisyphus&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:520,&quot;height&quot;:200},&quot;it&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;ItemView&quot;},&quot;agentName&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;opencode&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
 const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-// Agent messages render as markdown in omo's terminal colors (--md-* vars from Mission Control).
+// Agent messages render as markdown in terminal-style colors (--md-* vars from Mission Control).
 // Code spans and links become placeholders first so emphasis rules never reach inside them.
 // On the Mac running omonitor (here), a link and a file path carry data-open and open there through onOpen: a URL in the
 // default browser, a path in its default app. A path is one under ~/, ./, ../ or a home or system folder; a relative one
@@ -88,7 +88,7 @@ function table(rows, sep, here) {
   const [head, ...body] = rows.map(cellsOf);
   return `<div style="overflow-x:auto;margin:2px 0 8px"><table style="border-collapse:collapse;font-size:inherit"><thead><tr>${head.map((c, k) => cell('th', c, k)).join('')}</tr></thead><tbody>${body.map((r) => `<tr>${r.map((c, k) => cell('td', c, k)).join('')}</tr>`).join('')}</tbody></table></div>`;
 }
-// Flat rows indented by nesting level, with the marker in omo's bullet color, the way the terminal draws lists.
+// Flat rows indented by nesting level, with the marker in the bullet color, the way a terminal draws lists.
 function list(items, here) {
   const levels = [...new Set(items.map((x) => x.indent))].sort((a, b) => a - b);
   return `<div style="margin:0 0 6px">${items.map((x) => `<div style="display:flex;gap:6px;padding-left:${levels.indexOf(x.indent) * 16}px"><span style="flex:none;color:var(--md-bullet)">${/^\d/.test(x.marker) ? esc(x.marker) : '-'}</span><span style="min-width:0">${x.lines.map((l) => inline(l, here)).join('<br>')}</span></div>`).join('')}</div>`;

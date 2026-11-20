@@ -100,7 +100,7 @@ class McUsageLogin extends HTMLElement {
         <div class="body">
           <div class="row" data-load role="alert" hidden><p class="err"></p><button type="button" class="btn" data-act="reload">다시 시도</button></div>
           ${PROVIDERS.map(([p]) => `<section class="acct" data-provider="${p}" aria-labelledby="n-${p}"></section>`).join('')}
-          <p class="note">사용량 조회용 로그인입니다. omo·opencode·Codex&nbsp;로그인과 별도로 <code>~/.omonitor/usage-auth</code>에 저장합니다. 로그아웃하면 omonitor&nbsp;인증만 지웁니다.</p>
+          <p class="note">사용량 조회용 로그인입니다. opencode·Codex&nbsp;로그인과 별도로 <code>~/.omonitor/usage-auth</code>에 저장합니다. 로그아웃하면 omonitor&nbsp;인증만 지웁니다.</p>
         </div></div></dialog>`;
     this.dialog = this.shadowRoot.querySelector('dialog');
     this.ui = { busy: {}, errors: {}, confirm: null, opened: new Set(), manual: new Set(), drafts: {} };

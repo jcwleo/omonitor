@@ -34,8 +34,8 @@ export const shortPath = (p = '') => p.replace(/^\/Users\/[^/]+/, '~');
 export const projOf = (T) => T.git?.repoName || proj(T.cwd);
 const textOf = (it) => (it.contentItems || []).map((c) => c.text).filter(Boolean).join('\n');
 
-// ── wire normalization (omo app-server) ──
-// Thread timestamps arrive as Unix seconds (floats); every view here works in milliseconds.
+// ── wire normalization ──
+// A timestamp in Unix seconds (floats) is taken as such; every view here works in milliseconds.
 const toMs = (v) => (typeof v === 'number' && v > 0 && v < 1e12 ? Math.round(v * 1000) : v);
 // fileChange kinds arrive as { type: 'add' | 'delete' | 'update' }; the views compare plain strings.
 const normChanges = (changes) => (Array.isArray(changes) ? changes.map((c) => (c && c.kind && typeof c.kind === 'object' ? { ...c, kind: c.kind.type || 'update' } : c)) : changes);
@@ -73,60 +73,19 @@ export function withoutFileCopy(turns, live, itemId) {
 const isEmptyReasoning = (i) => i.type === 'reasoning' && ![...(i.summary || []), ...(i.content || [])].some((s) => String(s || '').trim());
 
 // ── todo replay ──
-function applyTodo(phases, a) {
-  const P = phases.map((p) => ({ name: p.name, tasks: p.tasks.map((t) => ({ ...t })) }));
-  const all = () => P.flatMap((p) => p.tasks);
-  const phaseOf = (name) => P.find((p) => p.name === name);
-  const targets = () => (a.task != null ? all().filter((t) => t.text === String(a.task)) : a.phase != null ? phaseOf(String(a.phase))?.tasks || [] : []);
-  const promote = () => {
-    if (all().some((t) => t.status === 'in_progress')) return;
-    const next = all().find((t) => t.status === 'pending');
-    if (next) next.status = 'in_progress';
-  };
-  switch (a.op) {
-    case 'init':
-      if (!Array.isArray(a.list)) throw new Error('bad init');
-      return a.list.map((p) => ({ name: String(p?.phase ?? ''), tasks: (Array.isArray(p?.items) ? p.items : []).map((s) => ({ text: String(s), status: 'pending' })) }));
-    case 'start': targets().forEach((t) => { t.status = 'in_progress'; }); return P;
-    case 'done': targets().forEach((t) => { t.status = 'completed'; }); promote(); return P;
-    case 'drop': targets().forEach((t) => { t.status = 'abandoned'; }); return P;
-    case 'append': {
-      if (!Array.isArray(a.items)) throw new Error('bad append');
-      let p = a.phase != null ? phaseOf(String(a.phase)) : P[P.length - 1];
-      if (!p) { p = { name: String(a.phase ?? '작업'), tasks: [] }; P.push(p); }
-      a.items.forEach((s) => p.tasks.push({ text: String(s), status: 'pending' }));
-      return P;
-    }
-    case 'rm':
-      if (a.task != null) P.forEach((p) => { p.tasks = p.tasks.filter((t) => t.text !== String(a.task)); });
-      else if (a.phase != null) return P.filter((p) => p.name !== String(a.phase));
-      return P;
-    case 'view': return P;
-    default: throw new Error(`unknown op ${a.op}`);
-  }
-}
 // opencode2's todowrite replaces the whole list each call, every item with a status, and has no phases.
 const WRITE_STATUS = { pending: 'pending', in_progress: 'in_progress', completed: 'completed', cancelled: 'abandoned' };
 const writtenTodos = (a) => (a.todos.length ? [{ name: '할 일', tasks: a.todos.map((t) => ({ text: String(t?.content ?? ''), status: WRITE_STATUS[t?.status] || 'pending' })) }] : []);
 export function replayTodos(items) {
-  let phases = null, raw = null, seen = false;
+  let phases = null;
   for (const it of items) {
-    if (it.type === 'dynamicToolCall' && it.tool === 'todowrite') {
-      let a = it.arguments;
-      if (typeof a === 'string') { try { a = JSON.parse(a); } catch { a = null; } }
-      // A call still streaming its input has no list yet.
-      if (Array.isArray(a?.todos)) { seen = true; phases = writtenTodos(a); raw = null; }
-      continue;
-    }
-    if (it.type !== 'dynamicToolCall' || it.tool !== 'todo') continue;
-    seen = true;
+    if (it.type !== 'dynamicToolCall' || it.tool !== 'todowrite') continue;
     let a = it.arguments;
     if (typeof a === 'string') { try { a = JSON.parse(a); } catch { a = null; } }
-    if (!a || typeof a !== 'object' || typeof a.op !== 'string') { raw = textOf(it) || raw; continue; }
-    try { phases = applyTodo(phases || [], a); raw = null; } catch { raw = textOf(it) || raw; }
+    // A call still streaming its input has no list yet.
+    if (Array.isArray(a?.todos)) phases = writtenTodos(a);
   }
-  if (!seen) return null;
-  return { phases: phases || [], raw };
+  return phases && { phases };
 }
 export function todoSummary(todo) {
   if (!todo || !todo.phases.length) return null;
@@ -137,14 +96,14 @@ export function todoSummary(todo) {
   return { done, total: tasks.length, phase: cur?.phase ?? todo.phases[todo.phases.length - 1].name, current: cur?.text ?? '모두 완료' };
 }
 
-// ── subagents (omo.task.updated) — every field optional ──
+// ── subagents (thread/agents/updated, the backend's meta) — every field optional ──
 export function parseTasks(data) {
   const list = Array.isArray(data) ? data : Array.isArray(data?.tasks) ? data.tasks : [];
   return list.filter((t) => t && typeof t === 'object').map((t, i) => {
     const live = t.live_progress && typeof t.live_progress === 'object' ? t.live_progress : null;
     const state = t.error_message ? 'error' : live ? 'running' : t.final_response ? 'done' : 'queued';
     return {
-      // omo names an unnamed task after its id (st_...), which says nothing about the work; task_summary does.
+      // A name that is only the task id says nothing about the work; task_summary does.
       id: String(t.task_id ?? t.name ?? i), name: String((t.name !== t.task_id && t.name) || t.task_summary || t.description || t.agent_type || '작업'),
       summary: t.task_summary ? String(t.task_summary) : '', type: String(t.agent_type ?? t.category ?? 'agent'), category: t.category ? String(t.category) : '',
       model: t.model ? String(t.model) : '', childId: t.child_session_id ? String(t.child_session_id) : null,
@@ -165,8 +124,7 @@ export function activity(T) {
       case 'commandExecution': return ['명령 실행 중', live.command || ''];
       case 'fileChange': return ['파일 수정 중', live.changes?.[0]?.path || ''];
       case 'mcpToolCall': return ['도구 호출 중', `${live.server || ''}.${live.tool || ''}`];
-      // omo names its question tool after the model family: request_user_input for GPT, ask_user_question for Claude.
-      case 'dynamicToolCall': return live.tool === 'request_user_input' || live.tool === 'ask_user_question' ? ['답변 기다리는 중', ''] : ['도구 호출 중', live.tool || ''];
+      case 'dynamicToolCall': return live.tool === 'question' ? ['답변 기다리는 중', ''] : ['도구 호출 중', live.tool || ''];
       case 'agentMessage': return ['응답 작성 중', ''];
       case 'reasoning': return ['생각 중', ''];
       case 'webSearch': return ['웹 검색 중', live.query || ''];
@@ -180,8 +138,6 @@ export function activity(T) {
   if (st === 'active') return ['작업 중', ''];
   const runningAgents = (T.tasks || []).filter((task) => task.state === 'running').length;
   if (runningAgents && st !== 'systemError' && (T.turns || []).at(-1)?.status !== 'failed') return [`서브에이전트 ${runningAgents}개 실행 중`, ''];
-  if (st === 'notLoaded' && T.source === 'cli') return ['터미널에서 실행 중일 수 있음', ''];
-  if (st === 'notLoaded') return ['로드되지 않음', ''];
   const last = (T.turns || []).at(-1);
   if (last?.status === 'failed' || st === 'systemError') {
     const cmd = [...(last?.items || [])].reverse().find((i) => i.type === 'commandExecution');
@@ -204,14 +160,6 @@ export function columnOf(T, reqs) {
   if (st === 'systemError' || (st !== 'active' && (T.turns || []).at(-1)?.status === 'failed')) return 'error';
   if (st === 'active' || (T.tasks || []).some((task) => task.state === 'running')) return 'working';
   return 'idle';
-}
-export const isTerminal = (T) => T.source === 'cli' && !T.subscribed;
-export function historyLost(T) {
-  if (T.historyFromFile) return false;
-  const turns = T.turns || [];
-  const done = turns.filter((u) => u.status !== 'inProgress');
-  // After an app-server restart, thread/read rebuilds old turns from messages only: no tools, no todo.
-  return done.length > 0 && done.every((u) => (u.items || []).every((i) => i.type === 'userMessage' || i.type === 'agentMessage'));
 }
 function diffStats(diff = '') {
   let add = 0, del = 0;
@@ -301,14 +249,14 @@ export function viewSession(T, reqs, now) {
   const lastErr = T.lastError || (T.turns || []).at(-1)?.error?.message || '';
   const o = {
     id: T.id, name: T.name || T.preview?.slice(0, 30) || '이름 없는 세션', cwd: shortPath(T.cwd), projectName: projOf(T),
-    model: (T.settings?.model || '').replace(/^.*\//, ''), col, statusColor: c.color, statusLabel: col === 'idle' && T.status?.type && !['idle', 'notLoaded'].includes(T.status.type) ? T.status.type : c.label,
+    model: (T.settings?.model || '').replace(/^.*\//, ''), col, statusColor: c.color, statusLabel: col === 'idle' && T.status?.type && T.status.type !== 'idle' ? T.status.type : c.label,
     elapsed: dur(now - (T.createdAt || now)), updatedAgo: ago(now - (T.updatedAt || now)), actLabel, actCode,
     // A collapsed card shows one time. Columns are ordered by last activity, so resting sessions show that; running and
     // waiting ones keep their age.
     ...(col === 'working' || col === 'input'
       ? { headTime: dur(now - (T.createdAt || now)), headTitle: '만든 뒤 지난 시간' }
       : { headTime: ago(now - (T.updatedAt || now)), headTitle: '마지막 활동' }),
-    terminal: isTerminal(T), lost: historyLost(T) && !todo, hasError: failed && !!lastErr, error: lastErr,
+    hasError: failed && !!lastErr, error: lastErr,
     subscribed: !!T.subscribed, archived: !!T.archived, ...gitView(T),
   };
   if (sum) {
@@ -323,8 +271,8 @@ export function viewSession(T, reqs, now) {
         cells: tasks.map((t) => (failedTurn && t.status === 'in_progress' ? CELL.failed : CELL[t.status] || CELL.pending)),
       };
     });
-    Object.assign(o, { hasTodo: true, todoText: `${sum.done}/${sum.total}`, phaseName: sum.phase, currentTask: sum.current, todoRaw: todo.raw || '' });
-  } else Object.assign(o, { hasTodo: false, phases: [], todoRaw: todo?.raw || '' });
+    Object.assign(o, { hasTodo: true, todoText: `${sum.done}/${sum.total}`, phaseName: sum.phase, currentTask: sum.current });
+  } else Object.assign(o, { hasTodo: false, phases: [] });
   const tasks = T.tasks || [];
   const agentView = (t) => ({ ...t, ...AG[t.state], stateLabel: AG[t.state].label,
     act: t.state === 'running' ? [t.activity, t.tool, t.startedAt && dur(now - t.startedAt)].filter(Boolean).join(' · ') : t.state === 'done' ? `완료${t.stats?.duration_ms ? ` · ${dur(t.stats.duration_ms)}` : ''}${t.stats?.tool_calls ? ` · 도구 ${t.stats.tool_calls}회` : ''}` : t.error || '대기 중' });
@@ -360,8 +308,8 @@ export function countdown(r, now) {
 }
 
 // ── pasted images ──
-// Images travel as file paths in the message text (app-server's turn input rejects image items) and the agent opens
-// them with its read tool. The block is parsed back out so the timeline shows thumbnails instead of the paths.
+// Images travel as file paths in the message text and the agent opens them with its read tool. The block is parsed
+// back out so the timeline shows thumbnails instead of the paths.
 export const IMAGES_HEAD = 'Attached images (open each with the read tool before answering):';
 export const withImages = (text, paths = []) => (paths.length ? [text, [IMAGES_HEAD, ...paths.map((p) => `- ${p}`)].join('\n')].filter(Boolean).join('\n\n') : text);
 // Image files from a paste, drop or file picker. For pastes, text on the clipboard wins: apps like Excel and Docs also
@@ -380,30 +328,14 @@ export function splitImages(text = '') {
 }
 
 // ── skills ──
-// A `/skill:name` turn is saved with each SKILL.md expanded in front of the request (omo's skill-invocation format),
-// while live notifications carry the text as typed. Both fold to the skill names and the request.
-const SKILL_BLOCK = /^The user explicitly invoked the "([^"]+)" skill\.[^\n]*\n\n<skill-instruction name="\1" location="[^"]*">\n[\s\S]*?\n<\/skill-instruction>(?:\n\n|$)/;
+// A message with skills attached starts with a `/skill:name` token for each (the backend adds them); they fold to the
+// skill names and the request.
 const SKILL_TOKEN = /^\/skill:([a-zA-Z][\w:-]*)(?:\s+|$)/;
 function foldSkills(text = '') {
   const skills = [];
-  let rest = text, m;
-  while ((m = rest.match(SKILL_BLOCK))) { skills.push(m[1]); rest = rest.slice(m[0].length); }
-  if (skills.length) {
-    const req = rest.match(/^<user-request>\n([\s\S]*?)\n<\/user-request>$/);
-    return rest && !req ? { skills: [], text } : { skills, text: req ? req[1].trim() : '' };
-  }
-  const legacy = text.match(/^<skill name="([^"]+)" location="[^"]*">\n[\s\S]*?\n<\/skill>(?:\n\n([\s\S]*))?$/);
-  if (legacy) return { skills: [legacy[1]], text: (legacy[2] || '').trim() };
-  rest = text.trimStart();
+  let rest = text.trimStart(), m;
   while ((m = rest.match(SKILL_TOKEN))) { skills.push(m[1]); rest = rest.slice(m[0].length); }
   return { skills, text: skills.length ? rest : text };
-}
-// thread/list previews start with the same expansion, cut short.
-function foldPreview(p) {
-  if (!p.startsWith('The user explicitly invoked the "')) return p;
-  const names = [...p.matchAll(/(?:^|\n\n)The user explicitly invoked the "([^"]+)" skill\./g)].map((m) => m[1]);
-  const req = p.match(/<user-request>\n([\s\S]*?)(?:\n<\/user-request>|$)/);
-  return [...names.map((n) => `/skill:${n}`), req?.[1].trim()].filter(Boolean).join(' ');
 }
 const skillOf = (path) => (typeof path === 'string' && /(^|\/)SKILL\.md$/.test(path) ? path.split('/').at(-2) || '' : '');
 const skillView = (i, names, key) => ({ key, isSkill: true, text: names.join(', '), live: i.status === 'inProgress', failed: key === i.id && i.success === false });
@@ -416,13 +348,10 @@ export function viewItems(T, now = Date.now()) {
     const label = { inProgress: '진행 중', completed: '완료', failed: '실패', interrupted: '중단됨' }[u.status] || u.status || '';
     out.push({ key: `turn-${u.id}`, isTurn: true, text: `턴 ${ti + 1}`, meta: label, metaColor: u.status === 'failed' ? 'var(--err-fg)' : u.status === 'inProgress' ? 'var(--acc-fg)' : 'var(--fg3)' });
     (u.items || []).filter((i) => !isEmptyReasoning(i)).forEach((i) => {
-      // A skill load is its own row, as omo's terminal shows it: a read of a SKILL.md replaces the tool row, and the
-      // skills a tool read inside itself (eval) follow that tool's row.
+      // A read of a SKILL.md is a skill load and gets a skill row instead of a tool row.
       const own = i.type === 'dynamicToolCall' && /^read$/i.test(i.tool || '') ? skillOf(i.arguments?.path || i.arguments?.file_path) : '';
       if (own) return out.push(skillView(i, [own], i.id));
       out.push(viewItem(i));
-      const inner = T.skillReads?.[i.id];
-      if (inner?.length) out.push(skillView(i, inner, `${i.id}:skills`));
     });
     if (live?.turnId === u.id) out.push({ key: `live-${u.id}`, isLive: true, text: live.label, code: live.code, hasCode: !!live.code, meta: live.elapsed });
     if (u.error?.message) out.push({ key: `err-${u.id}`, isError: true, text: u.error.message });
@@ -456,11 +385,6 @@ function viewItem(i) {
       return { ...base, isFile: true, files };
     }
     case 'dynamicToolCall': {
-      if (i.tool === 'todo') {
-        const a = typeof i.arguments === 'object' && i.arguments ? i.arguments : {};
-        const t = { init: `todo 작성 · ${(a.list || []).length}단계 ${(a.list || []).reduce((n, p) => n + (p.items || []).length, 0)}개`, done: `완료 · ${a.task ?? a.phase ?? ''}`, start: `시작 · ${a.task ?? a.phase ?? ''}`, drop: `포기 · ${a.task ?? a.phase ?? ''}`, append: `추가 · ${(a.items || []).join(', ')}`, rm: `삭제 · ${a.task ?? a.phase ?? ''}`, view: '목록 확인' }[a.op];
-        return { ...base, isTodo: true, glyph: a.op === 'done' ? '✓' : a.op === 'init' ? '≡' : a.op === 'drop' ? '×' : '+', text: t || textOf(i) || 'todo' };
-      }
       if (i.tool === 'todowrite') {
         const list = Array.isArray(i.arguments?.todos) ? i.arguments.todos : [];
         const done = list.filter((t) => t?.status === 'completed').length;
@@ -488,7 +412,7 @@ export class Store {
     this.v = 0;
     this.fns = new Set();
     this.s = { conn: { state: 'closed' }, loading: true, threads: new Map(), requests: new Map(), models: [], skills: [], toasts: [], resolved: [], notify: { browser: true, sound: false, push: false } };
-    this.msgAt = new Map(); // thread id → last conversation time (ms) from the session file, via the backend
+    this.msgAt = new Map(); // thread id → last activity time (ms), via the backend
     client.on('notification', (n) => this.onNote(n));
     client.on('serverRequest', (r) => this.onReq(r));
     client.on('connection', (e) => this.onConn(e));
@@ -526,17 +450,15 @@ export class Store {
     return out;
   }
   async bootstrap() {
-    const talked = this.c.backend?.activity?.().catch((e) => { console.warn('[omonitor] 세션 파일에서 마지막 대화 시각을 읽지 못했습니다:', e?.message || e); return {}; });
+    const talked = this.c.backend?.activity?.().catch((e) => { console.warn('[omonitor] 세션의 마지막 활동 시각을 읽지 못했습니다:', e?.message || e); return {}; });
     const [active, archived, models, loaded, msgAt] = await Promise.all([this.listAll(false), this.listAll(true), this.c.request('model/list').catch(() => ({ data: [] })), this.c.request('thread/loaded/list').catch(() => ({ data: [] })), talked]);
     this.msgAt = new Map(Object.entries(msgAt || {}));
     for (const t of [...active, ...archived.map((t) => ({ ...t, archived: true }))]) this.merge(t);
     this.s.models = models.data || [];
-    this.addExtraModels();
     this.s.loading = false;
     this.emit();
-    // Subscribe only to threads the app-server already has loaded. Loading a saved thread (thread/resume or thread/read)
-    // starts its agent runtime, and omo may auto-continue a pending goal or todo list; unloaded history comes from the
-    // session file through the backend instead (loadHistory).
+    // The sessions the backend reports as loaded (running, or waiting for an answer) are followed right away; the rest
+    // are subscribed when opened.
     for (const id of loaded.data || []) if (this.T(id) && !this.T(id).archived) this.resume(id, true).catch(() => {});
     this.loadSkills();
   }
@@ -563,19 +485,17 @@ export class Store {
     } catch (e) { console.warn('[omonitor] 브랜치·워크트리 정보를 읽지 못했습니다:', e?.message || e); }
     finally { this.gitBusy = false; }
   }
-  // The `/` palette: commands and skills of the installed omo, read by the backend.
+  // The `/` palette: commands and skills of the opencode2 server, read by the backend.
   loadSkills() {
     this.c.backend?.listSkills?.().then((sk) => { this.s.skills = sk || []; this.emit(); }).catch(() => {});
   }
   merge(t) {
-    const prev = this.s.threads.get(t.id) || { turns: [], tasks: [], goal: null, subscribed: false, settings: {} };
+    const prev = this.s.threads.get(t.id) || { turns: [], tasks: [], subscribed: false, settings: {} };
     const next = { ...prev, ...t };
     for (const k of ['createdAt', 'updatedAt', 'recencyAt']) if (k in t) next[k] = toMs(t[k]);
-    // app-server's updatedAt follows the session file's last entry, which also moves when a session is merely loaded
-    // (omo appends metadata). The backend reads the last conversation time instead; live events seen here are newer.
+    // The backend's activity time wins over a listed updatedAt, unless live events seen here are newer.
     const talkedAt = this.msgAt.get(t.id);
     if (talkedAt != null && 'updatedAt' in t) next.updatedAt = Math.max(talkedAt, prev.liveAt || 0);
-    if (typeof t.preview === 'string') next.preview = foldPreview(t.preview);
     next.turns = t.turns ? normTurns(t.turns) : prev.turns;
     this.s.threads.set(t.id, next);
     return next;
@@ -586,26 +506,17 @@ export class Store {
     // thread/resume never carries history (turns: []); keep what is already here and fetch history separately.
     const { turns, ...thread } = r.thread || {};
     this.merge({ ...thread, subscribed: true, loaded: true, settings: { model: modelRef(r.model, r.modelProvider), effort: r.reasoningEffort } });
-    this.c.request('thread/goal/get', { threadId: id }).then((g) => { const T = this.T(id); if (T) { T.goal = g.goal || null; this.emit(); } }).catch(() => {});
     if (reloadHistory || !this.T(id).historyLoaded) await this.loadHistory(id).catch(() => {});
     this.emit();
     return this.T(id);
   }
   // Notifications sent while the socket was down are lost, and resume keeps the turns already on screen, so a reconnect
   // re-reads what a page load reads: the thread list, then subscriptions and history for subscribed and loaded threads.
-  // Claude subscription models, which model/list leaves out, appended from the backend.
-  addExtraModels() {
-    this.c.backend?.extraModels?.().then((xs) => {
-      const have = new Set(this.s.models.map((m) => m.id));
-      this.s.models = [...this.s.models, ...(xs || []).filter((m) => !have.has(m.id))];
-      this.emit();
-    }).catch((e) => console.warn('[omonitor] Claude 구독 모델 목록을 읽지 못했습니다:', e?.message || e));
-  }
   async resync() {
     const subs = new Set();
     for (const T of this.s.threads.values()) {
       if (T.subscribed) { subs.add(T.id); T.subscribed = false; }
-      else if (T.historyLoaded) T.historyLoaded = false; // read again from the session file when opened next
+      else if (T.historyLoaded) T.historyLoaded = false; // read again when opened next
     }
     try {
       const [active, archived, loaded, msgAt] = await Promise.all([this.listAll(false), this.listAll(true), this.c.request('thread/loaded/list').catch(() => ({ data: [] })), this.c.backend?.activity?.().catch(() => null)]);
@@ -615,16 +526,14 @@ export class Store {
       for (const id of loaded.data || []) if (this.T(id) && !this.T(id).archived) subs.add(id);
     } catch (e) { console.warn('[omonitor] 다시 연결한 뒤 세션 목록을 읽지 못했습니다:', e?.message || e); }
     this.emit();
-    // An omo update restarts the app-server daemon, which is one way the socket goes down; read the palette and the
-    // model list again, since the new omo may offer other models.
+    // An opencode2 update restarts its server, which is one way the socket goes down; read the palette and the model list
+    // again, since the new version may offer other models.
     this.loadSkills();
-    this.c.request('model/list').then((r) => { this.s.models = r.data || []; this.addExtraModels(); this.emit(); }).catch((e) => console.warn('[omonitor] 다시 연결한 뒤 모델 목록을 읽지 못했습니다:', e?.message || e));
+    this.c.request('model/list').then((r) => { this.s.models = r.data || []; this.emit(); }).catch((e) => console.warn('[omonitor] 다시 연결한 뒤 모델 목록을 읽지 못했습니다:', e?.message || e));
     await Promise.all([...subs].map((id) => this.resume(id, true, true).catch(() => {})));
   }
-  // History comes from the session file through the backend: it is the complete record, and reading it has no side
-  // effects, while thread/read loads an unloaded thread (omo may then auto-continue it) and, for a loaded thread, only
-  // returns turns from the app-server's own lifetime. A running turn is taken from the app-server so live notifications
-  // keep extending the same turn id.
+  // History comes from the backend's saved record of the session (the simulator has none and answers thread/read). A
+  // running turn is taken from thread/read so live notifications keep extending the same turn id.
   async loadHistory(id) {
     const T = this.T(id);
     if (!T) return;
@@ -632,7 +541,7 @@ export class Store {
     const fromFile = !!this.c.backend?.history;
     let turns = fromFile ? await this.c.backend.history(id) : await read();
     let live = null;
-    if (fromFile && T.status?.type !== 'notLoaded') {
+    if (fromFile) {
       live = (await read()).find((u) => u.status === 'inProgress');
       const userText = (u) => (u?.items || []).find((i) => i.type === 'userMessage')?.content?.map((c) => c.text).join('\n') || '';
       const last = turns.at(-1);
@@ -640,8 +549,8 @@ export class Store {
     }
     const cur = this.T(id);
     if (!cur) return;
-    // File turns start at user messages, app-server turns at every agent run, so their ids never match. Turns kept from
-    // live notifications are already inside the file history, except the running one.
+    // Saved turns start at user messages, live turns at every agent run, so their ids never match. Turns kept from live
+    // notifications are already inside the saved history, except the running one.
     cur.turns = mergeTurns(normTurns(turns), fromFile ? cur.turns.filter((u) => u.id.startsWith('file-') || u.id === live?.id) : cur.turns, !fromFile);
     Object.assign(cur, { historyLoaded: true, historyFromFile: fromFile });
     this.emit();
@@ -658,7 +567,7 @@ export class Store {
       if (T?.pendingStatus) { T.status = status || T.pendingStatus; T.pendingStatus = null; this.emit(); }
     }, 500);
   }
-  // Subagent runs and context usage come from the session file; app-server sends neither.
+  // Subagent runs and the context the last model call used, read by the backend.
   loadMeta(id) {
     if (!this.c.backend?.meta) return;
     this.c.backend.meta(id).then((m) => {
@@ -666,9 +575,8 @@ export class Store {
       if (!T || !m) return;
       if (m.agents?.length || !T.tasks?.length) T.tasks = parseTasks(m.agents || []);
       if (m.usage) T.usage = m.usage;
-      if (m.skills) T.skillReads = m.skills;
       this.emit();
-    }).catch((e) => console.warn('[omonitor] 세션 파일에서 에이전트·컨텍스트 정보를 읽지 못했습니다:', e?.message || e));
+    }).catch((e) => console.warn('[omonitor] 에이전트·컨텍스트 정보를 읽지 못했습니다:', e?.message || e));
   }
   onConn(e) {
     this.s.conn = e;
@@ -726,9 +634,8 @@ export class Store {
         // Starting or finishing a turn is activity; the status a session reports when it is loaded or subscribed is not.
         const was = T.status?.type;
         if (p.status?.type === 'active' || was === 'active') T.updatedAt = T.liveAt = Date.now();
-        // Any client subscribing to a busy thread (thread/resume) makes app-server broadcast "idle" while the turn keeps
-        // running. A real end of turn comes with turn/completed, so a drop from active waits for it (or is read back)
-        // instead of flipping the session to idle.
+        // An "idle" report can arrive while the turn keeps running. A real end of turn comes with turn/completed, so a
+        // drop from active waits for it (or is read back) instead of flipping the session to idle.
         if (was === 'active' && p.status?.type === 'idle') { T.pendingStatus = p.status; this.verifyStatus(T.id); }
         else { T.status = p.status; T.pendingStatus = null; }
         if (p.status?.type === 'active' && !T.subscribed && !T.archived) this.resume(T.id, true).catch(() => {});
@@ -738,8 +645,6 @@ export class Store {
       case 'thread/deleted': this.s.threads.delete(p.threadId); for (const r of this.reqsFor(p.threadId)) this.s.requests.delete(r.id); break;
       case 'thread/name/updated': if (T) T.name = p.threadName ?? p.name; break;
       case 'thread/settings/updated': if (T && p.threadSettings) T.settings = { model: modelRef(p.threadSettings.model, p.threadSettings.modelProvider), effort: p.threadSettings.effort }; break;
-      case 'thread/goal/updated': if (T) T.goal = p.goal; break;
-      case 'thread/goal/cleared': if (T) T.goal = null; break;
       case 'thread/unarchived': if (T) T.archived = false; break;
       case 'thread/tokenUsage/updated': if (T) T.usage = { used: p.tokenUsage?.total?.totalTokens ?? 0, window: p.tokenUsage?.modelContextWindow ?? 0 }; break;
       // A subagent's completion wakes its parent with a new turn, so turn starts refresh the agents tab too.
@@ -750,23 +655,21 @@ export class Store {
         const item = normItem(p.item);
         // Items only start inside a running turn, whatever status was last broadcast.
         if (method === 'item/started') { T.pendingStatus = null; if (T.status?.type !== 'active') T.status = { type: 'active', activeFlags: [] }; }
-        // omo sends reasoning and agentMessage items without a status; the event itself says whether the item is running.
+        // An item sent without a status is running if the event started it, finished if it completed it.
         if (item.status == null) item.status = method === 'item/started' ? 'inProgress' : 'completed';
         const i = u.items.findIndex((x) => x.id === item.id);
         u.items = i >= 0 ? u.items.map((x, k) => (k === i ? { ...x, ...item } : x)) : [...u.items, item];
         if (i < 0) T.turns = withoutFileCopy(T.turns, u, item.id);
         T.updatedAt = T.liveAt = u.phaseAt = u.lastAt = Date.now();
-        // Subagent spawns and control calls (task, task_cancel, ...) change the agents tab.
-        // A tool that read SKILL.md files inside itself (eval) reports them only in the session file.
-        const innerSkills = !/^read$/i.test(item.tool || '') && JSON.stringify(item.arguments ?? '').includes('SKILL.md');
-        if (method === 'item/completed' && item.type === 'dynamicToolCall' && (/^task/.test(item.tool || '') || innerSkills)) this.loadMeta(T.id);
+        // A subagent call changes the agents tab.
+        if (method === 'item/completed' && item.type === 'dynamicToolCall' && item.tool === 'subagent') this.loadMeta(T.id);
       } break;
       case 'item/agentMessage/delta': if (T) {
         const u = this.turnFor(T, p.turnId);
         u.items = u.items.map((x) => (x.id === p.itemId ? { ...x, text: (x.text || '') + p.delta } : x));
       } break;
-      // omo streams each thinking block into its own reasoning item (contentIndex is the block's place in the model
-      // output, not an index into the item), so the text accumulates in content[0] until item/completed replaces it.
+      // Each thinking block streams into its own reasoning item (contentIndex is the block's place in the model output,
+      // not an index into the item), so the text accumulates in content[0] until item/completed replaces it.
       case 'item/reasoning/textDelta': if (T) {
         const u = this.turnFor(T, p.turnId);
         u.items = u.items.map((x) => (x.id === p.itemId ? { ...x, content: [((x.content || [])[0] || '') + p.delta] } : x));
@@ -785,13 +688,12 @@ export class Store {
       } break;
       case 'error': {
         const msg = p.error?.message || p.message || (typeof p.error === 'string' ? p.error : '');
-        // omo also reports extension diagnostics here ({ extensionPath, event, error }); they carry no threadId.
-        if (!p.threadId) { console.warn('[omo app-server]', p.extensionPath || '', msg); break; }
+        if (!p.threadId) { console.warn('[omonitor] 서버 오류:', msg); break; }
         if (T) T.lastError = msg || '알 수 없는 오류';
         if (!p.willRetry) this.toast(msg || '서버 오류');
         break;
       }
-      case 'extension_event': if (T && p.name === 'omo.task.updated') T.tasks = parseTasks(p.data); break;
+      case 'thread/agents/updated': if (T) T.tasks = parseTasks(p.agents); break;
       case 'serverRequest/resolved': {
         const r = this.s.requests.get(p.requestId);
         if (r) { this.s.requests.delete(p.requestId); if (!r.answeredHere) this.s.resolved = [{ threadId: r.params?.threadId, verdict: '다른 곳에서 처리됨', at: Date.now() }, ...this.s.resolved].slice(0, 20); }
@@ -867,14 +769,5 @@ export class Store {
   async setSettings(id, patch) {
     await this.guard(this.c.request('thread/settings/update', { threadId: id, ...patch }), '설정을 바꾸지 못했습니다');
     const T = this.T(id); T.settings = { ...T.settings, ...patch }; this.emit();
-  }
-  async goalSet(id, patch) { const r = await this.guard(this.c.request('thread/goal/set', { threadId: id, ...patch }), '목표 저장 실패'); this.T(id).goal = r.goal; this.emit(); }
-  async goalClear(id) { await this.guard(this.c.request('thread/goal/clear', { threadId: id }), '목표 삭제 실패'); this.T(id).goal = null; this.emit(); }
-  async restoreTodos(id) {
-    const T = this.T(id);
-    const items = await this.guard(this.c.backend.restoreTodos(id), '세션 파일에서 복원하지 못했습니다');
-    if (items?.length) { T.restored = items; T.turns = [...T.turns, { id: `restored-${id}`, status: 'completed', restored: true, items }]; this.toast('세션 파일에서 todo를 복원했습니다', 'info'); }
-    else this.toast('복원할 todo가 없습니다', 'info');
-    this.emit();
   }
 }

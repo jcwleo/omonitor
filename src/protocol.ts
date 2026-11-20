@@ -1,5 +1,5 @@
-// The dashboard's session protocol: Codex app-server compatible JSON-RPC over WebSocket, no `jsonrpc` field. omo removed
-// its app-server; the backend (host.ts) now serves this protocol on top of `omo host`.
+// The dashboard's session protocol: Codex app-server compatible JSON-RPC over WebSocket, no `jsonrpc` field.
+// The backend translates between this protocol and the opencode2 server.
 // Only the surface listed in the brief is modelled. Every server payload is treated as partial.
 
 export type RequestId = number | string;
@@ -18,32 +18,29 @@ export interface InitializeParams { clientInfo: { name: string; version: string 
 export interface InitializeResult { userAgent?: string; serverInfo?: { name: string; version: string } }
 
 // ── threads ──
-export type ThreadSource = 'cli' | 'appServer' | (string & {});
-/** Known: idle, notLoaded, active, systemError. Unknown values must render safely. */
-export interface ThreadStatus { type: 'idle' | 'notLoaded' | 'active' | 'systemError' | (string & {}); activeFlags?: string[] }
+/** Known: idle, active, systemError. Unknown values must render safely. */
+export interface ThreadStatus { type: 'idle' | 'active' | 'systemError' | (string & {}); activeFlags?: string[] }
 export interface Thread {
-  id: string; name?: string | null; preview?: string; cwd: string; source: ThreadSource; status: ThreadStatus;
-  /** omo app-server wire values are Unix seconds; the browser Store normalizes them to milliseconds. */
-  createdAt: number; updatedAt: number; path?: string; archived?: boolean; turns?: Turn[];
+  id: string; name?: string | null; preview?: string; cwd: string; source: string; status: ThreadStatus;
+  /** Session timestamps in milliseconds. */
+  createdAt: number; updatedAt: number; path?: string; archived?: boolean; turns?: Turn[]; revert?: Revert | null;
 }
+/** A staged revert: the user message it starts at, how many of the user's messages it took back (null when unknown) and
+ * the files it put back. The next message commits it; thread/revert/clear undoes it. */
+export interface Revert { messageId: string; count: number | null; files: { path: string; status: 'added' | 'deleted' | 'modified' | (string & {}); add: number; del: number }[] }
 export interface Page<T> { data: T[]; nextCursor: string | null }
 
 export interface ThreadListParams { cursor?: string | null; limit?: number; archived?: boolean }
 export interface ThreadReadParams { threadId: string; includeTurns?: boolean }
-/** experimental; case-insensitive. Pass both kinds to find terminal + dashboard sessions. */
-export interface ThreadSearchParams { query: string; sourceKinds?: ThreadSource[]; cursor?: string | null }
 export interface ThreadStartParams { cwd: string }
 export interface ThreadStartResult { thread: Thread; model?: string; reasoningEffort?: string }
 export interface ThreadResumeResult { thread: Thread; model?: string; reasoningEffort?: string }
-
-export type GoalStatus = 'active' | 'paused' | 'complete';
-export interface Goal { objective: string; status: GoalStatus; tokenBudget?: number; tokensUsed?: number }
 
 export interface Model { id: string; displayName?: string; supportedReasoningEfforts?: string[] }
 
 // ── turns & items ──
 export type TurnStatus = 'inProgress' | 'completed' | 'failed' | 'interrupted' | (string & {});
-export interface Turn { id: string; status: TurnStatus; items: Item[]; error?: { message: string }; /** ms of the turn's latest message; set by omonitor's file history, not app-server */ lastAt?: number }
+export interface Turn { id: string; status: TurnStatus; items: Item[]; error?: { message: string }; /** ms of the latest message in a saved turn */ lastAt?: number }
 export type TextInput = { type: 'text'; text: string };
 
 export type ItemStatus = 'inProgress' | 'completed' | 'failed' | 'declined' | 'interrupted' | (string & {});
@@ -52,7 +49,6 @@ export interface UserMessageItem extends ItemBase { type: 'userMessage'; content
 export interface AgentMessageItem extends ItemBase { type: 'agentMessage'; text: string }
 export interface ReasoningItem extends ItemBase { type: 'reasoning'; summary?: string[]; content?: string[] }
 export interface CommandExecutionItem extends ItemBase { type: 'commandExecution'; command: string; cwd?: string; exitCode?: number | null; aggregatedOutput?: string; durationMs?: number }
-/** omo sends `kind` as `{ type }`; the browser Store normalizes it to the plain string. */
 export interface FileChange { path: string; kind: 'add' | 'delete' | 'update' | { type: 'add' | 'delete' | 'update' } | (string & {}); diff?: string }
 export interface FileChangeItem extends ItemBase { type: 'fileChange'; changes: FileChange[] }
 export interface McpToolCallItem extends ItemBase { type: 'mcpToolCall'; server: string; tool: string; arguments?: unknown; result?: { content?: { type: string; text?: string }[] } }
@@ -67,21 +63,16 @@ export interface TurnSteerParams { threadId: string; expectedTurnId: string; inp
 export interface TurnInterruptParams { threadId: string; turnId: string }
 export interface ThreadSettingsUpdateParams { threadId: string; model?: string; effort?: string }
 
-// ── todo tool (arrives as dynamicToolCall with tool === 'todo') ──
-export type TodoOp =
-  | { op: 'init'; list: { phase: string; items: string[] }[] }
-  | { op: 'start' | 'done' | 'drop' | 'rm'; task?: string; phase?: string }
-  | { op: 'append'; phase?: string; items: string[] }
-  | { op: 'view' };
+// ── todo list (opencode2's todowrite, a dynamicToolCall whose arguments carry the whole list) ──
 export type TodoStatus = 'pending' | 'in_progress' | 'completed' | 'abandoned';
-export interface TodoState { phases: { name: string; tasks: { text: string; status: TodoStatus }[] }[]; raw: string | null }
+export interface TodoState { phases: { name: string; tasks: { text: string; status: TodoStatus }[] }[] }
 
-// ── subagents (extension_event name === 'omo.task.updated'); every field optional ──
+// ── subagents ──
 /** agent/message: deliver directly to a child of this parent; viewing history never invokes this method. */
 export interface AgentMessageParams { readonly threadId: string; readonly parentThreadId: string; readonly text: string }
-export interface OmoTask {
+export interface AgentTask {
   task_id?: string; name?: string; task_summary?: string; description?: string; agent_type?: string; category?: string; model?: string;
-  child_session_id?: string; run_stats?: Record<string, number>; live_progress?: { activity?: string; started_at?: number; current_tool?: string };
+  child_session_id?: string; run_stats?: Record<string, number | undefined>; live_progress?: { activity?: string; started_at?: number | null; current_tool?: string } | null;
   final_response?: string; error_message?: string;
 }
 
@@ -90,8 +81,6 @@ export interface NotificationMap {
   'thread/started': { thread: Thread };
   'thread/status/changed': { threadId: string; status: ThreadStatus };
   'thread/name/updated': { threadId: string; threadName: string };
-  'thread/goal/updated': { threadId: string; goal: Goal };
-  'thread/goal/cleared': { threadId: string };
   'thread/unarchived': { threadId: string };
   'turn/started': { threadId: string; turn: Pick<Turn, 'id' | 'status'> };
   'turn/completed': { threadId: string; turn: Pick<Turn, 'id' | 'status' | 'error'> };
@@ -101,7 +90,8 @@ export interface NotificationMap {
   'item/reasoning/textDelta': { threadId: string; turnId: string; itemId: string; delta: string; contentIndex: number };
   'turn/diff/updated': { threadId: string; turnId: string; diff: string };
   error: { threadId?: string; error?: { message: string }; message?: string };
-  extension_event: { threadId: string; name: string; data: unknown };
+  'thread/agents/updated': { threadId: string; agents: AgentTask[] };
+  'thread/revert/updated': { threadId: string; revert: Revert | null };
   'serverRequest/resolved': { threadId: string; requestId: RequestId };
   /** Not in the guaranteed list — the UI shows context size only if this arrives. */
   'thread/tokenUsage/updated': { threadId: string; tokenUsage: { total?: { totalTokens?: number }; modelContextWindow?: number } };
@@ -121,17 +111,11 @@ export interface UserInputAnsweredParams { answers: Record<string, { answers: st
 
 // ── Bun backend extras (not app-server) ──
 export interface Skill { kind: 'command' | 'skill' | 'keyword'; name: string; desc: string; source: 'builtin' | 'user'; insert?: string; label?: string }
-/** GET /api/omo/version: the installed omo against the npm `latest` tag (cached 10 minutes by the backend). engine: the
- * installed senpi engine; running: the engine the omo host answers with; stale: it still runs an engine from before an
- * omo update (old model list included) and needs a restart. */
-export interface OmoVersion { current: string; latest: string; updateAvailable: boolean; engine: string; running: string | null; stale: boolean; checkedAt: number }
 /** GET /api/opencode/version (null without opencode2): current is the installed CLI, latest the npm @opencode/cli release,
  * running the version the shared service answers with; stale: the service still runs a binary from before an upgrade. */
 export interface OpencodeVersion { current: string; latest: string; running: string | null; updateAvailable: boolean; stale: boolean; checkedAt: number }
 /** POST /api/opencode/update: `opencode upgrade`, then `opencode service restart`. restartError: the upgrade went in but the restart failed. */
 export interface OpencodeUpdateResult { update: string; restart?: string; restartError?: string }
-/** POST /api/omo/restart: `omo host ensure` hands the host over to the installed engine, then waits until it serves the socket. */
-export interface OmoRestartResult { restart: string }
 /** POST /api/open { target, cwd? }, only from a dashboard served on the machine itself: a URL went to the default browser,
  * a file or folder to its default app, or something that would run when opened was shown in Finder. */
 export interface OpenResult { opened: 'browser' | 'app' | 'finder' }
@@ -144,8 +128,6 @@ export interface UsageAuthState { accounts: UsageAuthAccount[]; pending: UsageLo
 export interface UsageAccount { provider: UsageProvider; name: string; plan: string | null; windows: UsageWindow[]; source?: 'omonitor'; error?: string; expired?: boolean; errorCode?: 'expired' | 'authentication' | 'credentials' | 'unavailable' }
 /** GET /api/usage: omonitor-owned logins; Claude cached for 3 minutes, ChatGPT for 30 seconds. */
 export interface PlanUsage { checkedAt: number; accounts: UsageAccount[] }
-/** POST /api/omo/update: `omo update`, then the omo host restart above. restartError means the update went in but the restart failed. */
-export interface OmoUpdateResult { update: string; restart?: string; restartError?: string }
 /** A commit on omonitor's upstream branch that this clone lacks; at is the commit time in ms. */
 export interface OmonitorCommit { sha: string; subject: string; at: number }
 /** GET /api/omonitor/version (update.ts): this clone against its upstream branch after a git fetch (cached 10 minutes by
@@ -157,11 +139,9 @@ export interface OmonitorVersion { current: string; latest: string; upstream: st
 export interface GitWorktree { path: string; branch: string | null; head: string | null; main: boolean; locked: boolean; missing: boolean; upstream: string | null; ahead: number; behind: number; changes: number }
 /** A repo by its common git dir: root is the main worktree's folder, name its folder name. */
 export interface GitRepo { root: string; name: string; worktrees: GitWorktree[] }
-/** Where a session works. worktree: its cwd's worktree, or the last worktree its tool calls named (inferred). removed:
- * that worktree is gone; branch then comes from the session's own `git worktree add`. A session that
- * names the main checkout after that worktree is gone is back in the main checkout. */
+/** The worktree containing the session's cwd. No worktree is inferred from the conversation. */
 export interface ThreadGit { repo: string; worktree: string; branch: string | null; head: string | null; removed: boolean; inferred: boolean }
-/** POST /api/git/summary { threads: [{ id, cwd, path }] }: repos keyed by common git dir, sessions by thread id. */
+/** POST /api/git/summary { threads: [{ id, cwd }] }: repos keyed by common git dir, sessions by thread id. */
 export interface GitSummary { checkedAt: number; repos: Record<string, GitRepo>; threads: Record<string, ThreadGit> }
 /** POST /api/omonitor/update: fast-forward, then bun install when the lockfile moved. restarting: the server exits now and
  * its service starts the new code; restartNeeded without restarting: it runs outside the service and needs a manual restart. */

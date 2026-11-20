@@ -1,5 +1,5 @@
-// MockClient — an in-memory fake of `omo app-server` implementing the SessionClient contract
-// (connect / close / request / respond / on). Same message shapes as the real server.
+// MockClient — an in-memory simulator of the session protocol the backend serves for opencode2, implementing the
+// SessionClient contract (connect / close / request / respond / on). Same message shapes as the real server.
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const M = 60000, H = 3600000, D = 86400000;
 let n = 0;
@@ -12,21 +12,28 @@ const think = (...s) => ({ type: 'reasoning', id: nid('it'), summary: s, content
 const cmd = (command, cwd, out, exitCode = 0, durationMs = 1400) => ({ type: 'commandExecution', id: nid('it'), command, cwd, status: exitCode === 0 ? 'completed' : 'failed', exitCode, aggregatedOutput: out, durationMs });
 const fc = (path, diff, kind = 'update') => ({ type: 'fileChange', id: nid('it'), status: 'completed', changes: [{ path, kind, diff }] });
 const dyn = (tool, args, result, success = true) => ({ type: 'dynamicToolCall', id: nid('it'), tool, arguments: args, status: 'completed', success, contentItems: [{ type: 'inputText', text: result }] });
-const todo = (args) => dyn('todo', args, 'ok');
+// todowrite carries the whole list each call: the first `done` items are finished, the next one is under way, and `set`
+// gives single items another status (cancelled).
+const plan = (items, done = 0, set = {}) => ({ todos: items.map((content, i) => ({ content, status: set[content] || (i < done ? 'completed' : i === done ? 'in_progress' : 'pending') })) });
+const todo = (items, done, set) => dyn('todowrite', plan(items, done, set), 'ok');
+// The turns before a user message and the ones from it on; a message inside a turn splits that turn.
+function cutAt(turns, id) {
+  const at = turns.findIndex((u) => u.items.some((i) => i.id === id));
+  if (at < 0) return [turns, []];
+  const u = turns[at], k = u.items.findIndex((i) => i.id === id);
+  return [[...turns.slice(0, at), ...(k > 0 ? [{ ...u, items: u.items.slice(0, k) }] : [])], [{ ...u, id: k > 0 ? nid('tu') : u.id, items: u.items.slice(k) }, ...turns.slice(at + 1)]];
+}
 const mcp = (server, tool, args, result) => ({ type: 'mcpToolCall', id: nid('it'), server, tool, arguments: args, status: 'completed', result: { content: [{ type: 'text', text: result }] } });
 
 const PAY = '/Users/me/work/payments-api';
 const SKILLS = [
-  ...[['goal', '세션 목표 설정·조회·일시정지·해제'], ['loop', '프롬프트를 일정 간격으로 반복 (예: /loop 5m 배포 확인)'], ['remember', '내용을 장기 메모리에 저장'], ['todo', 'todo 항목 추가·시작·완료·포기·삭제']].map(([name, desc]) => ({ kind: 'command', name, desc, source: 'builtin' })),
-  ...[['ulw-execute', 'Prometheus 계획으로 Atlas 실행 시작'], ['refactor', 'LSP·AST-grep 기반 리팩터링 + TDD 검증'], ['remove-ai-slops', '브랜치 변경에서 AI 티 나는 코드 정리'], ['hyperplan', '팀 모드 적대적 계획 (team_mode 필요)'], ['git-master', '원자적 커밋 · 리베이스 · 이력 추적'], ['review-work', '구현 후 실제 화면 QA + 게이트 리뷰'], ['ulw-research', '출처 인용이 필요한 최대 포화 리서치'], ['frontend', 'UI/UX 구현 · 스타일링'], ['playwright', '브라우저 자동화 · 스크린샷 검증'], ['debugging', '재현 → 원인 추적 → 수정 검증'], ['security-review', '변경 사항 보안 검토'], ['init-deep', '폴더별 AGENTS.md 계층 생성'], ['payments-runbook', '결제 장애 대응 절차 (사용자 스킬 · ~/.omo/agent/skills)', 'user'], ['korean-copy', '한국어 UI 카피 톤 가이드 (사용자 스킬 · ~/.omo/agent/skills)', 'user']].map(([name, desc, source = 'builtin']) => ({ kind: 'skill', name, label: `/skill:${name}`, insert: `/skill:${name} `, desc, source })),
-  { kind: 'keyword', name: 'ulw', insert: 'ulw ', label: 'ultrawork · ulw', desc: '어려운 작업: 코드 파악 → 계획 → 단계별 검증', source: 'builtin' },
-  { kind: 'keyword', name: 'mass ulw', insert: 'mass ulw ', label: 'mass ulw', desc: '작업을 에이전트 그래프로 나눠 병렬 실행', source: 'builtin' },
+  ...[['init', 'AGENTS.md 만들기'], ['review', '변경 사항 리뷰']].map(([name, desc]) => ({ kind: 'command', name, desc, source: 'builtin' })),
+  ...[['refactor', '리팩터링 + 테스트 검증'], ['git-master', '원자적 커밋 · 리베이스 · 이력 추적'], ['frontend', 'UI/UX 구현 · 스타일링'], ['debugging', '재현 → 원인 추적 → 수정 검증'], ['security-review', '변경 사항 보안 검토'], ['payments-runbook', '결제 장애 대응 절차 (사용자 스킬)', 'user'], ['korean-copy', '한국어 UI 카피 톤 가이드 (사용자 스킬)', 'user']].map(([name, desc, source = 'builtin']) => ({ kind: 'skill', name, label: `/skill:${name}`, insert: `/skill:${name} `, desc, source })),
 ];
-const PAY_PLAN = [
-  { phase: '조사', items: ['기존 PaymentService 호출부 파악', '게이트웨이별 차이점 정리', '테스트 커버리지 확인'] },
-  { phase: '구현', items: ['PaymentAdapter 인터페이스 정의', 'TossAdapter 구현', 'StripeAdapter 구현', 'PaymentService 의존성 주입으로 교체'] },
-  { phase: '검증', items: ['단위 테스트 추가', '통합 테스트 실행'] },
-];
+const PAY_PLAN = ['기존 PaymentService 호출부 파악', '게이트웨이별 차이점 정리', '테스트 커버리지 확인', 'PaymentAdapter 인터페이스 정의', 'TossAdapter 구현', 'StripeAdapter 구현', 'PaymentService 의존성 주입으로 교체', '단위 테스트 추가', '통합 테스트 실행'];
+const PAY_PLAN2 = [...PAY_PLAN, '부분 capture 가드 추가'];
+const CI_PLAN = ['워크플로 현황 파악', 'bun으로 전환', 'lint 잡 통합', '브랜치에 푸시'];
+const MIG_PLAN = ['스키마 확인', '마이그레이션 작성', 'dry-run', '롤백 스크립트', '리뷰 요청'];
 const DIFF_IFACE = `diff --git a/src/payments/adapter.ts b/src/payments/adapter.ts
 new file mode 100644
 --- /dev/null
@@ -152,46 +159,45 @@ function seed(now) {
   const T = (ms) => now - ms;
   const threads = new Map();
   const add = (t) => threads.set(t.id, t);
-  const base = (o) => ({ preview: '', source: 'appServer', path: `~/.omo/sessions/${o.id}.jsonl`, archived: false, loaded: true, hidden: false, goal: null, tasks: null, settings: { model: 'claude-opus-5', effort: 'high' }, turns: [], ...o });
+  const base = (o) => ({ preview: '', archived: false, loaded: true, hidden: false, tasks: null, settings: { model: 'claude-opus-5', effort: 'high' }, turns: [], ...o });
 
   // 1. todo 5/9 + 3 subagents, actively working
   const pay1 = [
-    user('결제 모듈을 게이트웨이별 어댑터로 분리해줘. 기존 테스트는 전부 통과해야 해. ulw'),
+    user('결제 모듈을 게이트웨이별 어댑터로 분리해줘. 기존 테스트는 전부 통과해야 해.'),
     think('PaymentService가 toss/stripe 분기를 직접 들고 있다.', '어댑터 인터페이스를 먼저 정의하고 게이트웨이별 구현을 옮기는 순서가 안전하다.'),
-    dyn('read', { path: '/Users/me/.bun/install/global/node_modules/omo-ai/plugin/skills/refactor/SKILL.md' }, '---\nname: refactor\n---'),
-    todo({ op: 'init', list: PAY_PLAN }),
+    dyn('read', { path: '/Users/me/.config/opencode/skills/refactor/SKILL.md' }, '---\nname: refactor\n---'),
+    todo(PAY_PLAN, 0),
     cmd('rg -n "PaymentService" src --stats', PAY, 'src/checkout/confirm.ts:14:  const res = await PaymentService.call(gateway, body)\nsrc/payments/toss.ts:1:import { PaymentService } from \'./service\'\nsrc/payments/stripe-legacy.ts:3:import { PaymentService } from \'./service\'\nsrc/subscriptions/renew.ts:41:    await PaymentService.call(\'stripe\', payload)\n\n4 matches\n4 matched lines\n4 files contained matches', 0, 380),
-    todo({ op: 'done', task: '기존 PaymentService 호출부 파악' }),
-    todo({ op: 'done', task: '게이트웨이별 차이점 정리' }),
+    todo(PAY_PLAN, 1),
+    todo(PAY_PLAN, 2),
     cmd('bun test --coverage src/payments', PAY, 'src/payments/__tests__/service.test.ts:\n✓ PaymentService › toss confirm [3.12ms]\n✓ PaymentService › stripe charge [2.87ms]\n\n 2 pass\n 0 fail\n---------------------|---------|---------|\nFile                 | % Funcs | % Lines |\n---------------------|---------|---------|\nsrc/payments/service |   66.67 |   58.33 |\n---------------------|---------|---------|', 0, 2100),
-    todo({ op: 'done', task: '테스트 커버리지 확인' }),
+    todo(PAY_PLAN, 3),
     fc('src/payments/adapter.ts', DIFF_IFACE, 'add'),
-    todo({ op: 'done', task: 'PaymentAdapter 인터페이스 정의' }),
+    todo(PAY_PLAN, 4),
     fc('src/payments/toss.ts', DIFF_TOSS),
-    todo({ op: 'done', task: 'TossAdapter 구현' }),
-    agent('**TossAdapter**까지 옮겼습니다. 다음은 `StripeAdapter`입니다.\n\n- `PaymentAdapter` 인터페이스: `authorize` / `capture` / `refund`\n- Toss는 `paymentKey`를 `paymentId`로 매핑\n\nStripe 쪽은 idempotency key 처리 방식을 librarian에게 확인시키고 있습니다.'),
+    todo(PAY_PLAN, 5),
+    agent('**TossAdapter**까지 옮겼습니다. 다음은 `StripeAdapter`입니다.\n\n- `PaymentAdapter` 인터페이스: `authorize` / `capture` / `refund`\n- Toss는 `paymentKey`를 `paymentId`로 매핑\n\nStripe 쪽은 idempotency key 처리 방식을 서브에이전트에게 확인시키고 있습니다.'),
   ];
   add(base({ id: 'th_pay', name: '결제 모듈 리팩터링', cwd: PAY, preview: '결제 모듈을 게이트웨이별 어댑터로 분리해줘…', status: { type: 'active', activeFlags: [] }, createdAt: T(47 * M), updatedAt: T(6000),
-    goal: { objective: 'PaymentService를 게이트웨이별 어댑터로 분리하고 기존 테스트 100% 통과 유지', status: 'active', tokenBudget: 2000000, tokensUsed: 1240000 },
     turns: [{ id: 'tu_pay1', status: 'inProgress', startedAt: T(47 * M), items: pay1 }],
     tasks: [
-      { task_id: 'bg_7f2a', name: 'Stripe SDK 사용처 탐색', task_summary: 'stripe.* 호출부와 버전별 차이 수집', agent_type: 'explore', category: 'quick', model: 'gpt-5.6-luna-fast', live_progress: { activity: 'grep 결과 정리 중', started_at: T(4 * M), current_tool: 'grep' }, run_stats: { tool_calls: 14, tokens: 38200 } },
-      { task_id: 'bg_7f2b', name: 'PaymentIntent 문서 조사', task_summary: 'manual capture + idempotency 규칙 확인', agent_type: 'librarian', category: 'research', model: 'gpt-5.6-luna-fast', run_stats: { tool_calls: 9, tokens: 61000, duration_ms: 142000 }, final_response: 'PaymentIntent 생성 시 capture_method=manual을 쓰면 7일 내 capture해야 합니다. idempotencyKey는 요청 옵션으로 넘기며 24시간 유지됩니다.' },
-      { task_id: 'bg_7f2c', name: '어댑터 경계 설계 리뷰', task_summary: '환불·부분취소가 인터페이스에 맞는지 검토', agent_type: 'oracle', category: 'ultrabrain', model: 'gpt-5.6-sol', child_session_id: 'th_oracle', live_progress: { activity: '설계안 검토', started_at: T(2 * M), current_tool: 'read' }, run_stats: { tool_calls: 3 } },
+      { task_id: 'bg_7f2a', name: 'Stripe SDK 사용처 탐색', task_summary: 'stripe.* 호출부와 버전별 차이 수집', agent_type: 'explore', model: 'gpt-5.6-luna-fast', live_progress: { activity: 'grep 결과 정리 중', started_at: T(4 * M), current_tool: 'grep' }, run_stats: { tool_calls: 14, tokens: 38200 } },
+      { task_id: 'bg_7f2b', name: 'PaymentIntent 문서 조사', task_summary: 'manual capture + idempotency 규칙 확인', agent_type: 'general', model: 'gpt-5.6-luna-fast', run_stats: { tool_calls: 9, tokens: 61000, duration_ms: 142000 }, final_response: 'PaymentIntent 생성 시 capture_method=manual을 쓰면 7일 내 capture해야 합니다. idempotencyKey는 요청 옵션으로 넘기며 24시간 유지됩니다.' },
+      { task_id: 'bg_7f2c', name: '어댑터 경계 설계 리뷰', task_summary: '환불·부분취소가 인터페이스에 맞는지 검토', agent_type: 'general', model: 'gpt-5.6-sol', child_session_id: 'th_review', live_progress: { activity: '설계안 검토', started_at: T(2 * M), current_tool: 'read' }, run_stats: { tool_calls: 3 } },
     ] }));
-  add(base({ id: 'th_oracle', hidden: true, parentId: 'th_pay', name: 'oracle · 어댑터 경계 설계 리뷰', cwd: PAY, status: { type: 'active', activeFlags: [] }, createdAt: T(2 * M), updatedAt: T(8000), settings: { model: 'gpt-5.6-sol', effort: 'high' },
+  add(base({ id: 'th_review', hidden: true, parentId: 'th_pay', name: 'general · 어댑터 경계 설계 리뷰', cwd: PAY, status: { type: 'active', activeFlags: [] }, createdAt: T(2 * M), updatedAt: T(8000), settings: { model: 'gpt-5.6-sol', effort: 'high' },
     turns: [{ id: 'tu_or1', status: 'inProgress', startedAt: T(2 * M), items: [user('PaymentAdapter 설계안을 리뷰해 줘. 환불/부분취소가 인터페이스에 맞는지 확인할 것.'), think('refund(paymentId, amount?)는 부분 환불을 표현할 수 있다.', '부분 capture는 Stripe에만 있으므로 선택 기능으로 분리할지 판단 필요.'), dyn('read', { path: 'src/payments/adapter.ts' }, '12 lines')] }] }));
 
   // 2. waiting on command approval
   add(base({ id: 'th_ci', name: 'CI 파이프라인 정리', cwd: '/Users/me/work/infra', preview: 'CI를 bun으로 바꾸고 lint 잡을 합쳐줘', status: { type: 'active', activeFlags: ['waitingOnApproval'] }, createdAt: T(22 * M), updatedAt: T(90000), settings: { model: 'claude-sonnet-5', effort: 'medium' },
     turns: [{ id: 'tu_ci1', status: 'inProgress', startedAt: T(22 * M), items: [
       user('CI를 bun으로 바꾸고 lint 잡을 test 잡에 합쳐줘. 정리한 커밋은 chore/ci-cleanup에 올려.'),
-      todo({ op: 'init', list: [{ phase: '작업', items: ['워크플로 현황 파악', 'bun으로 전환', 'lint 잡 통합', '브랜치에 푸시'] }] }),
+      todo(CI_PLAN, 0),
       cmd('gh workflow list', '/Users/me/work/infra', 'ci        active  48211093\nrelease   active  48211107\nnightly   active  51902214', 0, 820),
-      todo({ op: 'done', task: '워크플로 현황 파악' }),
+      todo(CI_PLAN, 1),
       fc('.github/workflows/ci.yml', DIFF_CI),
-      todo({ op: 'done', task: 'bun으로 전환' }),
-      todo({ op: 'done', task: 'lint 잡 통합' }),
+      todo(CI_PLAN, 2),
+      todo(CI_PLAN, 3),
       cmd('git rebase -i --autosquash origin/main', '/Users/me/work/infra', 'Successfully rebased and updated refs/heads/chore/ci-cleanup.', 0, 1900),
     ] }] }));
 
@@ -204,38 +210,33 @@ function seed(now) {
       agent('카피 38줄 중 번역투로 보이는 문장이 **12곳** 있습니다. 톤과 범위를 먼저 정해 주세요.'),
     ] }] }));
 
-  // 4. idle — app-server restarted, only user messages survived
+  // 4. idle, two finished turns
   add(base({ id: 'th_docs', name: '문서 사이트 빌드', cwd: '/Users/me/work/docs', preview: '사이드바 정렬을 frontmatter order 기준으로', status: { type: 'idle' }, createdAt: T(5 * H), updatedAt: T(2 * H), settings: { model: 'claude-sonnet-5', effort: 'medium' },
-    goal: { objective: '문서 사이트 빌드 시간을 60초 이하로', status: 'paused', tokenBudget: 500000, tokensUsed: 212000 },
     turns: [
-      { id: 'tu_d1', status: 'completed', startedAt: T(5 * H), completedAt: T(4.6 * H), items: [user('빌드가 3분 넘게 걸려. 원인 찾아서 줄여줘.')] },
-      { id: 'tu_d2', status: 'completed', startedAt: T(2.4 * H), completedAt: T(2 * H), items: [user('사이드바 정렬을 frontmatter order 기준으로 바꿔줘.')] },
+      { id: 'tu_d1', status: 'completed', startedAt: T(5 * H), completedAt: T(4.6 * H), items: [user('빌드가 3분 넘게 걸려. 원인 찾아서 줄여줘.'), agent('이미지 최적화 플러그인이 매번 전체를 다시 처리하고 있었습니다. 캐시를 켜서 빌드가 **3분 12초 → 48초**로 줄었습니다.')] },
+      { id: 'tu_d2', status: 'completed', startedAt: T(2.4 * H), completedAt: T(2 * H), items: [user('사이드바 정렬을 frontmatter order 기준으로 바꿔줘.'), agent('`sidebar.ts`가 frontmatter의 `order` 값으로 정렬하고, 값이 없는 문서는 제목 순으로 뒤에 둡니다.')] },
     ] }));
 
   // 5. stopped with an error
   add(base({ id: 'th_mig', name: '마이그레이션 스크립트', cwd: PAY, preview: 'orders 테이블 파티셔닝 마이그레이션 작성', status: { type: 'systemError' }, createdAt: T(80 * M), updatedAt: T(14 * M), lastError: '모델 제공자 응답 시간 초과 — 3회 재시도 후 중단했습니다.', settings: { model: 'gpt-5.6-sol', effort: 'high' },
     turns: [{ id: 'tu_m1', status: 'failed', startedAt: T(80 * M), completedAt: T(14 * M), error: { message: '모델 제공자 응답 시간 초과 — 3회 재시도 후 중단했습니다.' }, items: [
       user('orders 테이블을 월 단위로 파티셔닝하는 마이그레이션 작성해줘. dry-run까지.'),
-      todo({ op: 'init', list: [{ phase: '작성', items: ['스키마 확인', '마이그레이션 작성'] }, { phase: '검증', items: ['dry-run', '롤백 스크립트', '리뷰 요청'] }] }),
-      todo({ op: 'done', task: '스키마 확인' }),
+      todo(MIG_PLAN, 0),
+      todo(MIG_PLAN, 1),
       fc('migrations/0042_partition_orders.sql', `--- /dev/null\n+++ b/migrations/0042_partition_orders.sql\n@@ -0,0 +1,6 @@\n+CREATE TABLE orders_p (LIKE orders INCLUDING ALL)\n+  PARTITION BY RANGE (created_at);\n+\n+CREATE TABLE orders_2026_09 PARTITION OF orders_p\n+  FOR VALUES FROM ('2026-09-01') TO ('2026-10-01');\n+-- TODO: backfill`, 'add'),
-      todo({ op: 'done', task: '마이그레이션 작성' }),
+      todo(MIG_PLAN, 2),
       cmd('bun run migrate:dry 0042', PAY, '▶ dry-run 0042_partition_orders\n  ✓ CREATE TABLE orders_p\n  ✗ CREATE TABLE orders_2026_09\n    error: no partition of relation "orders_p" found for row\n    DETAIL: Partition key of the failing row contains (created_at) = (2025-12-31 23:59:59+09).\n\n1 statement failed. Rolled back.', 1, 3400),
     ] }] }));
 
-  // 6. terminal session (cli + notLoaded)
-  add(base({ id: 'th_term', name: 'omo-dashboard 스캐폴딩', cwd: '/Users/me/work/omo-dashboard', preview: 'Bun 서버에 /ws 라우팅 추가해줘', source: 'cli', loaded: false, status: { type: 'notLoaded' }, createdAt: T(35 * M), updatedAt: T(3 * M),
-    turns: [{ id: 'tu_t1', status: 'completed', startedAt: T(35 * M), completedAt: T(3 * M), items: [user('Bun 서버에 /ws 라우팅 추가해줘'), agent('`/ws` 업그레이드 핸들러를 추가했습니다. 토큰은 `~/.omo/agent/app-server/ws-token`에서 읽습니다.')] }] }));
-
-  // 7. archived
-  add(base({ id: 'th_arch', name: '로그 파서 프로토타입', cwd: '/Users/me/work/log-parser', preview: 'nginx 로그를 파싱해서 p95 레이턴시 뽑기', archived: true, loaded: false, status: { type: 'notLoaded' }, createdAt: T(4 * D), updatedAt: T(3 * D),
+  // 6. archived
+  add(base({ id: 'th_arch', name: '로그 파서 프로토타입', cwd: '/Users/me/work/log-parser', preview: 'nginx 로그를 파싱해서 p95 레이턴시 뽑기', archived: true, loaded: false, status: { type: 'idle' }, createdAt: T(4 * D), updatedAt: T(3 * D),
     turns: [{ id: 'tu_a1', status: 'completed', startedAt: T(4 * D), completedAt: T(3 * D), items: [user('nginx 로그를 파싱해서 p95 레이턴시 뽑아줘'), agent('`parse.ts`로 p95를 계산합니다. 샘플 로그 기준 **p95 = 184ms**.')] }] }));
 
   return threads;
 }
 
 // Branches and worktrees of the seeded sessions: payments-api runs two tasks in worktrees beside its main checkout,
-// docs' worktree has already been cleaned up, and omo-dashboard sits on a detached HEAD.
+// docs' worktree has already been cleaned up, and log-parser sits on a detached HEAD.
 function mockGit(threads) {
   const W = '/Users/me/work';
   const tree = (path, branch, o = {}) => ({ path, branch, head: o.head || null, main: !!o.main, locked: false, missing: false, upstream: o.upstream || null, ahead: o.ahead || 0, behind: o.behind || 0, changes: o.changes || 0 });
@@ -246,15 +247,15 @@ function mockGit(threads) {
     repo(`${W}/infra`, [tree(`${W}/infra`, 'chore/ci-cleanup', { main: true, upstream: 'origin/chore/ci-cleanup', ahead: 3 })]),
     repo(`${W}/web-app`, [tree(`${W}/web-app`, 'main', { main: true, upstream: 'origin/main', changes: 1 })]),
     repo(`${W}/docs`, [tree(`${W}/docs`, 'main', { main: true, upstream: 'origin/main' })]),
-    repo(`${W}/omo-dashboard`, [tree(`${W}/omo-dashboard`, null, { main: true, head: '4f2c9a1e7b0d5c3a9e8f1b2c4d6e8f0a1b3c5d7e' })]),
+    repo(`${W}/log-parser`, [tree(`${W}/log-parser`, null, { main: true, head: '4f2c9a1e7b0d5c3a9e8f1b2c4d6e8f0a1b3c5d7e' })]),
   ]);
   const at = (root, path, o = {}) => {
     const id = `${root}/.git`, w = repos[id].worktrees.find((x) => x.path === path);
     return { repo: id, worktree: path, branch: o.branch ?? w?.branch ?? null, head: w?.head ?? null, removed: !w, inferred: path !== root };
   };
   const all = {
-    th_pay: at(PAY, `${PAY}/.worktree/payment-adapters`), th_oracle: at(PAY, `${PAY}/.worktree/payment-adapters`), th_mig: at(PAY, `${PAY}/.worktree/partition-orders`),
-    th_ci: at(`${W}/infra`, `${W}/infra`), th_copy: at(`${W}/web-app`, `${W}/web-app`), th_term: at(`${W}/omo-dashboard`, `${W}/omo-dashboard`),
+    th_pay: at(PAY, `${PAY}/.worktree/payment-adapters`), th_review: at(PAY, `${PAY}/.worktree/payment-adapters`), th_mig: at(PAY, `${PAY}/.worktree/partition-orders`),
+    th_ci: at(`${W}/infra`, `${W}/infra`), th_copy: at(`${W}/web-app`, `${W}/web-app`), th_arch: at(`${W}/log-parser`, `${W}/log-parser`),
     th_docs: at(`${W}/docs`, `${W}/docs/.worktree/sidebar-order`, { branch: 'docs/sidebar-order' }),
   };
   const ids = new Set(threads.map((t) => t.id));
@@ -284,16 +285,6 @@ export class MockClient {
     this.logins = new Map();
     this.backend = {
       listSkills: async () => { await sleep(200); return SKILLS; },
-      restoreTodos: async (threadId) => {
-        await sleep(700);
-        if (threadId !== 'th_docs') return [];
-        return [
-          { type: 'dynamicToolCall', id: nid('it'), tool: 'todo', status: 'completed', success: true, contentItems: [], arguments: { op: 'init', list: [{ phase: '원인', items: ['빌드 프로파일링', '느린 플러그인 찾기'] }, { phase: '개선', items: ['이미지 최적화 캐시', '사이드바 정렬 변경'] }] } },
-          { type: 'dynamicToolCall', id: nid('it'), tool: 'todo', status: 'completed', success: true, contentItems: [], arguments: { op: 'done', task: '빌드 프로파일링' } },
-          { type: 'dynamicToolCall', id: nid('it'), tool: 'todo', status: 'completed', success: true, contentItems: [], arguments: { op: 'done', task: '느린 플러그인 찾기' } },
-          { type: 'dynamicToolCall', id: nid('it'), tool: 'todo', status: 'completed', success: true, contentItems: [], arguments: { op: 'done', task: '이미지 최적화 캐시' } },
-        ];
-      },
       usage: async () => {
         await sleep(300);
         const at = (h) => Date.now() + h * 3600 * 1000;
@@ -317,21 +308,6 @@ export class MockClient {
         await sleep(150);
         return { opened: 'app' };
       },
-      // sessionStorage mc.mockOmo='stale' plays an omo updated in a terminal while the app-server kept the old engine.
-      omoVersion: async () => {
-        await sleep(300);
-        if (sessionStorage.getItem('mc.mockOmo') === 'stale') return { current: '5.2.0', latest: '5.2.0', updateAvailable: false, engine: '2026.10.12', running: '2026.10.10-3', stale: true, checkedAt: Date.now() };
-        return { current: '5.1.5', latest: '5.2.0', updateAvailable: true, engine: '2026.10.10-3', running: '2026.10.10-3', stale: false, checkedAt: Date.now() };
-      },
-      omoRestart: async () => {
-        await sleep(1500);
-        sessionStorage.removeItem('mc.mockOmo');
-        return { restart: 'app-server 2026.10.12' };
-      },
-      omoUpdate: async () => {
-        await sleep(3000);
-        return { update: 'omo-ai@5.2.0 설치 완료', restart: 'app-server 데몬을 재시작했습니다' };
-      },
       // A pretend omonitor update; the flag outlives the page reload that follows an update, like the real new version would.
       omonitorVersion: async () => {
         await sleep(300);
@@ -339,7 +315,7 @@ export class MockClient {
         if (sessionStorage.getItem('mc.mockOmonitorUpdated')) return { ...base, current: '9c1e2d4', latest: '9c1e2d4', behind: 0, commits: [], updateAvailable: false, restartNeeded: false };
         const ago = (h) => Date.now() - h * 3600 * 1000;
         return { ...base, current: '38a3f12', latest: '9c1e2d4', behind: 3, updateAvailable: true, restartNeeded: true, commits: [
-          { sha: '9c1e2d4', subject: 'Show omonitor updates beside the omo version', at: ago(2) },
+          { sha: '9c1e2d4', subject: 'Show omonitor updates beside the opencode2 version', at: ago(2) },
           { sha: '71b0a3e', subject: 'Keep the session list order while a turn streams', at: ago(20) },
           { sha: '5d2f8c1', subject: 'Tighten the session list spacing on phones', at: ago(30) },
         ] };
@@ -410,7 +386,7 @@ export class MockClient {
     this._conn('connecting');
     await sleep(900);
     this._conn('open');
-    await this.request('initialize', { clientInfo: { name: 'omo-mission-control', version: '0.1.0' }, capabilities: { experimentalApi: true } });
+    await this.request('initialize', { clientInfo: { name: 'omonitor', version: '0.1.0' }, capabilities: { experimentalApi: true } });
   }
   close() { this._conn('closed'); for (const r of this.runners.values()) r.cancel = true; }
   simulateDisconnect() {
@@ -452,7 +428,7 @@ export class MockClient {
 
   async request(method, params = {}) {
     await sleep(60 + Math.random() * 140);
-    if (this.connState !== 'open') throw { code: -32000, message: 'app-server에 연결되어 있지 않습니다' };
+    if (this.connState !== 'open') throw { code: -32000, message: '시뮬레이터에 연결되어 있지 않습니다' };
     const h = this.h[method];
     if (!h) throw { code: -32601, message: `Method not found: ${method}` };
     return h.call(this, params);
@@ -461,8 +437,8 @@ export class MockClient {
   // ─── helpers ───
   _th(id) { const t = this.threads.get(id); if (!t) throw { code: -32602, message: `thread not found: ${id}` }; return t; }
   _pub(t, withTurns) {
-    const { turns, goal, tasks, settings, hidden, loaded, lastError, ...pub } = t;
-    const out = { ...pub, cwd: t.cwd, status: t.status };
+    const { turns, reverted, tasks, settings, hidden, loaded, lastError, ...pub } = t;
+    const out = { ...pub, cwd: t.cwd, status: t.status, revert: this._revertView(t) };
     if (withTurns) out.turns = turns.map((u) => ({ ...u, items: u.items.map((i) => ({ ...i })) }));
     return out;
   }
@@ -504,8 +480,12 @@ export class MockClient {
     }
     this._doneItem(t, turn, { ...it, text: acc });
   }
-  _todo(t, turn, args) { const it = { type: 'dynamicToolCall', id: nid('it'), tool: 'todo', arguments: args, contentItems: [], success: true }; this._startItem(t, turn, it); this._doneItem(t, turn, { ...it, contentItems: [{ type: 'inputText', text: 'ok' }] }); }
-  _tasks(t) { this._notify('extension_event', { threadId: t.id, name: 'omo.task.updated', data: { tasks: t.tasks } }); }
+  _todo(t, turn, items, done, set) { const it = { type: 'dynamicToolCall', id: nid('it'), tool: 'todowrite', arguments: plan(items, done, set), contentItems: [], success: true }; this._startItem(t, turn, it); this._doneItem(t, turn, { ...it, contentItems: [{ type: 'inputText', text: 'ok' }] }); }
+  _tasks(t) { this._notify('thread/agents/updated', { threadId: t.id, agents: t.tasks }); }
+  // A staged revert, as the backend reports it: the message it starts at and how many of the user's messages it took.
+  _revertView(t) { return t.revert ? { ...t.revert, count: t.reverted.reduce((n, u) => n + u.items.filter((i) => i.type === 'userMessage').length, 0) } : null; }
+  // The next message commits a staged revert: what it took back is gone.
+  _commitRevert(t) { if (!t.revert) return; t.revert = null; t.reverted = []; this._notify('thread/revert/updated', { threadId: t.id, revert: null }); }
   _run(t, steps) {
     const prev = this.runners.get(t.id); if (prev) prev.cancel = true;
     const r = { cancel: false, steer: [] };
@@ -535,18 +515,17 @@ export class MockClient {
       this._run(ci, d === 'accept' || d === 'acceptForSession' ? [
         [500, () => this._startItem(ci, ciTurn, pushItem)],
         [1800, () => this._doneItem(ci, ciTurn, pushItem, { exitCode: 0, durationMs: 2100, aggregatedOutput: 'Enumerating objects: 9, done.\nWriting objects: 100% (5/5), 1.02 KiB | 1.02 MiB/s, done.\nTo github.com:me/infra.git\n + 3f9a1c2...8be04d1 chore/ci-cleanup -> chore/ci-cleanup (forced update)' })],
-        [600, () => this._todo(ci, ciTurn, { op: 'done', task: '브랜치에 푸시' })],
+        [600, () => this._todo(ci, ciTurn, CI_PLAN, 4)],
         [700, (r) => this._stream(r, ci, ciTurn, '`chore/ci-cleanup`에 푸시했습니다. CI는 **bun 한 잡**으로 합쳐졌고 평균 실행 시간이 4분 → 1분 40초로 줄 것으로 보입니다.')],
         [800, () => this._endTurn(ci, ciTurn)],
       ] : d === 'cancel' ? [[300, () => this._endTurn(ci, ciTurn, 'interrupted')]] : [
         [400, () => this._doneItem(ci, ciTurn, pushItem, { status: 'declined', aggregatedOutput: '' })],
-        [600, () => this._todo(ci, ciTurn, { op: 'drop', task: '브랜치에 푸시' })],
+        [600, () => this._todo(ci, ciTurn, CI_PLAN, 3, { '브랜치에 푸시': 'cancelled' })],
         [600, (r) => this._stream(r, ci, ciTurn, '강제 푸시는 건너뛰었습니다. 로컬 브랜치에 커밋이 정리되어 있으니 직접 확인 후 푸시해 주세요.')],
         [700, () => this._endTurn(ci, ciTurn)],
       ]);
     });
-    // The question tool is named after the model family; this Claude session asks through ask_user_question.
-    const askItem = { type: 'dynamicToolCall', id: nid('it'), tool: 'ask_user_question', arguments: {}, status: 'inProgress', contentItems: null, success: null };
+    const askItem = { type: 'dynamicToolCall', id: nid('it'), tool: 'question', arguments: {}, status: 'inProgress', contentItems: null, success: null };
     copyTurn.items.push(askItem);
     this._serverRequest('item/tool/requestUserInput', { threadId: copy.id, turnId: copyTurn.id, itemId: askItem.id, waitForAnswer: true, timeoutMs: 8 * M, questions: [
       { id: 'tone', header: '톤', question: '온보딩 카피의 톤을 어떻게 할까요?', multiSelect: false, options: [
@@ -560,12 +539,13 @@ export class MockClient {
       if (res.timedOut) { this._run(copy, [[400, (r) => this._stream(r, copy, copyTurn, '답이 없어 **표준 존댓말**로 전체 화면을 수정하겠습니다.')], [600, () => this._endTurn(copy, copyTurn)]]); return; }
       const tone = res.answers?.tone?.answers?.[0] ?? '표준 존댓말';
       const scope = res.answers?.scope?.answers ?? [];
+      const items = scope.length ? scope.map((s) => `${s} 화면 수정`) : ['전체 화면 수정'];
       this._run(copy, [
-        [500, () => this._todo(copy, copyTurn, { op: 'init', list: [{ phase: '카피', items: scope.length ? scope.map((s) => `${s} 화면 수정`) : ['전체 화면 수정'] }] })],
+        [500, () => this._todo(copy, copyTurn, items, 0)],
         [900, (r) => this._stream(r, copy, copyTurn, `**${tone}** 톤으로 ${scope.length ? scope.join(', ') : '전체'} 화면을 고칩니다.${res.comment ? `\n\n메모 반영: “${res.comment}”` : ''}`)],
         [900, () => { const it = fc('src/onboarding/copy.ko.json', DIFF_COPY); this._startItem(copy, copyTurn, it); this._notify('turn/diff/updated', { threadId: copy.id, turnId: copyTurn.id, diff: DIFF_COPY }); }],
         [900, () => { const it = copyTurn.items.at(-1); this._doneItem(copy, copyTurn, it); }],
-        ...scope.map((s) => [500, () => this._todo(copy, copyTurn, { op: 'done', task: `${s} 화면 수정` })]),
+        ...scope.map((s, k) => [500, () => this._todo(copy, copyTurn, items, k + 1)]),
         [700, () => this._endTurn(copy, copyTurn)],
       ]);
     });
@@ -581,11 +561,11 @@ export class MockClient {
     const pushDiff = (d) => { diff += '\n' + d; this._notify('turn/diff/updated', { threadId: t.id, turnId: turn.id, diff }); this._usage(t, 4200); };
     this._run(t, [
       [1200, () => { this._tasks(t); pushDiff(''); }],
-      [1800, () => this._item(t, turn, think('librarian 결과: idempotencyKey는 요청 옵션으로 전달.', 'manual capture로 authorize/capture를 분리하면 Toss와 의미가 맞는다.'), true)],
+      [1800, () => this._item(t, turn, think('서브에이전트 결과: idempotencyKey는 요청 옵션으로 전달.', 'manual capture로 authorize/capture를 분리하면 Toss와 의미가 맞는다.'), true)],
       [1400, () => this._startItem(t, turn, fStripe)],
       [2200, () => { this._doneItem(t, turn, fStripe); pushDiff(DIFF_STRIPE); }],
       [1200, () => task('bg_7f2a', { live_progress: undefined, final_response: 'stripe.* 호출은 3곳, 모두 v14 API. charges.create는 subscriptions/renew.ts 한 곳뿐.', run_stats: { tool_calls: 19, tokens: 44100, duration_ms: 260000 } })],
-      [1000, () => this._todo(t, turn, { op: 'done', task: 'StripeAdapter 구현' })],
+      [1000, () => this._todo(t, turn, PAY_PLAN, 6)],
       [1600, () => task('bg_7f2c', { live_progress: { activity: '부분 capture 처리 방식 검토', started_at: Date.now() - 150000, current_tool: 'think' }, run_stats: { tool_calls: 6 } })],
       [1400, () => this._startItem(t, turn, fSvc)],
       [2400, () => { this._doneItem(t, turn, fSvc); pushDiff(DIFF_SERVICE); }],
@@ -594,19 +574,19 @@ export class MockClient {
         if (r.decision === 'accept' || r.decision === 'acceptForSession') { this._doneItem(t, turn, rmLegacy); pushDiff(rmLegacy.changes[0].diff); }
         else this._doneItem(t, turn, { ...rmLegacy, status: 'declined' });
       }],
-      [1000, () => this._todo(t, turn, { op: 'done', task: 'PaymentService 의존성 주입으로 교체' })],
+      [1000, () => this._todo(t, turn, PAY_PLAN, 7)],
       [1200, () => task('bg_7f2c', { live_progress: undefined, final_response: '경계는 적절합니다. 부분 capture는 Stripe 전용이므로 `capture(amount?)`를 선택 인자로 두고 Toss에서는 전체 금액만 허용하세요.', run_stats: { tool_calls: 8, tokens: 92000, duration_ms: 310000 } })],
-      [1400, () => this._todo(t, turn, { op: 'append', phase: '검증', items: ['부분 capture 가드 추가'] })],
+      [1400, () => this._todo(t, turn, PAY_PLAN2, 7)],
       [1500, () => this._startItem(t, turn, test)],
       [3000, () => this._doneItem(t, turn, test, { exitCode: 0, durationMs: 2410, aggregatedOutput: long })],
-      [900, () => this._todo(t, turn, { op: 'done', task: '단위 테스트 추가' })],
-      [1400, () => this._todo(t, turn, { op: 'done', task: '통합 테스트 실행' })],
-      [1400, () => this._todo(t, turn, { op: 'done', task: '부분 capture 가드 추가' })],
+      [900, () => this._todo(t, turn, PAY_PLAN2, 8)],
+      [1400, () => this._todo(t, turn, PAY_PLAN2, 9)],
+      [1400, () => this._todo(t, turn, PAY_PLAN2, 10)],
       [900, (r) => this._stream(r, t, turn, '리팩터링을 마쳤습니다.\n\n- `PaymentAdapter` + Toss/Stripe 구현\n- `PaymentService`는 어댑터 주입 방식으로 교체\n- 테스트 **624개 통과**, 커버리지 58% → 91%\n\n레거시 래퍼 삭제 여부는 승인 결과대로 반영했습니다.')],
-      [1000, () => { t.goal = { ...t.goal, status: 'complete', tokensUsed: 1610000 }; this._notify('thread/goal/updated', { threadId: t.id, goal: t.goal }, false); this._endTurn(t, turn); }],
+      [1000, () => this._endTurn(t, turn)],
     ]);
   }
-  _oracleScript(t) {
+  _reviewScript(t) {
     const turn = this._curTurn(t); if (!turn) return;
     this._run(t, [
       [2000, () => this._item(t, turn, dyn('read', { path: 'src/payments/toss.ts' }, '14 lines'), true)],
@@ -625,7 +605,7 @@ export class MockClient {
   }
 
   h = {
-    initialize() { return { userAgent: 'omo-app-server/5.0.3 (mock)', serverInfo: { name: 'omo', version: '5.0.3' } }; },
+    initialize() { return { userAgent: 'omonitor-mock/0.1.0', serverInfo: { name: 'mock', version: '0.1.0' } }; },
     'thread/list'({ archived = false, cursor, limit = 50 }) {
       const all = [...this.threads.values()].filter((t) => !t.hidden && !!t.archived === !!archived).sort((a, b) => b.updatedAt - a.updatedAt);
       const start = cursor ? Number(cursor) : 0;
@@ -634,24 +614,20 @@ export class MockClient {
     },
     'thread/loaded/list'() { return { data: [...this.threads.values()].filter((t) => t.loaded).map((t) => t.id) }; },
     'thread/read'({ threadId, includeTurns }) { return { thread: this._pub(this._th(threadId), includeTurns) }; },
-    'thread/search'({ query = '', sourceKinds = ['appServer'] }) {
-      const q = query.toLowerCase();
-      return { data: [...this.threads.values()].filter((t) => !t.hidden && sourceKinds.includes(t.source) && (t.name + t.preview + t.cwd).toLowerCase().includes(q)).map((t) => this._pub(t)), nextCursor: null };
-    },
     'thread/resume'({ threadId }) {
       const t = this._th(threadId);
       this.subs.add(threadId);
-      if (!t.loaded) { t.loaded = true; if (t.status.type === 'notLoaded') this._status(t, { type: 'idle' }); }
+      t.loaded = true;
       setTimeout(() => {
         for (const req of this.pending.values()) if (req.params.threadId === threadId) this._emitReq(req);
         if (t.tasks) this._tasks(t);
         this._usage(t);
-        if (!this.started.has(threadId)) { this.started.add(threadId); if (threadId === 'th_pay') this._payScript(t); if (threadId === 'th_oracle') this._oracleScript(t); }
+        if (!this.started.has(threadId)) { this.started.add(threadId); if (threadId === 'th_pay') this._payScript(t); if (threadId === 'th_review') this._reviewScript(t); }
       }, 300);
       return { thread: this._pub(t, true), model: t.settings.model, reasoningEffort: t.settings.effort };
     },
     'thread/start'({ cwd }) {
-      const t = { id: nid('th'), name: null, preview: '', cwd, source: 'appServer', path: `~/.omo/sessions/new.jsonl`, archived: false, loaded: true, hidden: false, goal: null, tasks: null, settings: { model: 'claude-opus-5', effort: 'high' }, turns: [], status: { type: 'idle' }, createdAt: Date.now(), updatedAt: Date.now() };
+      const t = { id: nid('th'), name: null, preview: '', cwd, archived: false, loaded: true, hidden: false, tasks: null, settings: { model: 'claude-opus-5', effort: 'high' }, turns: [], status: { type: 'idle' }, createdAt: Date.now(), updatedAt: Date.now() };
       this.threads.set(t.id, t); this.subs.add(t.id);
       this._notify('thread/started', { thread: this._pub(t) }, false);
       return { thread: this._pub(t), model: t.settings.model, reasoningEffort: t.settings.effort };
@@ -662,24 +638,37 @@ export class MockClient {
       return { status: 'unsubscribed' };
     },
     'thread/name/set'({ threadId, name }) { const t = this._th(threadId); t.name = name; this._notify('thread/name/updated', { threadId, threadName: name }, false); return {}; },
-    'thread/fork'({ threadId }) {
+    // before: a user message; the copy ends just before it.
+    'thread/fork'({ threadId, before }) {
       const s = this._th(threadId);
-      const t = { ...s, id: nid('th'), name: `${s.name ?? '세션'} (복제)`, createdAt: Date.now(), updatedAt: Date.now(), status: { type: 'idle' }, loaded: true, source: 'appServer', archived: false, tasks: null, turns: s.turns.map((u) => ({ ...u, status: u.status === 'inProgress' ? 'interrupted' : u.status, items: u.items.map((i) => ({ ...i, id: nid('it'), status: i.status === 'inProgress' ? 'completed' : i.status })) })) };
+      const src = before ? cutAt(s.turns, before)[0] : s.turns;
+      const t = { ...s, id: nid('th'), name: `${s.name ?? '세션'} (복제)`, createdAt: Date.now(), updatedAt: Date.now(), status: { type: 'idle' }, loaded: true, archived: false, tasks: null, revert: null, reverted: [], turns: src.map((u) => ({ ...u, status: u.status === 'inProgress' ? 'interrupted' : u.status, items: u.items.map((i) => ({ ...i, id: nid('it'), status: i.status === 'inProgress' ? 'completed' : i.status })) })) };
       this.threads.set(t.id, t); this.subs.add(t.id);
       this._notify('thread/started', { thread: this._pub(t) }, false);
       return { thread: this._pub(t, true) };
     },
+    // Takes the conversation back to just before a user message until the next message commits it; moving the boundary
+    // first puts back what the last revert took. The simulator changes no files.
+    'thread/revert'({ threadId, messageId }) {
+      const t = this._th(threadId);
+      if (this._curTurn(t)) throw { code: -32600, message: '작업 중인 세션은 되돌릴 수 없습니다' };
+      const all = t.revert ? [...t.turns, ...t.reverted] : t.turns;
+      const [kept, rest] = cutAt(all, messageId);
+      if (!rest.length) throw { code: -32602, message: '되돌릴 메시지를 찾지 못했습니다' };
+      Object.assign(t, { turns: kept, reverted: rest, revert: { messageId, files: [] } });
+      this._notify('thread/revert/updated', { threadId, revert: this._revertView(t) });
+      return {};
+    },
+    'thread/revert/clear'({ threadId }) {
+      const t = this._th(threadId);
+      if (!t.revert) return {};
+      Object.assign(t, { turns: [...t.turns, ...t.reverted], reverted: [], revert: null });
+      this._notify('thread/revert/updated', { threadId, revert: null });
+      return {};
+    },
     'thread/archive'({ threadId }) { const t = this._th(threadId); t.archived = true; this.subs.delete(threadId); return {}; },
     'thread/unarchive'({ threadId }) { const t = this._th(threadId); t.archived = false; this._notify('thread/unarchived', { threadId }, false); return { thread: this._pub(t) }; },
     'thread/delete'({ threadId }) { this._th(threadId); this.threads.delete(threadId); this.subs.delete(threadId); return {}; },
-    'thread/goal/get'({ threadId }) { return { goal: this._th(threadId).goal }; },
-    'thread/goal/set'({ threadId, objective, status, tokenBudget }) {
-      const t = this._th(threadId);
-      t.goal = { tokensUsed: 0, ...(t.goal || {}), ...(objective !== undefined && { objective }), ...(status && { status }), ...(tokenBudget !== undefined && { tokenBudget }) };
-      if (!t.goal.status) t.goal.status = 'active';
-      this._notify('thread/goal/updated', { threadId, goal: t.goal }, false); return { goal: t.goal };
-    },
-    'thread/goal/clear'({ threadId }) { this._th(threadId).goal = null; this._notify('thread/goal/cleared', { threadId }, false); return {}; },
     'thread/compact/start'({ threadId }) {
       const t = this._th(threadId);
       const turn = this._curTurn(t) || t.turns.at(-1); if (!turn) throw { code: -32602, message: '압축할 기록이 없습니다' };
@@ -699,6 +688,7 @@ export class MockClient {
     'turn/start'({ threadId, input }) {
       const t = this._th(threadId);
       if (this._curTurn(t)) throw { code: -32600, message: '이미 진행 중인 턴이 있습니다' };
+      this._commitRevert(t);
       if (!t.name) { t.name = input[0].text.slice(0, 24); this._notify('thread/name/updated', { threadId, threadName: t.name }, false); }
       t.preview = input[0].text;
       const turn = this._startTurn(t, input);

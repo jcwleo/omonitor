@@ -1,4 +1,4 @@
-// RealClient — browser ⇄ local Bun backend (/ws) ⇄ omo host or the opencode2 server (opts.engine). Same contract as MockClient.
+// RealClient — browser ⇄ local Bun backend (/ws) ⇄ the opencode2 server. Same contract as MockClient.
 // JS twin of src/session-client.ts so the prototype runs without a build step.
 export class RealClient {
   constructor(opts = {}) {
@@ -13,12 +13,11 @@ export class RealClient {
     this.timer = null;
     this.serverInfo = null;
     const hdr = () => (opts.sessionKey ? { 'x-mc-key': opts.sessionKey } : {});
-    // The backend serves session data of the engine the dashboard shows.
-    const api = (p) => { const u = new URL(p, location.href); if (opts.engine === 'opencode') u.searchParams.set('engine', 'opencode'); return u.href; };
-    // omonitor's own Claude and ChatGPT logins for plan usage. They are the same for both engines, so the URL carries no
-    // engine; tokens never leave the backend. body undefined = GET, null = POST without a body.
+    const api = (p) => new URL(p, location.href).href;
+    // omonitor's own Claude and ChatGPT logins for plan usage; tokens never leave the backend. body undefined = GET, null =
+    // POST without a body.
     const usageAuth = async (path, body) => {
-      const r = await fetch(new URL(`api/usage/auth${path}`, location.href).href, {
+      const r = await fetch(api(`api/usage/auth${path}`), {
         method: body === undefined ? 'GET' : 'POST', cache: 'no-store', body: body ? JSON.stringify(body) : undefined,
         headers: { ...hdr(), ...(body && { 'content-type': 'application/json' }) },
       });
@@ -31,25 +30,25 @@ export class RealClient {
         if (!r.ok) throw new Error(await r.text());
         return r.json();
       },
-      // Saved-session history read from the session file by the backend; unlike thread/read it does not load the session.
+      // Saved history (the latest turns) read from the opencode2 server by the backend.
       history: async (threadId) => {
         const r = await fetch(api(`api/threads/${encodeURIComponent(threadId)}/history`), { headers: hdr() });
         if (!r.ok) throw new Error(await r.text());
         return r.json();
       },
-      // Thread id → last conversation time (ms) from each session file; app-server's updatedAt also moves on metadata.
+      // Thread id → last activity time (ms) of each top-level session.
       activity: async () => {
         const r = await fetch(api('api/threads/activity'), { headers: hdr() });
         if (!r.ok) throw new Error(await r.text());
         return r.json();
       },
-      // Subagent runs and context usage read from the session file → { agents, usage }; app-server sends neither.
+      // Subagent runs (child sessions) and the context the last model call used → { agents, usage }.
       meta: async (threadId) => {
         const r = await fetch(api(`api/threads/${encodeURIComponent(threadId)}/meta`), { headers: hdr() });
         if (!r.ok) throw new Error(await r.text());
         return r.json();
       },
-      // A pasted image, saved by the backend → { path, url }. app-server's turn input takes no image items.
+      // A pasted image, saved by the backend → { path, url }; the message carries its path for the agent to open.
       upload: async (file) => {
         const r = await fetch(api('api/uploads'), { method: 'POST', headers: { ...hdr(), 'content-type': file.type }, body: file });
         if (!r.ok) throw new Error(await r.text());
@@ -62,12 +61,6 @@ export class RealClient {
         if (!r.ok) throw new Error(await r.text());
         return r.json();
       },
-      // Models of extension-registered providers (Claude subscription) that model/list does not return.
-      extraModels: async () => {
-        const r = await fetch(api('api/models/extra'), { headers: hdr() });
-        if (!r.ok) throw new Error(await r.text());
-        return r.json();
-      },
       // Questions and approvals reach only subscribed connections, so the dashboard relays each one to the backend's Web
       // Push; the backend drops the repeats that other open dashboards send.
       pushRequest: async (body) => {
@@ -75,13 +68,7 @@ export class RealClient {
         if (!r.ok) throw new Error(await r.text());
         return r.json();
       },
-      restoreTodos: async (threadId) => {
-        const r = await fetch(api(`api/threads/${encodeURIComponent(threadId)}/restore-todos`), { method: 'POST', headers: hdr() });
-        if (!r.ok) throw new Error(await r.text());
-        return r.json();
-      },
-      // Branch and worktree of each session and the worktrees of their repos → GitSummary (src/protocol.ts). The list names
-      // each session's folder and session file; the backend reads only files under omo's sessions folder.
+      // Branch and worktree of each session folder and the worktrees of their repos → GitSummary (src/protocol.ts).
       gitSummary: async (threads) => {
         const r = await fetch(api('api/git/summary'), { method: 'POST', headers: { ...hdr(), 'content-type': 'application/json' }, body: JSON.stringify({ threads }) });
         if (!r.ok) throw new Error(await r.text());
@@ -102,22 +89,6 @@ export class RealClient {
       usageCancel: (provider, id) => usageAuth(`/${provider}/cancel`, { id }),
       // Forgets omonitor's stored login only; the account's other logins stay signed in.
       usageLogout: (provider) => usageAuth(`/${provider}/logout`, null),
-      omoVersion: async () => {
-        const r = await fetch(api('api/omo/version'), { headers: hdr() });
-        if (!r.ok) throw new Error(await r.text());
-        return r.json();
-      },
-      omoUpdate: async () => {
-        const r = await fetch(api('api/omo/update'), { method: 'POST', headers: hdr() });
-        if (!r.ok) throw new Error(await r.text());
-        return r.json();
-      },
-      // Restarts the omo host on the installed omo (new model list included) → { restart }.
-      omoRestart: async () => {
-        const r = await fetch(api('api/omo/restart'), { method: 'POST', headers: hdr() });
-        if (!r.ok) throw new Error(await r.text());
-        return r.json();
-      },
       // The installed opencode2 CLI, its latest release and the version its shared service runs → OpencodeVersion or null.
       opencodeVersion: async () => {
         const r = await fetch(api('api/opencode/version'), { headers: hdr() });
@@ -160,7 +131,7 @@ export class RealClient {
   open() {
     const proto = location.protocol === 'https:' ? 'wss' : 'ws';
     const base = this.opts.url || `${proto}://${location.host}/ws`;
-    const q = new URLSearchParams({ ...(this.opts.sessionKey && { key: this.opts.sessionKey }), ...(this.opts.engine === 'opencode' && { engine: 'opencode' }) }).toString();
+    const q = new URLSearchParams({ ...(this.opts.sessionKey && { key: this.opts.sessionKey }) }).toString();
     const url = q ? `${base}?${q}` : base;
     this.emit('connection', { state: this.everOpened ? 'reconnecting' : 'connecting', attempt: this.attempt, firstConnect: !this.everOpened });
     const ws = new WebSocket(url);
@@ -218,7 +189,7 @@ export class RealClient {
   }
   request(method, params) {
     const ws = this.ws;
-    if (!ws || ws.readyState !== WebSocket.OPEN) return Promise.reject({ code: -32000, message: `${this.opts.engine === 'opencode' ? 'opencode 서버' : 'omo host'}에 연결되어 있지 않습니다` });
+    if (!ws || ws.readyState !== WebSocket.OPEN) return Promise.reject({ code: -32000, message: 'opencode 서버에 연결되어 있지 않습니다' });
     const id = ++this.seq;
     return new Promise((resolve, reject) => {
       this.pending.set(id, { resolve, reject, method });

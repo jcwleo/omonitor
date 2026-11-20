@@ -1,14 +1,19 @@
 // omonitor ⇄ OpenCode 2 (opencode2). OpenCode 2 runs one shared background server per user (`opencode service`) that
 // owns every session, configuration and tool run; clients drive it over HTTP and follow one server-sent event stream
-// (/api/event). OpencodeBridge speaks the dashboard's app-server protocol to the browser, as HostBridge does for omo,
-// so store.js and the components stay the same in both modes. The wire shapes come from the server's /openapi.json and
-// the event types of @opencode/client; the event payloads are not in the OpenAPI document.
+// (/api/event). OpencodeBridge speaks the dashboard's app-server protocol to the browser. The wire shapes come from
+// the server's /openapi.json and the event types of @opencode/client; the event payloads are not in the OpenAPI document.
 import { EventEmitter } from 'node:events';
 import { readFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import type { BridgeClient } from './host.ts';
-import { TOOL_IMAGE_TYPES } from './sessions.ts';
+
+export type BridgeClient = { send: (data: string) => void; close: (code: number, reason: string) => void; subs: Set<string>; ready: Promise<void> };
+export type RelayBridge = {
+  addClient(c: { send: (data: string) => void; close: (code: number, reason: string) => void }): BridgeClient;
+  removeClient(c: BridgeClient): void;
+  message(c: BridgeClient, raw: string): Promise<void>;
+};
+export const TOOL_IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp']);
 
 // The service writes its URL and generated password here when it starts (`opencode debug paths state`).
 const SERVICE_FILE = process.env.OPENCODE_SERVICE_FILE || join(process.env.XDG_STATE_HOME || join(homedir(), '.local/state'), 'opencode/service.json');
@@ -88,7 +93,7 @@ const promptText = (p: any) => `${(Array.isArray(p?.skills) ? p.skills : []).map
 const SUMMARY: Record<string, string> = { webfetch: 'url', websearch: 'query', glob: 'pattern', grep: 'pattern', skill: 'id', subagent: 'description' };
 // Images in a tool result (a read image file, a screenshot) are file parts with a data: URI. The timeline gets links
 // only; server.ts serves the bytes at /tool-images/<session>/<message>:<call>/<n>, read back through toolImage. n counts
-// every image part of the result, as toolImages in sessions.ts does for omo.
+// every image part of the result.
 const imageParts = (content: any) => (Array.isArray(content) ? content : []).filter((c) => c?.type === 'file' && /^image\//.test(String(c.mime)));
 const toolImageItems = (threadId: string, messageId: string, callId: string, content: any) =>
   imageParts(content).flatMap((c, n) => (TOOL_IMAGE_TYPES.has(c.mime)
@@ -107,9 +112,8 @@ function toolItem(id: string, name: string, input: any, state: any, cwd: string,
   return { type: 'dynamicToolCall', id, tool: name, arguments: summary ? { ...args, summary } : args, status, success: !failed, contentItems: [{ type: 'inputText', text: out }, ...images] };
 }
 
-// Saved messages → turns, one per user message, like omo's session files. Item ids match the live ones (message id
-// plus the part's place among the message's text or reasoning parts, tool call ids), so a running turn read from both
-// places merges.
+// Saved messages → turns, one per user message. Item ids match the live ones (message id plus the part's place among
+// the message's text or reasoning parts, tool call ids), so a running turn read from both places merges.
 export function historyTurns(msgs: any[], cwd: string, threadId: string) {
   const turns: any[] = [];
   let cur: any = null;
@@ -270,8 +274,7 @@ export class OpencodeBridge extends EventEmitter {
     if (s?.revert) { const at = msgs.findIndex((m) => m.id === s.revert!.messageID); msgs = at >= 0 ? msgs.slice(0, at) : []; }
     return historyTurns(msgs, s?.cwd || '', id).slice(-HISTORY_TURNS);
   }
-  // An image a tool returned, for server.ts's /tool-images route: key is "<message id>:<call id>". Only sessions this
-  // bridge holds are looked up, so omo's ids fall through untouched.
+  // An image a tool returned, for server.ts's /tool-images route: key is "<message id>:<call id>".
   async toolImage(threadId: string, key: string, n: number): Promise<{ data: string; mimeType: string } | null> {
     const at = key.indexOf(':');
     if (!this.#byId.has(threadId) || at < 0) return null;
@@ -286,7 +289,7 @@ export class OpencodeBridge extends EventEmitter {
     await this.ready();
     return Object.fromEntries([...this.#byId.values()].filter((s) => !s.parentID).map((s) => [s.id, s.updatedAt]));
   }
-  // Subagent runs (child sessions, in omo.task.updated's shape) and the context the last model call used.
+  // Subagent runs and the context the last model call used.
   async meta(id: string) {
     await this.ready();
     const s = this.#byId.get(id);
@@ -506,7 +509,7 @@ export class OpencodeBridge extends EventEmitter {
   #pushStatus(s: Sess) { if (!s.parentID) this.#notifyAll('thread/status/changed', { threadId: s.id, status: this.#status(s) }); }
 
   async #threadOf(s: Sess) {
-    // A session nobody titled is named after its first message, as omo's are.
+    // A session nobody titled is named after its first message.
     if (!s.title && !s.preview && !s.previewRead) {
       s.previewRead = true;
       const r = await this.#api('GET', `/api/session/${enc(s.id)}/message?order=asc&limit=1&type=user`).catch(() => null);
@@ -555,7 +558,7 @@ export class OpencodeBridge extends EventEmitter {
           run_stats: { duration_ms: c.idleAt && c.createdAt ? c.idleAt - c.createdAt : undefined } }),
     }));
   }
-  #tasksChanged(parentId: string) { this.#notifyAll('extension_event', { threadId: parentId, name: 'omo.task.updated', data: this.#agentsOf(parentId) }); }
+  #tasksChanged(parentId: string) { this.#notifyAll('thread/agents/updated', { threadId: parentId, agents: this.#agentsOf(parentId) }); }
 
   #send(c: BridgeClient, msg: unknown) { try { c.send(JSON.stringify(msg)); } catch {} }
   #notifyAll(method: string, params: unknown) { for (const c of this.#clients) this.#send(c, { method, params }); }
@@ -924,8 +927,6 @@ export class OpencodeBridge extends EventEmitter {
       case 'thread/compact/start':
         this.#api('POST', `/api/session/${enc(id)}/compact`, {}, 120_000).catch((e) => this.#notifySubs(id, 'error', { threadId: id, error: { message: `압축하지 못했습니다: ${e?.message || e}` } }));
         return {};
-      case 'thread/goal/get': return { goal: null };
-      case 'thread/goal/set': case 'thread/goal/clear': throw new OpencodeError('opencode에는 목표(goal) 기능이 없습니다');
       case 'thread/archive': case 'thread/unarchive': {
         const s = this.#sess(id);
         const archived = method === 'thread/archive';

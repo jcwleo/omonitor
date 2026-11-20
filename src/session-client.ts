@@ -1,6 +1,6 @@
 // SessionClient — the only thing the UI talks to. MockClient (app/mock-client.js) and RealClient
 // below implement the same contract, so swapping them needs no UI change.
-import type { RequestId, RpcNotification, ServerRequest, Skill, Item, InitializeParams, Turn, Model, OmoVersion, OmoUpdateResult, OmoRestartResult, OpenResult, OpencodeVersion, OpencodeUpdateResult, OmonitorVersion, OmonitorUpdateResult, PlanUsage, UsageAuthState, UsageLogin, UsageProvider, GitSummary } from './protocol';
+import type { RequestId, RpcNotification, ServerRequest, Skill, InitializeParams, Turn, AgentTask, OpenResult, OpencodeVersion, OpencodeUpdateResult, OmonitorVersion, OmonitorUpdateResult, PlanUsage, UsageAuthState, UsageLogin, UsageProvider, GitSummary } from './protocol';
 
 export type ConnectionState = 'connecting' | 'open' | 'reconnecting' | 'closed';
 export interface ConnectionEvent { state: ConnectionState; attempt?: number; retryInMs?: number; reconnected?: boolean }
@@ -17,25 +17,22 @@ export interface SessionClient {
   /** Bun backend REST, not part of app-server. */
   backend?: {
     listSkills(): Promise<Skill[]>;
-    /** Saved-session history from the session file; unlike thread/read it does not load the session. */
+    /** Saved turns read from the opencode2 server. */
     history(threadId: string): Promise<Turn[]>;
-    /** Thread id → last conversation time (ms) from each session file; app-server's updatedAt also moves on metadata. */
+    /** Thread id → last activity time in milliseconds. */
     activity(): Promise<Record<string, number>>;
     /** Saves a pasted image; its path goes into the message text because turn input takes no image items. */
     upload(file: Blob): Promise<{ path: string; url: string }>;
     /** A URL to the default browser of the Mac running omonitor, a file or folder to its default app; refused unless the
      * page is served from that Mac. A relative path is taken from cwd, the session's folder. */
     open(target: string, cwd?: string): Promise<OpenResult>;
-    /** Subagent runs (omo.task.updated shape) and context usage, read from the session file. */
-    meta(threadId: string): Promise<{ agents: unknown[]; usage: { used: number; window: number } | null }>;
-    restoreTodos(threadId: string): Promise<Item[]>;
+    /** Subagent runs and context usage. */
+    meta(threadId: string): Promise<{ agents: AgentTask[]; usage: { used: number; window: number } | null }>;
     /** Relays a question or approval to the backend's Web Push, which drops repeats from other open dashboards. */
     pushRequest(body: { threadId: string; requestId: string | number; kind: 'question' | 'approval'; title: string; body: string }): Promise<{ sent: number }>;
-    /** Models of extension-registered providers (Claude subscription) that model/list does not return. */
-    extraModels(): Promise<Model[]>;
-    /** Claude and ChatGPT plan usage of omonitor's own logins (usageAuth); app-server's account/rateLimits/read does not serve them. */
+    /** Claude and ChatGPT plan usage of omonitor's own logins. */
     usage(): Promise<PlanUsage>;
-    /** omonitor's own usage logins, one per provider and the same for both engines; tokens never reach the browser. */
+    /** Usage logins, one per provider; tokens never reach the browser. */
     usageAuth(): Promise<UsageAuthState>;
     /** Starts a browser login; the page opens its url only from a user's tap. */
     usageLogin(provider: UsageProvider): Promise<UsageLogin>;
@@ -44,13 +41,8 @@ export interface SessionClient {
     usageCancel(provider: UsageProvider, id: string): Promise<{ ok: true }>;
     /** Forgets omonitor's stored login only; the account's other logins stay signed in. */
     usageLogout(provider: UsageProvider): Promise<{ ok: true }>;
-    /** Branch and worktree of each session (its folder, or the worktree its tool calls named) and the worktrees of their repos. */
-    gitSummary(threads: { id: string; cwd: string; path: string }[]): Promise<GitSummary>;
-    omoVersion(): Promise<OmoVersion>;
-    /** Updates omo and hands the omo host over to the new engine; running sessions finish their turn first. */
-    omoUpdate(): Promise<OmoUpdateResult>;
-    /** Hands the omo host over to the installed omo; running sessions finish their turn first. */
-    omoRestart(): Promise<OmoRestartResult>;
+    /** Branch and worktree for each session folder, and the worktrees of their repos. */
+    gitSummary(threads: { id: string; cwd: string; path?: string }[]): Promise<GitSummary>;
     /** The installed opencode2 CLI against its latest release and the version its shared service runs; null without opencode2. */
     opencodeVersion(): Promise<OpencodeVersion | null>;
     /** Upgrades opencode2 and restarts its shared service on the new binary. */
@@ -65,13 +57,11 @@ export interface SessionClient {
 }
 
 export interface RealClientOptions {
-  /** Browser ⇄ Bun backend socket. The backend holds the omo host connection. */
+  /** Browser ⇄ Bun backend socket. The backend holds the opencode2 connection. */
   url?: string;
   /** Per-launch secret the backend injects into index.html; guards the local socket from other pages. */
   sessionKey?: string;
   maxBackoffMs?: number;
-  /** Engine the dashboard shows: the omo host (default) or the opencode2 server. Sent on the socket and the session routes. */
-  engine?: 'omo' | 'opencode';
 }
 
 type Pending = { resolve: (v: unknown) => void; reject: (e: unknown) => void; method: string };
@@ -94,7 +84,7 @@ export class RealClient implements SessionClient {
       if (!r.ok) throw new Error(await r.text());
       return r.json();
     },
-    meta: async (threadId: string): Promise<{ agents: unknown[]; usage: { used: number; window: number } | null }> => {
+    meta: async (threadId: string): Promise<{ agents: AgentTask[]; usage: { used: number; window: number } | null }> => {
       const r = await fetch(`/api/threads/${encodeURIComponent(threadId)}/meta`, { headers: this.hdr() });
       if (!r.ok) throw new Error(await r.text());
       return r.json();
@@ -119,16 +109,6 @@ export class RealClient implements SessionClient {
       if (!r.ok) throw new Error(await r.text());
       return r.json();
     },
-    restoreTodos: async (threadId: string): Promise<Item[]> => {
-      const r = await fetch(`/api/threads/${encodeURIComponent(threadId)}/restore-todos`, { method: 'POST', headers: this.hdr() });
-      if (!r.ok) throw new Error(await r.text());
-      return r.json();
-    },
-    extraModels: async (): Promise<Model[]> => {
-      const r = await fetch('/api/models/extra', { headers: this.hdr() });
-      if (!r.ok) throw new Error(await r.text());
-      return r.json();
-    },
     usage: async (): Promise<PlanUsage> => {
       const r = await fetch('/api/usage', { headers: this.hdr() });
       if (!r.ok) throw new Error(await r.text());
@@ -139,23 +119,8 @@ export class RealClient implements SessionClient {
     usageComplete: (provider: UsageProvider, id: string, input: string): Promise<{ ok: true }> => this.usageAuthCall(`/${provider}/complete`, { id, input }),
     usageCancel: (provider: UsageProvider, id: string): Promise<{ ok: true }> => this.usageAuthCall(`/${provider}/cancel`, { id }),
     usageLogout: (provider: UsageProvider): Promise<{ ok: true }> => this.usageAuthCall(`/${provider}/logout`, null),
-    omoVersion: async (): Promise<OmoVersion> => {
-      const r = await fetch('/api/omo/version', { headers: this.hdr() });
-      if (!r.ok) throw new Error(await r.text());
-      return r.json();
-    },
-    omoUpdate: async (): Promise<OmoUpdateResult> => {
-      const r = await fetch('/api/omo/update', { method: 'POST', headers: this.hdr() });
-      if (!r.ok) throw new Error(await r.text());
-      return r.json();
-    },
-    gitSummary: async (threads: { id: string; cwd: string; path: string }[]): Promise<GitSummary> => {
+    gitSummary: async (threads: { id: string; cwd: string; path?: string }[]): Promise<GitSummary> => {
       const r = await fetch('/api/git/summary', { method: 'POST', headers: { ...this.hdr(), 'content-type': 'application/json' }, body: JSON.stringify({ threads }) });
-      if (!r.ok) throw new Error(await r.text());
-      return r.json();
-    },
-    omoRestart: async (): Promise<OmoRestartResult> => {
-      const r = await fetch('/api/omo/restart', { method: 'POST', headers: this.hdr() });
       if (!r.ok) throw new Error(await r.text());
       return r.json();
     },
@@ -186,7 +151,7 @@ export class RealClient implements SessionClient {
     },
   };
   private hdr() { return this.opts.sessionKey ? { 'x-mc-key': this.opts.sessionKey } : undefined; }
-  /** Usage logins are engine-independent; body undefined sends a GET, null a POST without a body. */
+  /** Body undefined sends a GET, null a POST without a body. */
   private async usageAuthCall<R>(path: string, body?: Record<string, string> | null): Promise<R> {
     const r = await fetch(`/api/usage/auth${path}`, {
       method: body === undefined ? 'GET' : 'POST', cache: 'no-store', body: body ? JSON.stringify(body) : undefined,
@@ -205,8 +170,7 @@ export class RealClient implements SessionClient {
   }
   private open(onFirstOpen?: () => void, onFirstFail?: (e: unknown) => void) {
     const base = this.opts.url ?? `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`;
-    const q = new URLSearchParams({ ...(this.opts.sessionKey && { key: this.opts.sessionKey }), ...(this.opts.engine === 'opencode' && { engine: 'opencode' }) }).toString();
-    const url = q ? `${base}?${q}` : base;
+    const url = this.opts.sessionKey ? `${base}?key=${encodeURIComponent(this.opts.sessionKey)}` : base;
     this.emit('connection', { state: this.everOpened ? 'reconnecting' : 'connecting', attempt: this.attempt });
     const ws = new WebSocket(url);
     this.ws = ws;
@@ -215,7 +179,7 @@ export class RealClient implements SessionClient {
       this.everOpened = true;
       this.attempt = 0;
       try {
-        await this.request('initialize', { clientInfo: { name: 'omo-mission-control', version: '0.1.0' }, capabilities: { experimentalApi: true } } satisfies InitializeParams);
+        await this.request('initialize', { clientInfo: { name: 'omonitor', version: '0.1.0' }, capabilities: { experimentalApi: true } } satisfies InitializeParams);
         this.emit('connection', { state: 'open', reconnected });
         onFirstOpen?.();
       } catch (e) { onFirstFail?.(e); ws.close(); }
@@ -264,7 +228,7 @@ export class RealClient implements SessionClient {
   }
   request<R = unknown>(method: string, params?: unknown): Promise<R> {
     const ws = this.ws;
-    if (!ws || ws.readyState !== WebSocket.OPEN) return Promise.reject({ code: -32000, message: 'omo host에 연결되어 있지 않습니다' });
+    if (!ws || ws.readyState !== WebSocket.OPEN) return Promise.reject({ code: -32000, message: 'opencode 서버에 연결되어 있지 않습니다' });
     const id = ++this.seq;
     return new Promise<R>((resolve, reject) => {
       this.pending.set(id, { resolve: resolve as (v: unknown) => void, reject, method });
