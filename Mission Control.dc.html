@@ -57,7 +57,7 @@ html,body{margin:0;height:var(--root-h, 100%);background:#161618;overflow:hidden
 .mc[data-theme="light"]{--bg:#fcfcfc;--bg2:#fff;--side:#f5f5f6;--card:#fff;--sel:rgba(24,24,27,.07);--seg:#fff;--seg-shadow:0 1px 2px rgba(0,0,0,.08),0 0 0 1px rgba(24,24,27,.06);--msg:rgba(24,24,27,.05);--fg:#27272a;--fg2:#52525b;--fg3:#6b6b74;--line:rgba(24,24,27,.1);--line-soft:rgba(24,24,27,.065);--line2:rgba(24,24,27,.15);--line3:rgba(24,24,27,.26);--hover:rgba(24,24,27,.04);--tint:rgba(24,24,27,.03);--acc:#5980a6;--acc-fg:#416180;--acc-tint:rgba(89,128,166,.13);--on-acc:#fff;--warn:oklch(0.62 0.14 62);--warn-line:oklch(0.62 0.14 62 / .4);--warn-tint:oklch(0.8 0.13 75 / .14);--err:oklch(0.58 0.2 25);--err-fg:oklch(0.5 0.18 25);--err-line:oklch(0.58 0.2 25 / .4);--err-tint:oklch(0.58 0.2 25 / .08);--idle:#71717a;--arch:#a1a1aa;--add-bg:oklch(0.7 0.15 155 / .14);--add-fg:oklch(0.42 0.11 155);--del-bg:oklch(0.58 0.2 25 / .1);--del-fg:oklch(0.47 0.16 25);--shadow-lg:0 24px 64px -24px rgba(0,0,0,.35),0 0 0 1px rgba(24,24,27,.04);--color-bg:#fcfcfc;--color-text:#27272a;--color-surface:#fff;--color-accent:#5980a6;--color-accent-600:#4d7397;--color-accent-700:#416180;--color-divider:rgba(24,24,27,.14)}
 .mc a{color:var(--acc-fg)}.mc a:hover{color:var(--fg)}
 /* Chat markdown: plain text colors; code is set in the terminal font on a faint chip or block. */
-.mc{--md-text:#dcdcdf;--md-heading:var(--fg);--md-code:#dcdcdf;--md-code-bg:rgba(255,255,255,.07);--md-codeblock:#cfcfd3;--md-codeblock-bg:rgba(255,255,255,.03);--md-codeblock-border:var(--line);--md-link:var(--acc-fg);--md-quote:var(--fg2);--md-quote-border:var(--line3);--md-hr:var(--line2);--md-bullet:var(--fg3)}
+.mc{--md-emph:currentColor;--md-text:#dcdcdf;--md-heading:var(--fg);--md-code:#dcdcdf;--md-code-bg:rgba(255,255,255,.07);--md-codeblock:#cfcfd3;--md-codeblock-bg:rgba(255,255,255,.03);--md-codeblock-border:var(--line);--md-link:var(--acc-fg);--md-quote:var(--fg2);--md-quote-border:var(--line3);--md-hr:var(--line2);--md-bullet:var(--fg3)}
 .mc[data-theme="light"]{--md-text:#27272a;--md-heading:var(--fg);--md-code:#27272a;--md-code-bg:rgba(24,24,27,.06);--md-codeblock:#3f3f46;--md-codeblock-bg:rgba(24,24,27,.03);--md-codeblock-border:var(--line);--md-link:var(--acc-fg);--md-quote:var(--fg2);--md-quote-border:var(--line3);--md-hr:var(--line2);--md-bullet:var(--fg3)}
 @keyframes mcPulse{0%,100%{opacity:.45}50%{opacity:.9}}
 /* Motion (DESIGN.md 모션). Elements animate in with a keyframe that runs once when they mount; exits, board card moves
@@ -369,7 +369,7 @@ html[data-vt]::view-transition-old(root),html[data-vt]::view-transition-new(root
 <button data-press="row" onClick="{{ clearProjectFilter }}" style="all:unset;cursor:pointer;display:flex;align-items:center;min-height:44px;padding:0 12px;font-size:13.5px;background:{{ allProjBg }}">전체</button>
 <sc-for list="{{ projects }}" as="p"><button data-press="row" onClick="{{ p.onTap }}" style="all:unset;cursor:pointer;display:flex;align-items:center;min-height:44px;padding:0 12px;background:{{ p.bg }};color:{{ p.fg }}"><span style="font:12.5px var(--mono)">{{ p.name }}</span><span style="margin-left:auto;font:12px var(--mono);color:var(--fg3)">{{ p.count }}</span></button></sc-for>
 <div style="font-size:12px;font-weight:500;color:var(--fg3);padding:9px 12px 3px;border-top:1px solid var(--line-soft);margin-top:4px">설정</div>
-<button data-press="row" onClick="{{ toggleTheme }}" style="all:unset;cursor:pointer;display:flex;align-items:center;min-height:44px;padding:0 12px;font-size:13.5px">테마<span style="margin-left:auto;color:var(--fg2)">{{ themeLabel }}</span></button>
+<button data-press="row" type="button" onClick="{{ openThemePick }}" aria-haspopup="dialog" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:8px;min-height:44px;padding:0 12px;font-size:13.5px">테마<span style="margin-left:auto;min-width:0;color:var(--fg2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ themeLabel }}</span><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="flex:none;color:var(--fg3);stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round"><path d="m9 6 6 6-6 6"></path></svg></button>
 <button data-press="row" onClick="{{ askNotify }}" style="all:unset;cursor:pointer;display:flex;align-items:center;min-height:44px;padding:0 12px;font-size:13.5px">브라우저 알림<span style="margin-left:auto;width:30px;height:18px;flex:none;border-radius:999px;background:{{ nbTrack }};position:relative;transition:background .15s"><span style="position:absolute;top:2px;left:2px;translate:{{ nbX }};width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3);transition:translate .15s var(--ease-out)"></span></span></button>
 <button data-press="row" onClick="{{ toggleSound }}" style="all:unset;cursor:pointer;display:flex;align-items:center;min-height:44px;padding:0 12px;font-size:13.5px">알림음<span style="margin-left:auto;width:30px;height:18px;flex:none;border-radius:999px;background:{{ nsTrack }};position:relative;transition:background .15s"><span style="position:absolute;top:2px;left:2px;translate:{{ nsX }};width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3);transition:translate .15s var(--ease-out)"></span></span></button>
 <button data-press="row" onClick="{{ togglePush }}" disabled="{{ pushDisabled }}" title="작업이 끝나거나 멈추거나 질문·승인을 기다리면 이 기기로 알립니다" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:8px;min-height:44px;padding:0 12px;font-size:13.5px;opacity:{{ pushOpacity }}">푸시 알림<span style="font-size:12px;color:var(--fg3)">이 기기</span><span style="margin-left:auto;width:30px;height:18px;flex:none;border-radius:999px;background:{{ pushTrack }};position:relative;transition:background .15s"><span style="position:absolute;top:2px;left:2px;translate:{{ pushX }};width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3);transition:translate .15s var(--ease-out)"></span></span></button>
@@ -394,6 +394,19 @@ html[data-vt]::view-transition-old(root),html[data-vt]::view-transition-new(root
 <sc-if value="{{ palEmpty }}"><div style="padding:10px;font-size:12.5px;color:var(--fg3)">결과가 없습니다</div></sc-if>
 </div>
 <div style="display:flex;flex-wrap:wrap;column-gap:9px;row-gap:2px;padding:4px 10px;font-size:12px;color:var(--fg3);border-top:1px solid var(--line-soft)"><span style="white-space:nowrap"><span style="font-family:var(--mono)">↑↓</span> 이동</span><span style="white-space:nowrap"><span style="font-family:var(--mono)">Enter</span> 실행</span><span style="white-space:nowrap"><span style="font-family:var(--mono)">g b</span> 보드</span><span style="white-space:nowrap"><span style="font-family:var(--mono)">j/k</span> 목록</span></div>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ themePickOpen }}">
+<div onClick="{{ closeThemePick }}" style="position:absolute;inset:0;z-index:{{ tpZ }}">
+<div data-theme-pick="1" role="dialog" aria-label="테마" onClick="{{ stop }}" style="animation:{{ tpAnim }};transform-origin:{{ tpOrigin }};position:absolute;top:{{ tpTop }};right:{{ tpRight }};bottom:{{ tpBottom }};left:{{ tpLeft }};width:{{ tpW }};max-height:{{ tpMaxH }};box-sizing:border-box;background:var(--bg2);border:1px solid var(--line2);border-radius:{{ tpRadius }};box-shadow:var(--shadow-lg);display:flex;flex-direction:column;overflow:hidden">
+<div style="flex:none;display:flex;align-items:center;gap:8px;padding:6px 4px 6px 12px;border-bottom:1px solid var(--line-soft)"><span style="font-size:13.5px;font-weight:600">테마</span><div role="group" aria-label="모드" style="margin-left:auto;display:flex;gap:2px;padding:2px;border-radius:var(--r-md);background:var(--tint)"><sc-for list="{{ tpModes }}" as="m" hint-placeholder-count="3"><button data-press="btn" type="button" onClick="{{ m.onTap }}" aria-pressed="{{ m.on }}" style="all:unset;cursor:pointer;display:flex;align-items:center;min-height:{{ tpModeH }};padding:0 8px;border-radius:var(--r-sm);font-size:12.5px;font-weight:500;color:{{ m.fg }};background:{{ m.bg }};box-shadow:{{ m.shadow }}" style-hover="color:var(--fg)">{{ m.label }}</button></sc-for></div><button data-press="btn" type="button" onClick="{{ closeThemePick }}" aria-label="닫기" style="all:unset;cursor:pointer;width:{{ tpModeH }};height:{{ tpModeH }};display:grid;place-items:center;color:var(--fg2)">✕</button></div>
+<sc-if value="{{ tpHasOnly }}"><div style="flex:none;padding:6px 12px 0;font-size:12px;color:var(--fg3)">{{ tpOnly }}</div></sc-if>
+<div data-theme-list="1" style="flex:1 1 auto;min-height:0;overflow:auto;padding:4px 4px {{ tpPadBottom }}">
+<sc-for list="{{ tpItems }}" as="t" hint-placeholder-count="8"><button data-press="row" type="button" data-theme-name="{{ t.name }}" onClick="{{ t.onTap }}" aria-pressed="{{ t.on }}" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:9px;width:100%;box-sizing:border-box;min-height:{{ tpRowH }};padding:0 8px;border-radius:var(--r-md);background:{{ t.bg }}" style-hover="background:var(--hover)"><span aria-hidden="true" style="flex:none;display:flex;align-items:center;gap:3px;height:20px;padding:0 6px;border-radius:5px;background:{{ t.swBg }};box-shadow:inset 0 0 0 1px var(--line2)"><sc-for list="{{ t.dots }}" as="d"><span style="width:6px;height:6px;border-radius:50%;background:{{ d.c }}"></span></sc-for></span><span style="flex:1;min-width:0;font:13px var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ t.label }}</span><sc-if value="{{ t.hasNote }}"><span style="font-size:12px;color:var(--fg3);white-space:nowrap">{{ t.note }}</span></sc-if><span style="flex:none;width:14px;text-align:center;font-size:13px;color:var(--acc-fg)">{{ t.check }}</span></button></sc-for>
+</div>
+<sc-if value="{{ tpKeys }}"><div style="flex:none;display:flex;flex-wrap:wrap;column-gap:9px;padding:4px 10px;font-size:12px;color:var(--fg3);border-top:1px solid var(--line-soft)"><span style="white-space:nowrap"><span style="font-family:var(--mono)">↑↓</span> 테마 바꾸기</span><span style="white-space:nowrap"><span style="font-family:var(--mono)">Enter</span> 닫기</span></div></sc-if>
 </div>
 </div>
 </sc-if>
@@ -450,7 +463,7 @@ html[data-vt]::view-transition-old(root),html[data-vt]::view-transition-new(root
 <sc-if value="{{ prefsOpen }}">
 <div onClick="{{ closePrefs }}" style="position:absolute;inset:0;z-index:45">
 <div onClick="{{ stop }}" style="animation:mcPop var(--dur) var(--ease-out);transform-origin:100% 0;position:absolute;top:{{ prefsTop }};right:10px;width:250px;padding:4px;box-sizing:border-box;background:var(--bg2);border:1px solid var(--line2);border-radius:var(--r);box-shadow:var(--shadow-lg);display:flex;flex-direction:column">
-<button data-press="row" onClick="{{ toggleTheme }}" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:8px;min-height:40px;padding:0 10px;border-radius:var(--r-md);font-size:13.5px;color:var(--fg)" style-hover="background:var(--hover)">테마<span style="margin-left:auto;font-size:12.5px;color:var(--fg2)">{{ themeLabel }}</span></button>
+<button data-press="row" type="button" onClick="{{ openThemePick }}" aria-haspopup="dialog" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:8px;min-height:40px;padding:0 10px;border-radius:var(--r-md);font-size:13.5px;color:var(--fg)" style-hover="background:var(--hover)">테마<span style="margin-left:auto;min-width:0;font-size:12.5px;color:var(--fg2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ themeLabel }}</span><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="flex:none;color:var(--fg3);stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round"><path d="m9 6 6 6-6 6"></path></svg></button>
 <button data-press="row" onClick="{{ askNotify }}" title="{{ nbTitle }}" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:8px;min-height:40px;padding:0 10px;border-radius:var(--r-md);font-size:13.5px;color:var(--fg)" style-hover="background:var(--hover)">브라우저 알림<span style="margin-left:auto;width:30px;height:18px;flex:none;border-radius:999px;background:{{ nbTrack }};position:relative;transition:background .15s"><span style="position:absolute;top:2px;left:2px;translate:{{ nbX }};width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3);transition:translate .15s var(--ease-out)"></span></span></button>
 <button data-press="row" onClick="{{ toggleSound }}" title="새 질문·승인 요청이 오면 소리로 알립니다" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:8px;min-height:40px;padding:0 10px;border-radius:var(--r-md);font-size:13.5px;color:var(--fg)" style-hover="background:var(--hover)">알림음<span style="margin-left:auto;width:30px;height:18px;flex:none;border-radius:999px;background:{{ nsTrack }};position:relative;transition:background .15s"><span style="position:absolute;top:2px;left:2px;translate:{{ nsX }};width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3);transition:translate .15s var(--ease-out)"></span></span></button>
 <button data-press="row" onClick="{{ togglePush }}" disabled="{{ pushDisabled }}" title="작업이 끝나거나 멈추거나 질문·승인을 기다리면 이 기기로 알립니다" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:8px;min-height:40px;padding:0 10px;border-radius:var(--r-md);font-size:13.5px;color:var(--fg);opacity:{{ pushOpacity }}" style-hover="background:var(--hover)">푸시 알림<span style="font-size:12px;color:var(--fg3)">이 기기</span><span style="margin-left:auto;width:30px;height:18px;flex:none;border-radius:999px;background:{{ pushTrack }};position:relative;transition:background .15s"><span style="position:absolute;top:2px;left:2px;translate:{{ pushX }};width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3);transition:translate .15s var(--ease-out)"></span></span></button>
@@ -555,8 +568,22 @@ function loadViewed() {
   try { localStorage.setItem('mc.viewed', JSON.stringify(v)); } catch {}
   return v;
 }
+// Color theme (app/themes.js): omonitor's own palette or an opencode2 theme, in a mode. Its CSS goes in a style element
+// of its own and its background into theme-color (the Mac app's title bar). setTheme stores the choice with the CSS it
+// made, so the next load paints in it before the first render, ahead of the module.
+const MODE_LABEL = { system: '시스템', dark: '다크', light: '라이트' };
+function paintTheme(css, bg) {
+  let el = document.getElementById('mc-theme');
+  if (!el) { el = document.createElement('style'); el.id = 'mc-theme'; document.head.appendChild(el); }
+  el.textContent = css;
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', bg);
+}
+const SAVED_THEME = (() => {
+  try { const t = JSON.parse(localStorage.getItem('mc.theme') || 'null'); if (t?.css) paintTheme(t.css, t.bg); return t || {}; } catch { return {}; }
+})();
 class Component extends DCLogic {
-  state = { v: 0, now: Date.now(), w: window.innerWidth, view: 'board', selId: null, backTo: 'board', theme: null, drawer: false, drawerMounted: false,
+  state = { v: 0, now: Date.now(), w: window.innerWidth, view: 'board', selId: null, backTo: 'board', drawer: false, drawerMounted: false,
+    theme: SAVED_THEME.scheme || null, themeName: SAVED_THEME.name || 'omonitor', themeMode: SAVED_THEME.mode || 'dark', themePick: false,
     pal: null, sheet: null, dialog: null, viewer: null, menu: false, umenu: null, selMode: false, sel: {}, multiText: '', grouped: false, groupOpen: {}, lg: true, lgC: {}, lgOpen: {}, lgWt: {}, panels: { left: false, right: false }, colC: {}, secC: { archived: true },
     exp: {}, agentOpen: {}, doneOpen: null, runFold: false, escArmed: null, allC: false, rtab: 'todo', ptab: 'tl', q: '', lf: 'all', focus: -1, pf: null, speedIdx: 0,
     fatal: null, nb: false, ns: false, ocVer: null, ocUpdating: false, ocRestarting: false, omonitorVer: null, omonitorUpdating: false, panelWidths: {}, termLive: {}, terms: [], termPolicy: null, termErr: '', prefs: false, acct: false, acctAuth: null, push: { ready: false, on: false, busy: false, why: '' } };
@@ -666,6 +693,12 @@ class Component extends DCLogic {
     window.addEventListener('resize', this.onResize);
     window.addEventListener('keydown', this.onKey);
     window.addEventListener('keydown', this.onModalKey, true);
+    // Themes load apart from the server-bound modules, so the picker works on the fatal screen too. The system mode
+    // follows the device as it switches between light and dark.
+    this.darkMq = matchMedia('(prefers-color-scheme: dark)');
+    this.onScheme = () => { if (this.state.themeMode === 'system') this.setTheme({}, true); };
+    this.darkMq.addEventListener('change', this.onScheme);
+    import(new URL('app/themes.js', location.href).href).then((TH) => { this.TH = TH; this.setTheme({}); }).catch((e) => console.error('테마를 불러오지 못했습니다', e));
     // A focused text box brings up the iOS keyboard, or with a hardware keyboard iPadOS's floating shortcut bar. iOS
     // then shrinks the visual viewport and pans it down over the page, which neither 100dvh nor overflow:hidden stops:
     // the app slid up under the status bar and the page could be dragged. So the app is sized to the visual viewport
@@ -836,7 +869,7 @@ class Component extends DCLogic {
     });
     return rt;
   }
-  componentWillUnmount() { this.agentChatTarget = null; clearTimeout(this.agentChatTimer); this.agentHistoryObserver?.disconnect(); window.visualViewport?.removeEventListener('resize', this.fitViewport); window.visualViewport?.removeEventListener('scroll', this.fitViewport); window.removeEventListener('scroll', this.fitViewport); document.removeEventListener('touchstart', this.onTouchStart); document.removeEventListener('touchmove', this.onTouchMove); document.removeEventListener('touchend', this.onTouchEnd); document.removeEventListener('touchcancel', this.onTouchEnd); window.removeEventListener('resize', this.onResize); window.removeEventListener('keydown', this.onKey); window.removeEventListener('keydown', this.onModalKey, true); window.removeEventListener('dragover', this.onWinDrag); window.removeEventListener('drop', this.onWinDrag); document.removeEventListener('mc-terminal-live', this.onTermLive); document.removeEventListener('visibilitychange', this.onVisibility); window.removeEventListener('storage', this.onStorage); clearInterval(this.tick); clearInterval(this.versionTick); clearInterval(this.usageTick); clearInterval(this.termTick); clearInterval(this.gitTick); clearTimeout(this.gitSoon); this.exits?.disconnect(); this.client?.close(); }
+  componentWillUnmount() { this.agentChatTarget = null; clearTimeout(this.agentChatTimer); this.agentHistoryObserver?.disconnect(); window.visualViewport?.removeEventListener('resize', this.fitViewport); window.visualViewport?.removeEventListener('scroll', this.fitViewport); window.removeEventListener('scroll', this.fitViewport); document.removeEventListener('touchstart', this.onTouchStart); document.removeEventListener('touchmove', this.onTouchMove); document.removeEventListener('touchend', this.onTouchEnd); document.removeEventListener('touchcancel', this.onTouchEnd); window.removeEventListener('resize', this.onResize); window.removeEventListener('keydown', this.onKey); window.removeEventListener('keydown', this.onModalKey, true); window.removeEventListener('dragover', this.onWinDrag); window.removeEventListener('drop', this.onWinDrag); document.removeEventListener('mc-terminal-live', this.onTermLive); document.removeEventListener('visibilitychange', this.onVisibility); window.removeEventListener('storage', this.onStorage); this.darkMq?.removeEventListener('change', this.onScheme); clearInterval(this.tick); clearInterval(this.versionTick); clearInterval(this.usageTick); clearInterval(this.termTick); clearInterval(this.gitTick); clearTimeout(this.gitSoon); this.exits?.disconnect(); this.client?.close(); }
   // The conversation follows the finger during a back swipe. Styles go straight to the element so the drag does not
   // re-render; React leaves them alone because the template sets no transform, transition or shadow there.
   slideDetail(dx) {
@@ -862,6 +895,65 @@ class Component extends DCLogic {
     return document.startViewTransition(update);
   }
   setStateVT(patch) { return this.viewTransition(() => new Promise((done) => this.setState(patch, done))); }
+  // Applies a theme choice (name and mode, merged over the current one) and stores it with the CSS it made. vt
+  // cross-fades the change; the picker's arrow keys skip that, as they step through themes faster than it runs.
+  setTheme(patch, vt) {
+    const TH = this.TH;
+    if (!TH) return;
+    const s = this.state, mode = patch.mode || s.themeMode, want = patch.name || s.themeName;
+    const name = TH.NAMES.includes(want) ? want : TH.DEFAULT, scheme = TH.schemeOf(name, mode, this.darkMq.matches);
+    const { css, bg } = TH.themeCss(name, scheme);
+    try { localStorage.setItem('mc.theme', JSON.stringify({ name, mode, scheme, css, bg })); } catch {}
+    const apply = () => new Promise((done) => { paintTheme(css, bg); this.setState({ themeName: name, themeMode: mode, theme: scheme }, done); });
+    if (vt) this.viewTransition(apply); else apply();
+  }
+  openThemePick() {
+    if (!this.TH) return this.store?.toast('테마 목록을 불러오지 못했습니다. 새로고침해 보세요.', 'error');
+    this.setState({ themePick: true, prefs: false, drawer: false, pal: null }, () => this.showPickedTheme());
+  }
+  showPickedTheme() { document.querySelector(`[data-theme-list] [data-theme-name="${this.state.themeName}"]`)?.scrollIntoView({ block: 'nearest' }); }
+  // The open picker owns the keys: the arrows step through the themes, applying each at once; Enter or Esc closes it.
+  // Enter on one of its focused buttons presses that button instead.
+  themeKey(e) {
+    if (e.isComposing || e.keyCode === 229 || e.metaKey || e.ctrlKey || e.altKey) return;
+    if (e.key === 'Escape' || (e.key === 'Enter' && !e.target?.closest?.('[data-theme-pick] button'))) { e.preventDefault(); this.setState({ themePick: false }); return; }
+    const step = { ArrowDown: 1, ArrowUp: -1 }[e.key];
+    if (!step || !this.TH) return;
+    e.preventDefault();
+    const names = this.TH.NAMES, i = names.indexOf(this.state.themeName);
+    this.setTheme({ name: names[(i + step + names.length) % names.length] });
+    requestAnimationFrame(() => this.showPickedTheme());
+  }
+  // The theme picker: each theme as a row with a chip of its colors, and the mode switch. Phones get a bottom sheet,
+  // wider screens a panel under the settings button that ends above the toasts and update badges (z-index 70); the
+  // phone sheet covers them while it is open. Neither dims the screen, which shows each theme as it is picked.
+  themePickVals(s, isPhone) {
+    const TH = this.TH;
+    if (!s.themePick || !TH) return { themePickOpen: false, tpItems: [], tpModes: [] };
+    const dark = this.darkMq.matches, only = TH.onlyMode(s.themeName);
+    const tpItems = TH.NAMES.map((name) => {
+      const on = name === s.themeName, one = TH.onlyMode(name), sw = TH.swatch(name, TH.schemeOf(name, s.themeMode, dark));
+      return {
+        name, label: name, on: on ? 'true' : 'false', bg: on ? 'var(--sel)' : 'transparent', check: on ? '✓' : '',
+        swBg: sw.bg, dots: sw.dots.map((c, i) => ({ key: String(i), c })),
+        note: name === TH.DEFAULT ? '기본' : one ? `${MODE_LABEL[one]} 전용` : '', hasNote: name === TH.DEFAULT || !!one,
+        onTap: () => this.setTheme({ name }, true),
+      };
+    });
+    const tpModes = ['system', 'dark', 'light'].map((m) => {
+      const on = s.themeMode === m;
+      return { label: MODE_LABEL[m], on: on ? 'true' : 'false', fg: on ? 'var(--fg)' : 'var(--fg2)', bg: on ? 'var(--seg)' : 'transparent', shadow: on ? 'var(--seg-shadow)' : 'none', onTap: () => this.setTheme({ mode: m }, true) };
+    });
+    const top = `calc(${this.store?.s.conn.state === 'reconnecting' ? 97 : 52}px + env(safe-area-inset-top))`;
+    return {
+      themePickOpen: true, tpItems, tpModes, closeThemePick: () => this.setState({ themePick: false }),
+      tpHasOnly: !!only, tpOnly: only ? `이 테마는 ${MODE_LABEL[only]} 모드만 있습니다` : '', tpKeys: !isPhone && !COARSE,
+      tpRowH: isPhone ? '44px' : '34px', tpZ: isPhone ? '72' : '45', tpModeH: isPhone ? '36px' : '28px',
+      ...(isPhone
+        ? { tpTop: 'auto', tpRight: '0', tpBottom: '0', tpLeft: '0', tpW: 'auto', tpMaxH: '62%', tpRadius: 'var(--r-lg) var(--r-lg) 0 0', tpAnim: 'mcSheet var(--dur-slow) var(--ease-out)', tpOrigin: '50% 100%', tpPadBottom: 'max(12px, env(safe-area-inset-bottom))' }
+        : { tpTop: top, tpRight: '10px', tpBottom: 'auto', tpLeft: 'auto', tpW: '320px', tpMaxH: `calc(100% - ${top} - 56px)`, tpRadius: 'var(--r)', tpAnim: 'mcPop var(--dur) var(--ease-out)', tpOrigin: '100% 0', tpPadBottom: '4px' }),
+    };
+  }
   // Phone and tablet show a conversation over the whole screen: it pushes in from the right, and the back button pops it
   // off the same way (the edge swipe does that by hand, see settleDetail). html[data-vt] picks the animation.
   navVT(dir, patch) {
@@ -1346,6 +1438,7 @@ class Component extends DCLogic {
   key(e) {
     if (this.state.agentChat || this.state.acct) return;
     if (e.composedPath().some((el) => el.tagName === 'MC-TERMINAL')) return;
+    if (this.state.themePick) return this.themeKey(e);
     const tag = document.activeElement?.tagName;
     const typing = tag === 'INPUT' || tag === 'TEXTAREA';
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); if (!this.state.dialog && !this.state.viewer) this.setState((s) => ({ pal: s.pal ? null : { q: '', idx: 0 } })); return; }
@@ -1574,7 +1667,8 @@ class Component extends DCLogic {
       // stay for an iOS that still lays the page under it. Phone bars pad themselves; the wider layouts (iPad) start
       // below it here.
       safeTop: isPhone ? '0px' : 'env(safe-area-inset-top)',
-      toggleTheme: () => this.setStateVT({ theme: theme === 'dark' ? 'light' : 'dark' }), themeLabel: theme === 'dark' ? '다크' : '라이트',
+      openThemePick: () => this.openThemePick(), themeLabel: `${s.themeName} · ${MODE_LABEL[s.themeMode] || '다크'}`,
+      ...this.themePickVals(s, isPhone),
       openPalette: () => this.setState({ pal: { q: '', idx: 0 } }), openNew: () => this.setState({ sheet: this.newSheet() }),
       serverInfo: this.info || '', skel: [1, 2, 3, 4, 5].slice(0, isPhone ? 1 : isDesk ? 5 : 4).map((k) => ({ h1: `${120 + (k % 3) * 40}px`, h2: `${80 + (k % 2) * 60}px` })),
       skelCols: `repeat(${isPhone ? 1 : isDesk ? 5 : 4}, minmax(0,1fr))`,
@@ -1815,7 +1909,7 @@ class Component extends DCLogic {
     const backPatch = (x) => (isPhone ? { view: x.backTo || 'board', selId: null } : { selId: null });
     const goBack = () => this.setState(backPatch);
     // The left-edge swipe (onTouchStart) does the back button's job, unless something is open over the conversation.
-    this.swipeBack = T && !isDesk && !(s.pal || s.sheet || s.dialog || s.menu || s.viewer || s.agentChat || s.acct) ? goBack : null;
+    this.swipeBack = T && !isDesk && !(s.pal || s.sheet || s.dialog || s.menu || s.viewer || s.agentChat || s.acct || s.themePick) ? goBack : null;
     if (!isDesk && !T) { vals.showList = true; vals.listW = '100%'; }
     if (!isDesk && T) vals.showList = false;
     // The session list only folds on desktop with a session open, where it sits beside the conversation.
@@ -2186,7 +2280,8 @@ class Component extends DCLogic {
       const q = pal.q.trim().toLowerCase();
       const actions = [
         ['새 세션', 'N', () => this.setState({ sheet: this.newSheet() })], ['보드로 이동', '⌥1 · g b', () => this.go('board')],
-        ['세션 화면으로 이동', '⌥2 · g s', () => this.go('session')], ['터미널 관리로 이동', '⌥3 · g t', () => this.go('terminals')], [`테마: ${theme === 'dark' ? '라이트로' : '다크로'} 전환`, '', () => this.setStateVT({ theme: theme === 'dark' ? 'light' : 'dark' })],
+        ['세션 화면으로 이동', '⌥2 · g s', () => this.go('session')], ['터미널 관리로 이동', '⌥3 · g t', () => this.go('terminals')], ['테마 선택…', s.themeName, () => this.openThemePick()], [`${theme === 'dark' ? '라이트' : '다크'} 모드로 전환`, '', () => this.setTheme({ mode: theme === 'dark' ? 'light' : 'dark' }, true)],
+        ...(q && this.TH ? this.TH.NAMES.map((n) => [`테마: ${n}`, '', () => this.setTheme({ name: n }, true)]) : []),
         ['여러 세션에 메시지 보내기', '', () => this.setState({ view: 'board', selMode: true, sel: {} })],
         ...(s.view === 'session' && T ? [['발화로 이동…', '이 세션의 내 메시지', () => this.openPrompts(T.id)]] : []),
         ...(this.mode === 'mock' ? [['연결 끊김 시뮬레이션', '데모', () => this.client.simulateDisconnect()]] : []),

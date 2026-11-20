@@ -325,7 +325,7 @@ const STATIC = new Set([
   '/manifest.webmanifest', '/app/icon-180.png', '/app/icon-512.png', '/app/icon-maskable-512.png',
   '/app/terminal.js', '/app/terminals.js', '/app/terminal-input.js', '/app/terminal-clipboard.js',
   '/app/terminal-reports.js', '/app/terminal-keys.js', '/app/terminal.css', '/app/push.js', '/sw.js', '/app/git-graph.js',
-  '/app/usage-login.js',
+  '/app/usage-login.js', '/app/themes.js',
 ]);
 const VENDOR = new Map([
   ['/vendor/xterm.js', join(ROOT, 'node_modules/@xterm/xterm/lib/xterm.mjs')],

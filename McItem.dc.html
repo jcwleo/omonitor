@@ -73,7 +73,7 @@ function inline(t, here) {
   if (here) s = s.replace(BARE_PATH, (_, pre, p) => { const tail = p.match(/(?:[.,;:!?]|&quot;)+$/)?.[0] || ''; const core = p.slice(0, p.length - tail.length); return pre + put(pathLink(core, core)) + tail; });
   s = s
     .replace(/\*\*([^*]+)\*\*/g, '<strong style="font-weight:700;color:var(--fg)">$1</strong>')
-    .replace(/(^|[^*\w])\*([^*\s][^*]*?)\*(?![*\w])/g, '$1<em>$2</em>')
+    .replace(/(^|[^*\w])\*([^*\s][^*]*?)\*(?![*\w])/g, '$1<em style="color:var(--md-emph)">$2</em>')
     .replace(/~~([^~]+)~~/g, '<del>$1</del>');
   const restore = (x) => x.replace(/\u0000(\d+)\u0000/g, (_, k) => restore(keep[k]));
   return restore(s);
