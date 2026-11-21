@@ -200,7 +200,11 @@ type Sess = {
   id: string; parentID: string | null; title: string | null; preview: string; previewRead: boolean; cwd: string; agent: string | null; model: Model | null;
   createdAt: number; updatedAt: number; idleAt: number | null; startedAt: number | null; archived: boolean; outcome: string | null; revert: Revert | null;
   running: boolean; turn: Turn | null; seq: number; inbox: Map<string, string>; tools: Map<string, { name: string; input: any }>; compacting: { id: string; own: boolean } | null;
+  shells: Map<string, Shell>;
 };
+// A command still running in a shell the session (or a subagent below it) started. A command moved to the background
+// outlives the run that started it; the session counts as working until it exits.
+type Shell = { id: string; command: string; cwd: string; startedAt: number; by?: string };
 // threadId is the session the dashboard shows the request in; sessionId owns it and takes the answer. They differ for a
 // subagent: no dashboard follows a child session, so its request waits in the top-level session above it.
 type Req = { id: string; threadId: string; sessionId: string; kind: 'permission' | 'form'; form?: any; msg: any };
@@ -220,6 +224,8 @@ export class OpencodeBridge extends EventEmitter {
   #fetching = new Map<string, Promise<Sess | null>>();
   #clients = new Set<BridgeClient>();
   #reqs = new Map<string, Req>();
+  // Running shell id → the top-level session that shows it.
+  #shellOwner = new Map<string, string>();
   // Events that arrive while the session list is read are applied after it.
   #buffer: any[] | null = null;
   #turnSeq = 0;
@@ -238,7 +244,7 @@ export class OpencodeBridge extends EventEmitter {
     return this.#connecting;
   }
 
-  isRunning(id: string) { return !!this.#byId.get(id)?.running; }
+  isRunning(id: string) { const s = this.#byId.get(id); return !!s && (s.running || s.shells.size > 0); }
   nameOf(id: string) { const s = this.#byId.get(id); return s?.title || s?.preview.slice(0, 40) || null; }
 
   addClient(c: { send: (data: string) => void; close: (code: number, reason: string) => void }): BridgeClient {
@@ -382,6 +388,7 @@ export class OpencodeBridge extends EventEmitter {
     this.#buffer = null;
     this.#byId.clear();
     this.#reqs.clear();
+    this.#shellOwner.clear();
     this.#models = null;
     this.#commands = null;
     for (const c of this.#clients) c.close(1011, 'opencode 서버 연결이 끊겼습니다');
@@ -429,13 +436,16 @@ export class OpencodeBridge extends EventEmitter {
       for (const p of perms.data || []) this.#permission(p, false);
       for (const f of forms.data || []) this.#form(f, false);
     }));
+    // Commands still running, background ones included; an older server without the job list just shows new ones.
+    const jobs = await this.#api('GET', '/api/experimental/job?kind=shell&status=running').catch(() => null);
+    for (const j of jobs?.data || []) if (j?.shellID && typeof j.sessionID === 'string') this.#shellStarted({ id: j.shellID, command: j.command, cwd: '' }, j.sessionID, j.time?.started || Date.now());
   }
 
   #upsert(info: any): Sess {
     let s = this.#byId.get(info.id);
     if (!s) {
       s = { id: info.id, parentID: null, title: null, preview: '', previewRead: false, cwd: '', agent: null, model: null, createdAt: 0, updatedAt: 0, idleAt: null, startedAt: null,
-        archived: false, outcome: null, revert: null, running: false, turn: null, seq: 0, inbox: new Map(), tools: new Map(), compacting: null };
+        archived: false, outcome: null, revert: null, running: false, turn: null, seq: 0, inbox: new Map(), tools: new Map(), compacting: null, shells: new Map() };
       this.#byId.set(info.id, s);
     }
     const t = info.time || {};
@@ -502,7 +512,7 @@ export class OpencodeBridge extends EventEmitter {
   // ── what the dashboard sees ──
   #status(s: Sess) {
     const waiting = [...this.#reqs.values()].some((r) => r.threadId === s.id);
-    if (s.running || waiting) return { type: 'active', activeFlags: waiting ? ['waitingOnUserInput'] : [] };
+    if (s.running || waiting || s.shells.size) return { type: 'active', activeFlags: waiting ? ['waitingOnUserInput'] : [] };
     // The last run failed: the board files the session under errors until it runs again.
     return s.outcome === 'failed' ? { type: 'systemError' } : { type: 'idle' };
   }
@@ -518,7 +528,7 @@ export class OpencodeBridge extends EventEmitter {
     }
     return {
       id: s.id, name: s.title, preview: s.preview, cwd: s.cwd, path: '', source: 'appServer', status: this.#status(s),
-      createdAt: s.createdAt, updatedAt: s.updatedAt || s.createdAt, archived: s.archived, revert: await this.#revertOf(s),
+      createdAt: s.createdAt, updatedAt: s.updatedAt || s.createdAt, archived: s.archived, revert: await this.#revertOf(s), commands: [...s.shells.values()],
     };
   }
   // → { messageId, count, files: [{ path, status, add, del }] } or null; count stays null when the messages cannot be read.
@@ -630,10 +640,33 @@ export class OpencodeBridge extends EventEmitter {
   }
   #drop(s: Sess) {
     this.#byId.delete(s.id);
+    for (const id of s.shells.keys()) this.#shellOwner.delete(id);
     for (const r of [...this.#reqs.values()]) if (r.sessionId === s.id || r.threadId === s.id) this.#resolve(r);
     if (s.parentID) { this.#tasksChanged(s.parentID); return; }
     if (s.turn) this.#endTurn(s, 'interrupted');
     this.#notifyAll('thread/deleted', { threadId: s.id });
+  }
+
+  #shellStarted(info: any, sessionId: string, startedAt: number) {
+    const s = this.#byId.get(sessionId);
+    if (!s || this.#shellOwner.has(info.id)) return;
+    const { top, subagent } = this.#askedIn(s);
+    top.shells.set(info.id, { id: info.id, command: String(info.command || ''), cwd: String(info.cwd || ''), startedAt, ...(subagent && { by: subagent.name }) });
+    this.#shellOwner.set(info.id, top.id);
+    this.#shellsChanged(top);
+  }
+  #shellEnded(id: string) {
+    const top = this.#byId.get(this.#shellOwner.get(id) || '');
+    this.#shellOwner.delete(id);
+    if (top?.shells.delete(id)) this.#shellsChanged(top);
+  }
+  // Only a session at rest changes status here: a running one is active either way. The last background command
+  // exiting ends its work, unless the session is woken to read the result (push waits for that, as after a run).
+  #shellsChanged(s: Sess) {
+    this.#notifyAll('thread/commands/updated', { threadId: s.id, commands: [...s.shells.values()] });
+    if (s.running) return;
+    this.#pushStatus(s);
+    if (!s.shells.size) this.emit('settled', s.id);
   }
 
   #dispatch(e: any) {
@@ -649,6 +682,15 @@ export class OpencodeBridge extends EventEmitter {
       case 'form.replied': case 'form.cancelled': { const r = this.#reqs.get(d.id); if (r) this.#resolve(r); return; }
       case 'model.updated': case 'provider.updated': this.#models = null; return;
       case 'command.updated': this.#commands = null; return;
+      // Shells are not session events; the shell tool tags each with the session that ran it.
+      case 'shell.created': {
+        const info = d.info || {}, sid = info.metadata?.sessionID;
+        if (!info.id || info.status !== 'running' || typeof sid !== 'string') return;
+        if (this.#byId.has(sid)) this.#shellStarted(info, sid, info.time?.started || Date.now());
+        else void this.#fetch(sid).then((x) => { if (x) this.#shellStarted(info, sid, info.time?.started || Date.now()); });
+        return;
+      }
+      case 'shell.exited': case 'shell.deleted': this.#shellEnded(String(d.id)); return;
     }
     if (!type.startsWith('session.') || typeof d.sessionID !== 'string') return;
     if (type === 'session.created' || type === 'session.forked') { void this.#fetch(d.sessionID); return; }
@@ -860,7 +902,7 @@ export class OpencodeBridge extends EventEmitter {
       // Every session lives in the server, so "loaded" means the ones the dashboard should follow right away.
       case 'thread/loaded/list': {
         const childParents = new Set([...this.#byId.values()].filter((s) => s.running && s.parentID).map((s) => s.parentID));
-        return { data: [...this.#byId.values()].filter((s) => !s.parentID && (s.running || childParents.has(s.id) || [...this.#reqs.values()].some((r) => r.threadId === s.id))).map((s) => s.id) };
+        return { data: [...this.#byId.values()].filter((s) => !s.parentID && (s.running || s.shells.size || childParents.has(s.id) || [...this.#reqs.values()].some((r) => r.threadId === s.id))).map((s) => s.id) };
       }
       case 'model/list': return {
         data: (await this.#modelList()).filter((m: any) => m.enabled !== false).map((m: any) => ({

@@ -595,7 +595,22 @@ export class MockClient {
       [800, () => this._endTurn(t, turn)],
     ]);
   }
+  // A message mentioning 백그라운드 moves a command to the background: the turn ends while the session keeps working.
+  _bgScript(t, turn) {
+    const c = { id: nid('sh'), command: 'bun run build && bun test --timeout 600000', cwd: t.cwd, startedAt: Date.now() };
+    const it = cmd(c.command, t.cwd, '', 0);
+    const set = (list) => { t.commands = list; this._notify('thread/commands/updated', { threadId: t.id, commands: list }, false); };
+    this._run(t, [
+      [700, () => this._startItem(t, turn, it)],
+      [900, () => { set([c]); this._doneItem(t, turn, it, { aggregatedOutput: `Command moved to the background (shell ID: ${c.id}).` }); }],
+      [700, (r) => this._stream(r, t, turn, '빌드와 테스트를 백그라운드로 돌렸습니다. 끝나면 결과를 확인하겠습니다.')],
+      [500, () => { this._endTurn(t, turn); this._status(t, { type: 'active', activeFlags: [] }); }],
+      [12000, () => set([])],
+      [300, async (r) => { const u = this._startTurn(t); await this._stream(r, t, u, '빌드와 테스트가 모두 통과했습니다.'); this._endTurn(t, u); }],
+    ]);
+  }
   _genericScript(t, turn, text) {
+    if (/백그라운드/.test(text)) return this._bgScript(t, turn);
     this._run(t, [
       [900, () => this._item(t, turn, think(`요청 파악: ${text.slice(0, 60)}`), true)],
       [1300, () => { const it = dyn('read', { path: 'README.md' }, '82 lines'); this._startItem(t, turn, it); setTimeout(() => this._doneItem(t, turn, it), 900 / Math.max(this.speed, 0.2)); }],

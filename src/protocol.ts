@@ -23,8 +23,10 @@ export interface ThreadStatus { type: 'idle' | 'active' | 'systemError' | (strin
 export interface Thread {
   id: string; name?: string | null; preview?: string; cwd: string; source: string; status: ThreadStatus;
   /** Session timestamps in milliseconds. */
-  createdAt: number; updatedAt: number; path?: string; archived?: boolean; turns?: Turn[]; revert?: Revert | null;
+  createdAt: number; updatedAt: number; path?: string; archived?: boolean; turns?: Turn[]; revert?: Revert | null; commands?: RunningCommand[];
 }
+/** A shell command still running (opencode2), background ones included. `by` names the subagent that ran it; cwd may be ''. */
+export interface RunningCommand { id: string; command: string; cwd: string; startedAt: number; by?: string }
 /** A staged revert: the user message it starts at, how many of the user's messages it took back (null when unknown) and
  * the files it put back. The next message commits it; thread/revert/clear undoes it. */
 export interface Revert { messageId: string; count: number | null; files: { path: string; status: 'added' | 'deleted' | 'modified' | (string & {}); add: number; del: number }[] }
@@ -92,6 +94,8 @@ export interface NotificationMap {
   error: { threadId?: string; error?: { message: string }; message?: string };
   'thread/agents/updated': { threadId: string; agents: AgentTask[] };
   'thread/revert/updated': { threadId: string; revert: Revert | null };
+  /** opencode2 only: every command still running in the session's shells (also on Thread as `commands`). */
+  'thread/commands/updated': { threadId: string; commands: RunningCommand[] };
   'serverRequest/resolved': { threadId: string; requestId: RequestId };
   /** Not in the guaranteed list — the UI shows context size only if this arrives. */
   'thread/tokenUsage/updated': { threadId: string; tokenUsage: { total?: { totalTokens?: number }; modelContextWindow?: number } };

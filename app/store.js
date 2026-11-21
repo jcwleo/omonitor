@@ -135,6 +135,8 @@ export function activity(T) {
   const st = T.status?.type;
   // A running turn with nothing in progress is waiting on the model: before its first output and between tool calls.
   if (st === 'active' && turn) return ['모델 응답 기다리는 중', ''];
+  const cmds = T.commands || [];
+  if (cmds.length) return [cmds.length > 1 ? `명령 ${cmds.length}개 실행 중` : '명령 실행 중', cmds[0].command || ''];
   if (st === 'active') return ['작업 중', ''];
   const runningAgents = (T.tasks || []).filter((task) => task.state === 'running').length;
   if (runningAgents && st !== 'systemError' && (T.turns || []).at(-1)?.status !== 'failed') return [`서브에이전트 ${runningAgents}개 실행 중`, ''];
@@ -145,6 +147,13 @@ export function activity(T) {
   }
   if (last?.status === 'interrupted') return ['중단됨', ''];
   return ['대기 중', ''];
+}
+// Commands still running in the session's shells (backend `commands`), oldest first, for the card at the end of the timeline.
+export function commandsView(T, now) {
+  return [...(T.commands || [])].sort((a, b) => (a.startedAt || 0) - (b.startedAt || 0)).map((c) => ({
+    key: c.id, command: c.command || '',
+    meta: [c.startedAt ? `${dur(now - c.startedAt)}째` : '', c.by, c.cwd && c.cwd !== T.cwd ? shortPath(c.cwd) : ''].filter(Boolean).join(' · '),
+  }));
 }
 // The running turn's current step and how long it has lasted, for the timeline's live row and the composer.
 export function liveStatus(T, now) {
@@ -158,7 +167,7 @@ export function columnOf(T, reqs) {
   const st = T.status?.type;
   if (reqs.length || (T.status?.activeFlags || []).some((f) => /waitingOn/.test(f))) return 'input';
   if (st === 'systemError' || (st !== 'active' && (T.turns || []).at(-1)?.status === 'failed')) return 'error';
-  if (st === 'active' || (T.tasks || []).some((task) => task.state === 'running')) return 'working';
+  if (st === 'active' || T.commands?.length || (T.tasks || []).some((task) => task.state === 'running')) return 'working';
   return 'idle';
 }
 function diffStats(diff = '') {
@@ -726,6 +735,7 @@ export class Store {
       case 'thread/agents/updated': if (T) T.tasks = parseTasks(p.agents); break;
       case 'serverRequest/resolved': {
         const r = this.s.requests.get(p.requestId);
+      case 'thread/commands/updated': if (T) T.commands = Array.isArray(p.commands) ? p.commands : []; break;
         if (r) { this.s.requests.delete(p.requestId); if (!r.answeredHere) this.s.resolved = [{ threadId: r.params?.threadId, verdict: '다른 곳에서 처리됨', at: Date.now() }, ...this.s.resolved].slice(0, 20); }
         break;
       }
