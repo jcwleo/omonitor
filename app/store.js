@@ -733,9 +733,9 @@ export class Store {
         break;
       }
       case 'thread/agents/updated': if (T) T.tasks = parseTasks(p.agents); break;
+      case 'thread/commands/updated': if (T) T.commands = Array.isArray(p.commands) ? p.commands : []; break;
       case 'serverRequest/resolved': {
         const r = this.s.requests.get(p.requestId);
-      case 'thread/commands/updated': if (T) T.commands = Array.isArray(p.commands) ? p.commands : []; break;
         if (r) { this.s.requests.delete(p.requestId); if (!r.answeredHere) this.s.resolved = [{ threadId: r.params?.threadId, verdict: '다른 곳에서 처리됨', at: Date.now() }, ...this.s.resolved].slice(0, 20); }
         break;
       }
