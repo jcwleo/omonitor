@@ -7,6 +7,8 @@
 </head>
 <body>
 <x-dc>
+<div style="display:flex;flex-direction:column;gap:6px;min-width:0;margin-left:{{ nestM }};padding-left:{{ nestP }};border-left:{{ nestB }}">
+<sc-if value="{{ it.isSteps }}"><button onClick="{{ toggleSteps }}" style="all:unset;cursor:pointer;animation:{{ anim }};align-self:flex-start;display:inline-flex;align-items:center;gap:4px;min-height:32px;max-width:100%;font-size:12.5px;color:var(--fg3);font-family:var(--font-body)"><sc-if value="{{ it.live }}"><span style="width:7px;height:7px;margin-right:3px;border-radius:50%;background:var(--acc);box-shadow:0 0 0 3px var(--acc-tint);flex:none;animation:mcPulse 1.4s infinite"></span></sc-if><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0">{{ it.text }}</span><sc-if value="{{ it.hasFails }}"><span style="white-space:nowrap;color:var(--err-fg)">· {{ it.fails }}</span></sc-if><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="flex:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;transition:transform .2s;transform:rotate({{ stepsRot }})"><path d="m6 9 6 6 6-6"></path></svg></button></sc-if>
 <sc-if value="{{ it.isTurn }}"><div style="animation:{{ anim }};display:flex;align-items:center;gap:6px;padding:7px 0 2px;font-size:12px;font-weight:500;color:var(--fg3);font-family:var(--font-body)"><span>{{ it.text }}</span><span style="color:{{ it.metaColor }}">{{ it.meta }}</span><span style="flex:1;height:1px;background:var(--line-soft)"></span></div></sc-if>
 <sc-if value="{{ it.isTime }}"><div title="{{ it.title }}" style="animation:{{ anim }};display:flex;justify-content:flex-end;padding:0 1px 2px;font:12px var(--mono);color:var(--fg3)">{{ it.text }}</div></sc-if>
 <sc-if value="{{ it.isLive }}"><div style="animation:{{ anim }};display:flex;align-items:center;gap:6px;min-height:28px;font-size:12.5px;color:var(--fg2);font-family:var(--font-body);min-width:0"><span style="width:7px;height:7px;border-radius:50%;background:var(--acc);box-shadow:0 0 0 3px var(--acc-tint);flex:none;animation:mcPulse 1.4s infinite"></span><span style="white-space:nowrap">{{ it.text }}</span><sc-if value="{{ it.hasCode }}"><span style="font:12px var(--mono);color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0">{{ it.code }}</span></sc-if><span style="margin-left:auto;font:12px var(--mono);color:var(--fg3);white-space:nowrap">{{ it.meta }}</span></div></sc-if>
@@ -45,6 +47,7 @@
 </div>
 </sc-for>
 </sc-if>
+</div>
 </x-dc>
 <script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:520,&quot;height&quot;:200},&quot;it&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;ItemView&quot;},&quot;agentName&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;opencode&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
 const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -171,6 +174,8 @@ class Component extends DCLogic {
     const vals = {
       it, open, anim: it.anim || 'none', chevRot: open ? '180deg' : '0deg',
       toggle: () => this.setState({ open: !open }),
+      toggleSteps: () => this.props.onSteps?.(it.key), stepsRot: it.open ? '180deg' : '0deg',
+      nestM: it.inSteps ? '6px' : '0', nestP: it.inSteps ? '10px' : '0', nestB: it.inSteps ? '1px solid var(--line2)' : 'none',
       agentLabel: this.props.agentName || 'agent',
       userLabel: this.props.userLabel || '나',
       // onUser (opencode2): a tap or Enter on one of the user's messages opens its actions. A tap that ends a text

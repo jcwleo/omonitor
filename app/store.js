@@ -341,18 +341,48 @@ const skillOf = (path) => (typeof path === 'string' && /(^|\/)SKILL\.md$/.test(p
 const skillView = (i, names, key) => ({ key, isSkill: true, text: names.join(', '), live: i.status === 'inProgress', failed: key === i.id && i.success === false });
 
 // ── timeline items ──
-export function viewItems(T, now = Date.now()) {
+// Everything between two messages (thoughts, commands, edits, reads, skill loads, other tool calls) folds into one
+// summary row, as opencode2's terminal does at its default verbosity ("3 commands, 1 edit, 2 thoughts, 4 reads"), so
+// the answers read without the work in between. As there, the row counts finished steps in that order, and a running
+// step shows only as the row's pulse (the turn's live row names it); compactions stand alone. Unlike there, failed,
+// refused and interrupted steps are counted in red: exploring commands exit non-zero all the time (grep with no
+// match), but a real failure must not vanish. `open` maps the summary rows the user expanded (by key).
+const STEP_ORDER = ['명령', '수정', '생각', '읽기', '도구'];
+const STEP_BUSY = { 명령: '명령 실행 중…', 수정: '파일 수정 중…', 생각: '생각 중…', 읽기: '읽는 중…', 도구: '도구 호출 중…' };
+const EDIT_TOOLS = new Set(['edit', 'write', 'patch', 'apply_patch', 'multiedit']);
+const stepKind = (v) => (v.isCmd ? '명령' : v.isFile || EDIT_TOOLS.has(v.tool) ? '수정' : v.isReason ? '생각'
+  : v.isSkill || v.tool === 'read' ? '읽기' : v.isTool || v.isTodo ? '도구' : '');
+const problemOf = (v) => (v.declined ? '거절' : v.interrupted ? '중단' : (v.isCmd && !v.ok) || v.failed || v.status === 'failed' ? '실패' : '');
+function stepsView(run) {
+  const done = run.filter((v) => !v.live), busy = run.find((v) => v.live);
+  const tally = (labels, of) => labels.map((label) => [label, done.filter((v) => of(v) === label).length]).filter(([, n]) => n);
+  const counts = tally(STEP_ORDER, stepKind).map(([label, n]) => `${label} ${n}개`).join(' · ');
+  const problems = tally(['실패', '거절', '중단'], problemOf).map(([label, n]) => `${label} ${n}`).join(' · ');
+  return { text: counts || (busy ? STEP_BUSY[stepKind(busy)] : ''), live: !!busy, hasFails: !!problems, fails: problems };
+}
+export function viewItems(T, now = Date.now(), open = {}) {
   const out = [];
   const live = liveStatus(T, now);
   (T.turns || []).forEach((u, ti) => {
     const label = { inProgress: '진행 중', completed: '완료', failed: '실패', interrupted: '중단됨' }[u.status] || u.status || '';
     out.push({ key: `turn-${u.id}`, isTurn: true, text: `턴 ${ti + 1}`, meta: label, metaColor: u.status === 'failed' ? 'var(--err-fg)' : u.status === 'inProgress' ? 'var(--acc-fg)' : 'var(--fg3)' });
+    // The run is keyed by its first step, so the row keeps its key (and its open state) while later steps join it.
+    let run = [];
+    const flush = () => {
+      if (!run.length) return;
+      const key = `steps-${run[0].key}`, expanded = !!open[key];
+      out.push({ key, isSteps: true, open: expanded, ...stepsView(run) });
+      if (expanded) out.push(...run.map((v) => ({ ...v, inSteps: true })));
+      run = [];
+    };
+    const add = (v) => { if (stepKind(v)) return run.push(v); flush(); out.push(v); };
     (u.items || []).filter((i) => !isEmptyReasoning(i)).forEach((i) => {
       // A read of a SKILL.md is a skill load and gets a skill row instead of a tool row.
       const own = i.type === 'dynamicToolCall' && /^read$/i.test(i.tool || '') ? skillOf(i.arguments?.path || i.arguments?.file_path) : '';
-      if (own) return out.push(skillView(i, [own], i.id));
-      out.push(viewItem(i));
+      if (own) return add(skillView(i, [own], i.id));
+      add(viewItem(i));
     });
+    flush();
     if (live?.turnId === u.id) out.push({ key: `live-${u.id}`, isLive: true, text: live.label, code: live.code, hasCode: !!live.code, meta: live.elapsed });
     if (u.error?.message) out.push({ key: `err-${u.id}`, isError: true, text: u.error.message });
     // A finished turn ends with the time of its last message (file history: lastAt; live: last item event).
@@ -393,7 +423,7 @@ function viewItem(i) {
       const detail = i.arguments?.summary || i.arguments?.path || '';
       // Images the tool returned (a read image file, eval's display, a screenshot), as the agent saw them.
       const images = (i.contentItems || []).filter((c) => c.type === 'inputImage' && c.imageUrl).map((c, k) => ({ key: String(k), url: c.imageUrl }));
-      return { ...base, isTool: true, text: `${i.tool}${detail ? ` · ${detail}` : ''}`, result: textOf(i), failed: i.success === false, hasImages: images.length > 0, images };
+      return { ...base, isTool: true, tool: String(i.tool || '').toLowerCase(), text: `${i.tool}${detail ? ` · ${detail}` : ''}`, result: textOf(i), failed: i.success === false, hasImages: images.length > 0, images };
     }
     case 'mcpToolCall': return { ...base, isTool: true, text: `${i.server}.${i.tool}`, result: (i.result?.content || []).map((c) => c.text).join('\n') };
     case 'webSearch': return { ...base, isTool: true, text: `웹 검색 · ${i.query || ''}` };

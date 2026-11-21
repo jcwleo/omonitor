@@ -302,7 +302,7 @@ html[data-vt]::view-transition-old(root),html[data-vt]::view-transition-new(root
 <div data-tl="1" onScroll="{{ onTlScroll }}" style="flex:1;overflow:auto;min-height:0">
 <div style="max-width:820px;margin:0 auto;padding:6px 10px 12px;display:flex;flex-direction:column;gap:6px">
 <sc-if value="{{ selNotSubNote }}"><div style="border-radius:var(--r);background:var(--tint);padding:8px 12px;display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--fg2)"><span style="flex:1">구독하지 않은 세션이라 실시간 알림이 오지 않고, 승인 요청은 자동으로 거절됩니다.</span><button class="btn btn-secondary" onClick="{{ subscribeSel }}" style="min-height:36px;font-size:12.5px;color:var(--fg)">구독</button></div></sc-if>
-<sc-for list="{{ selItems }}" as="it" hint-placeholder-count="6"><dc-import name="McItem" it="{{ it }}" agent-name="{{ agentName }}" on-image="{{ openImage }}" on-open="{{ openHere }}" on-user="{{ onUserMsg }}" hint-size="100%,36px"></dc-import></sc-for>
+<sc-for list="{{ selItems }}" as="it" hint-placeholder-count="6"><dc-import name="McItem" it="{{ it }}" agent-name="{{ agentName }}" on-image="{{ openImage }}" on-open="{{ openHere }}" on-user="{{ onUserMsg }}" on-steps="{{ toggleSteps }}" hint-size="100%,36px"></dc-import></sc-for>
 <sc-if value="{{ hasRevert }}"><div role="status" style="border:1px solid var(--line);border-radius:var(--r);background:var(--card);padding:9px 12px;display:flex;flex-direction:column;gap:7px;font-family:var(--font-body)"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="flex:none;color:var(--acc-fg);stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round"><path d="M9 14 4 9l5-5"></path><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"></path></svg><span style="flex:1 1 180px;font-size:13.5px;font-weight:500;color:var(--fg)">{{ revertTitle }}</span><button class="btn btn-secondary" onClick="{{ unrevertSel }}" disabled="{{ revertBusy }}" style="min-height:36px;font-size:12.5px;color:var(--acc-fg)">되살리기</button></div><sc-if value="{{ revertHasFiles }}"><div style="display:flex;flex-direction:column;gap:2px;padding-left:24px"><sc-for list="{{ revertFiles }}" as="f"><div style="display:flex;align-items:center;gap:6px;min-width:0;font:12px var(--mono)"><span style="flex:none;font:12px var(--font-body);color:var(--fg3)">{{ f.kind }}</span><span title="{{ f.path }}" style="flex:0 1 auto;min-width:0;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ f.path }}</span><sc-if value="{{ f.hasAdd }}"><span style="flex:none;color:var(--add-fg)">+{{ f.add }}</span></sc-if><sc-if value="{{ f.hasDel }}"><span style="flex:none;color:var(--err-fg)">−{{ f.del }}</span></sc-if></div></sc-for></div></sc-if><span style="padding-left:24px;font-size:12px;line-height:1.45;color:var(--fg3)">다음 메시지를 보내면 확정됩니다. 그 전까지는 되살릴 수 있습니다.</span></div></sc-if>
 <sc-if value="{{ hasSelReqs }}"><div style="display:flex;flex-direction:column;gap:8px;padding:6px 0 4px"><sc-for list="{{ selReqs }}" as="r"><dc-import name="McRequestCard" r="{{ r }}" hint-size="100%,220px"></dc-import></sc-for></div></sc-if>
 <sc-if value="{{ selItemsEmpty }}"><div style="padding:14px 0;font-size:13px;color:var(--fg3);text-align:center">아직 기록이 없습니다. 아래에서 첫 메시지를 보내세요.</div></sc-if>
@@ -513,7 +513,7 @@ html[data-vt]::view-transition-old(root),html[data-vt]::view-transition-new(root
 <sc-if value="{{ agentChatError }}"><div role="alert" style="flex:none;padding:8px 12px;font-size:14px;line-height:1.5;color:var(--err-fg);word-break:keep-all;overflow-wrap:anywhere"><div>기록을 읽지 못했습니다.</div><div>{{ agentChatError }}</div><div>새로고침으로 다시 시도하세요.</div></div></sc-if>
 <div data-agent-history="1" ref="{{ agentHistoryRef }}" onScroll="{{ onAgentHistoryScroll }}" style="flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;padding:12px;display:flex;flex-direction:column;gap:10px;overflow-wrap:anywhere">
 <sc-if value="{{ agentChatEmpty }}"><div role="status" style="font-size:15px;line-height:1.6;color:var(--fg2);word-break:keep-all;white-space:pre-line">{{ agentChatEmptyText }}</div></sc-if>
-<sc-for list="{{ agentChatItems }}" as="it"><dc-import name="McItem" it="{{ it }}" agent-name="{{ agentChatType }}" user-label="{{ it.userLabel }}" hint-size="100%,36px"></dc-import></sc-for>
+<sc-for list="{{ agentChatItems }}" as="it"><dc-import name="McItem" it="{{ it }}" agent-name="{{ agentChatType }}" user-label="{{ it.userLabel }}" on-steps="{{ toggleSteps }}" hint-size="100%,36px"></dc-import></sc-for>
 </div>
 <div style="flex:none;display:flex;flex-direction:column;gap:6px;padding:10px 12px;border-top:1px solid var(--line-soft)">
 <label for="agent-chat-input" style="font-size:14px;color:var(--fg2)">에이전트에게 메시지</label>
@@ -585,7 +585,7 @@ class Component extends DCLogic {
   state = { v: 0, now: Date.now(), w: window.innerWidth, view: 'board', selId: null, backTo: 'board', drawer: false, drawerMounted: false,
     theme: SAVED_THEME.scheme || null, themeName: SAVED_THEME.name || 'omonitor', themeMode: SAVED_THEME.mode || 'dark', themePick: false,
     pal: null, sheet: null, dialog: null, viewer: null, menu: false, umenu: null, selMode: false, sel: {}, multiText: '', grouped: false, groupOpen: {}, lg: true, lgC: {}, lgOpen: {}, lgWt: {}, panels: { left: false, right: false }, colC: {}, secC: { archived: true },
-    exp: {}, agentOpen: {}, doneOpen: null, runFold: false, escArmed: null, allC: false, rtab: 'todo', ptab: 'tl', q: '', lf: 'all', focus: -1, pf: null, speedIdx: 0,
+    exp: {}, agentOpen: {}, stepsOpen: {}, doneOpen: null, runFold: false, escArmed: null, allC: false, rtab: 'todo', ptab: 'tl', q: '', lf: 'all', focus: -1, pf: null, speedIdx: 0,
     fatal: null, nb: false, ns: false, ocVer: null, ocUpdating: false, ocRestarting: false, omonitorVer: null, omonitorUpdating: false, panelWidths: {}, termLive: {}, terms: [], termPolicy: null, termErr: '', prefs: false, acct: false, acctAuth: null, push: { ready: false, on: false, busy: false, why: '' } };
   tlRef = React.createRef();
   detailRef = React.createRef();
@@ -601,6 +601,7 @@ class Component extends DCLogic {
   // in it behind the picture and the iOS keyboard goes down.
   openImage = (img) => { document.activeElement?.blur?.(); this.setState({ viewer: { ...img, full: false, zoomable: false } }); };
   openHere = (target) => { this.store.open(target, this.store.T(this.state.selId)?.cwd || '').catch(() => {}); };
+  toggleSteps = (key) => this.setState((x) => ({ stepsOpen: { ...x.stepsOpen, [key]: !x.stepsOpen[key] } }));
   openAgentChat(a) {
     clearTimeout(this.agentChatTimer);
     this.agentStick = true;
@@ -1922,7 +1923,7 @@ class Component extends DCLogic {
     if (T) {
       const sel = allViews.find((v) => v.id === T.id) || this.sessionView(T, now, lay, null);
       const running = this.running(T.id);
-      const items = this.freshItems(T, S.viewItems(T, now));
+      const items = this.freshItems(T, S.viewItems(T, now, s.stepsOpen));
       const live = S.liveStatus(T, now);
       const todo = S.replayTodos(S.allItems(T));
       // The latest user message is what the agent is working on now; the Todo panel shows it above the list.
@@ -2055,7 +2056,7 @@ class Component extends DCLogic {
 
     const chat = s.agentChat;
     const chatTask = chat && st.T(chat.parentId)?.tasks?.find((a) => a.id === chat.taskId);
-    const chatItems = chat ? S.viewItems({ turns: chat.turns }, now) : [];
+    const chatItems = chat ? S.viewItems({ turns: chat.turns }, now, s.stepsOpen) : [];
     const firstRequest = chatItems.find((item) => item.isUser)?.key;
     Object.assign(vals, {
       agentChatOpen: !!chat, agentChatRef: this.agentChatRef, closeAgentChat: this.closeAgentChat,
@@ -2119,7 +2120,7 @@ class Component extends DCLogic {
       viewerHint: vw?.zoomable ? `${COARSE ? '탭' : '클릭'}하면 ${vw.full ? '화면에 맞춤' : '원본 크기'}` : '',
       // A new window in an iOS home-screen app replaces the app the same way, again with no way back.
       viewerNewTab: navigator.standalone !== true,
-      openImage: this.openImage, closeViewer: () => this.setState({ viewer: null }),
+      openImage: this.openImage, toggleSteps: this.toggleSteps, closeViewer: () => this.setState({ viewer: null }),
       openHere: canOpenHere ? this.openHere : null,
       viewerOpenTab: (e) => {
         e.stopPropagation();
