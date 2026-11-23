@@ -124,6 +124,13 @@ html[data-vt]::view-transition-old(root),html[data-vt]::view-transition-new(root
    it to iOS, display-mode to the home-screen app. */
 .mc .ios-status-color{display:none}
 @supports (-webkit-touch-callout: none){@media (display-mode: standalone){.mc .ios-status-color{display:block;position:fixed;top:0;left:0;right:0;height:11px;z-index:2147483647;pointer-events:none;background-color:var(--bg);-webkit-background-clip:text;background-clip:text}}}
+.mc .mc-enter-pref{display:flex;align-items:center;gap:8px;min-height:44px;padding:0 10px;border-radius:var(--r-md);cursor:pointer;font-size:13.5px}
+.mc .mc-enter-pref:hover{background:var(--hover)}
+.mc .mc-enter-pref small{font-size:12px;color:var(--fg3)}
+.mc .mc-enter-pref input{appearance:none;position:relative;flex:none;margin:0 0 0 auto;width:30px;height:18px;border-radius:999px;background:var(--line3);cursor:pointer}
+.mc .mc-enter-pref input:checked{background:var(--acc)}
+.mc .mc-enter-pref input::after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3)}
+.mc .mc-enter-pref input:checked::after{translate:12px 0}
 </style>
 </helmet>
 <div class="mc" data-theme="{{ theme }}" style="display:flex;flex-direction:column;background:var(--bg);color:var(--fg);font-family:var(--font-body);overflow:hidden;position:relative;padding-top:{{ safeTop }}">
@@ -370,6 +377,7 @@ html[data-vt]::view-transition-old(root),html[data-vt]::view-transition-new(root
 <button data-press="row" onClick="{{ clearProjectFilter }}" style="all:unset;cursor:pointer;display:flex;align-items:center;min-height:44px;padding:0 12px;font-size:13.5px;background:{{ allProjBg }}">전체</button>
 <sc-for list="{{ projects }}" as="p"><button data-press="row" onClick="{{ p.onTap }}" style="all:unset;cursor:pointer;display:flex;align-items:center;min-height:44px;padding:0 12px;background:{{ p.bg }};color:{{ p.fg }}"><span style="font:12.5px var(--mono)">{{ p.name }}</span><span style="margin-left:auto;font:12px var(--mono);color:var(--fg3)">{{ p.count }}</span></button></sc-for>
 <div style="font-size:12px;font-weight:500;color:var(--fg3);padding:9px 12px 3px;border-top:1px solid var(--line-soft);margin-top:4px">설정</div>
+<sc-if value="{{ isIPad }}"><label class="mc-enter-pref">Enter로 전송<small>{{ enterHint }}</small><input type="checkbox" role="switch" aria-label="Enter로 전송" checked="{{ ipadEnterSends }}" onChange="{{ changeEnter }}"></label></sc-if>
 <button data-press="row" type="button" onClick="{{ openThemePick }}" aria-haspopup="dialog" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:8px;min-height:44px;padding:0 12px;font-size:13.5px">테마<span style="margin-left:auto;min-width:0;color:var(--fg2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ themeLabel }}</span><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="flex:none;color:var(--fg3);stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round"><path d="m9 6 6 6-6 6"></path></svg></button>
 <button data-press="row" onClick="{{ askNotify }}" style="all:unset;cursor:pointer;display:flex;align-items:center;min-height:44px;padding:0 12px;font-size:13.5px">브라우저 알림<span style="margin-left:auto;width:30px;height:18px;flex:none;border-radius:999px;background:{{ nbTrack }};position:relative;transition:background .15s"><span style="position:absolute;top:2px;left:2px;translate:{{ nbX }};width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3);transition:translate .15s var(--ease-out)"></span></span></button>
 <button data-press="row" onClick="{{ toggleSound }}" style="all:unset;cursor:pointer;display:flex;align-items:center;min-height:44px;padding:0 12px;font-size:13.5px">알림음<span style="margin-left:auto;width:30px;height:18px;flex:none;border-radius:999px;background:{{ nsTrack }};position:relative;transition:background .15s"><span style="position:absolute;top:2px;left:2px;translate:{{ nsX }};width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3);transition:translate .15s var(--ease-out)"></span></span></button>
@@ -464,6 +472,7 @@ html[data-vt]::view-transition-old(root),html[data-vt]::view-transition-new(root
 <sc-if value="{{ prefsOpen }}">
 <div onClick="{{ closePrefs }}" style="position:absolute;inset:0;z-index:45">
 <div onClick="{{ stop }}" style="animation:mcPop var(--dur) var(--ease-out);transform-origin:100% 0;position:absolute;top:{{ prefsTop }};right:10px;width:250px;padding:4px;box-sizing:border-box;background:var(--bg2);border:1px solid var(--line2);border-radius:var(--r);box-shadow:var(--shadow-lg);display:flex;flex-direction:column">
+<sc-if value="{{ isIPad }}"><label class="mc-enter-pref">Enter로 전송<small>{{ enterHint }}</small><input type="checkbox" role="switch" aria-label="Enter로 전송" checked="{{ ipadEnterSends }}" onChange="{{ changeEnter }}"></label></sc-if>
 <button data-press="row" type="button" onClick="{{ openThemePick }}" aria-haspopup="dialog" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:8px;min-height:40px;padding:0 10px;border-radius:var(--r-md);font-size:13.5px;color:var(--fg)" style-hover="background:var(--hover)">테마<span style="margin-left:auto;min-width:0;font-size:12.5px;color:var(--fg2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ themeLabel }}</span><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="flex:none;color:var(--fg3);stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round"><path d="m9 6 6 6-6 6"></path></svg></button>
 <button data-press="row" onClick="{{ askNotify }}" title="{{ nbTitle }}" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:8px;min-height:40px;padding:0 10px;border-radius:var(--r-md);font-size:13.5px;color:var(--fg)" style-hover="background:var(--hover)">브라우저 알림<span style="margin-left:auto;width:30px;height:18px;flex:none;border-radius:999px;background:{{ nbTrack }};position:relative;transition:background .15s"><span style="position:absolute;top:2px;left:2px;translate:{{ nbX }};width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3);transition:translate .15s var(--ease-out)"></span></span></button>
 <button data-press="row" onClick="{{ toggleSound }}" title="새 질문·승인 요청이 오면 소리로 알립니다" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:8px;min-height:40px;padding:0 10px;border-radius:var(--r-md);font-size:13.5px;color:var(--fg)" style-hover="background:var(--hover)">알림음<span style="margin-left:auto;width:30px;height:18px;flex:none;border-radius:999px;background:{{ nsTrack }};position:relative;transition:background .15s"><span style="position:absolute;top:2px;left:2px;translate:{{ nsX }};width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3);transition:translate .15s var(--ease-out)"></span></span></button>
@@ -554,6 +563,7 @@ const tabIcon = (wait) => `data:image/svg+xml,${encodeURIComponent(`<svg xmlns='
 const TAB_ICON = { ok: tabIcon(false), wait: tabIcon(true) };
 // Touch-first screens get no keyboard hints and no automatic focus (it would raise the on-screen keyboard).
 const COARSE = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
+const IPAD = /iPad/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 // Served straight from the server, not through the tunnel: this browser runs on the Mac running omonitor, so links and
 // file paths open there in its default browser and apps (backend open) instead of in the installed app's Chrome.
 const LOCAL = ['127.0.0.1', 'localhost', '[::1]'].includes(location.hostname);
@@ -586,6 +596,7 @@ const SAVED_THEME = (() => {
 class Component extends DCLogic {
   state = { v: 0, now: Date.now(), w: window.innerWidth, view: 'board', selId: null, backTo: 'board', drawer: false, drawerMounted: false,
     theme: SAVED_THEME.scheme || null, themeName: SAVED_THEME.name || 'omonitor', themeMode: SAVED_THEME.mode || 'dark', themePick: false,
+    ipadEnterSends: false,
     pal: null, sheet: null, dialog: null, viewer: null, menu: false, umenu: null, selMode: false, sel: {}, multiText: '', grouped: false, groupOpen: {}, lg: true, lgC: {}, lgOpen: {}, lgWt: {}, panels: { left: false, right: false }, colC: {}, secC: { archived: true },
     exp: {}, agentOpen: {}, stepsOpen: {}, doneOpen: null, runFold: false, escArmed: null, allC: false, rtab: 'todo', ptab: 'tl', q: '', lf: 'all', focus: -1, pf: null, speedIdx: 0,
     fatal: null, nb: false, ns: false, ocVer: null, ocUpdating: false, ocRestarting: false, omonitorVer: null, omonitorUpdating: false, panelWidths: {}, termLive: {}, terms: [], termPolicy: null, termErr: '', prefs: false, acct: false, acctAuth: null, push: { ready: false, on: false, busy: false, why: '' } };
@@ -802,6 +813,7 @@ class Component extends DCLogic {
     window.addEventListener('storage', this.onStorage);
     try { this.setState({ favs: JSON.parse(localStorage.getItem('mc.favCwds') || '[]') }); } catch {}
     try { this.setState({ favModels: JSON.parse(localStorage.getItem('mc.favModels') || '[]') }); } catch {}
+    if (IPAD) this.setState({ ipadEnterSends: localStorage.getItem('mc.ipadEnterSends') === '1' });
     try { this.setState({ panels: { left: false, right: false, ...JSON.parse(localStorage.getItem('mc.panels') || '{}') } }); } catch {}
     try { const l = JSON.parse(localStorage.getItem('mc.sessionList') || '{}'); this.setState({ lg: l.grouped ?? true, lgC: l.folded || {} }); } catch {}
     try {
@@ -1786,7 +1798,12 @@ class Component extends DCLogic {
       },
       nsTrack: s.ns ? 'var(--acc)' : 'var(--line3)', nsX: s.ns ? '12px' : '0px',
       toggleSound: () => { const on = !s.ns; this.saveNotify({ sound: on }); st.s.notify.sound = on; this.setState({ ns: on }); },
-      // Theme and notification switches sit in a popover under the header's settings button (the phone drawer has them too).
+      isIPad: IPAD, ipadEnterSends: s.ipadEnterSends, enterHint: s.ipadEnterSends ? 'Shift+Enter 줄바꿈' : '⌘+Enter 전송',
+      changeEnter: (e) => {
+        const on = e.target.checked;
+        localStorage.setItem('mc.ipadEnterSends', on ? '1' : '0');
+        this.setState({ ipadEnterSends: on });
+      },
       prefsOpen: s.prefs && !isPhone, togglePrefs: () => this.setState((x) => ({ prefs: !x.prefs })), closePrefs: () => this.setState({ prefs: false }),
       prefsBg: s.prefs ? 'var(--sel)' : 'transparent', prefsTop: `calc(${connState === 'reconnecting' ? 97 : 52}px + env(safe-area-inset-top))`,
       // Push on this device: finished, failed and waiting sessions reach it even with the app closed (app/push.js).
@@ -2033,6 +2050,7 @@ class Component extends DCLogic {
         diffItems: diff.map((f) => ({ key: f.path, isFile: true, files: [{ path: f.path, kind: f.isNew ? 'add' : f.isDel ? 'delete' : 'update', add: f.add, del: f.del, lines: f.text.split('\n').filter((l) => !/^(diff --git|index |--- |\+\+\+ |new file)/.test(l)) }] })),
         diffNone: diff.length === 0,
         composer: {
+          enterSends: IPAD ? s.ipadEnterSends : !COARSE,
           running, activity: live ? [live.label, live.elapsed].filter(Boolean).join(' · ') : sel.col === 'working' ? sel.actLabel : '', model: T.settings?.model, effort: T.settings?.effort, models: st.s.models, favModels: s.favModels || [], onFavModel: (id) => this.toggleFavModel(id), skills: st.s.skills, usage: T.usage || null,
           padBottom: isPhone ? 'max(10px, env(safe-area-inset-bottom))' : '10px',
           threadId: T.id, draft: this.draftOf(T.id), draftRev: this.draftRevs.get(T.id) || 0, onDraft: (id, d) => this.saveDraft(id, d), patchDraftImage: (id, imgId, patch) => this.patchDraftImage(id, imgId, patch),

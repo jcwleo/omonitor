@@ -38,7 +38,8 @@
 </div>
 </sc-if>
 <div onDragOver="{{ onDragOver }}" onDragLeave="{{ onDragLeave }}" onDrop="{{ onDrop }}" style="border-top:1px solid var(--line-soft);padding:8px 10px {{ padBottom }};display:flex;flex-direction:column;gap:4px;background:{{ dropBg }};box-shadow:{{ dropRing }}">
-<div style="display:flex;align-items:center;gap:4px;font-size:12px;color:var(--fg2);min-width:0"><span style="width:6px;height:6px;border-radius:50%;flex:none;background:{{ modeDot }};animation:{{ modeAnim }}"></span><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;color:{{ modeColor }}">{{ modeHint }}</span><sc-if value="{{ canAttach }}"><button onClick="{{ pickImage }}" title="이미지 첨부 — 붙여넣기(⌘V)나 끌어다 놓기도 됩니다" style="all:unset;cursor:pointer;margin-left:auto;flex:none;display:flex;align-items:center;gap:4px;min-height:30px;padding:0 6px;font-size:12.5px;color:var(--fg2)" style-hover="color:var(--fg)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round"><rect x="3" y="4" width="18" height="16" rx="1"></rect><circle cx="9" cy="10" r="1.6"></circle><path d="m21 16-5-5-9 9"></path></svg>이미지</button><input ref="{{ fileRef }}" type="file" accept="image/png,image/jpeg,image/gif,image/webp" multiple onChange="{{ onPick }}" style="display:none"></sc-if></div>
+<div style="display:flex;align-items:center;gap:4px;font-size:12px;color:var(--fg2);min-width:0"><span style="width:6px;height:6px;border-radius:50%;flex:none;background:{{ modeDot }};animation:{{ modeAnim }}"></span><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;color:{{ modeColor }}">{{ modeHint }}</span><sc-if value="{{ canAttach }}"><button onClick="{{ pickImage }}" title="이미지 첨부 — 붙여넣기(⌘V)나 끌어다 놓기도 됩니다" style="all:unset;cursor:pointer;margin-left:auto;flex:none;display:flex;align-items:center;gap:4px;min-height:30px;padding:0 6px;font-size:12.5px;color:var(--fg2)" style-hover="color:var(--fg)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round"><rect x="3" y="4" width="18" height="16" rx="1"></rect><circle cx="9" cy="10" r="1.6"></circle><path d="m21 16-5-5-9 9"></path></svg>이미지</button><input ref="{{ fileRef }}" type="file" accept="image/png,image/jpeg,image/gif,image/webp" multiple onChange="{{ onPick }}" style="display:none"></sc-if>
+</div>
 <sc-if value="{{ hasImages }}"><div style="display:flex;gap:8px;flex-wrap:wrap;padding:6px 6px 2px 0"><sc-for list="{{ imageChips }}" as="im"><div title="{{ im.title }}" style="position:relative;width:56px;height:56px;flex:none;border:1px solid {{ im.bd }};border-radius:var(--r-md);background:var(--tint)"><img src="{{ im.preview }}" alt="붙여넣은 이미지" style="display:block;width:100%;height:100%;object-fit:cover;border-radius:7px;opacity:{{ im.opacity }}"><sc-if value="{{ im.hasNote }}"><span style="position:absolute;left:0;right:0;bottom:0;padding:1px 0;font-size:11px;text-align:center;background:rgba(10,11,12,.72);color:{{ im.noteColor }}">{{ im.note }}</span></sc-if><button onClick="{{ im.onRemove }}" title="첨부 빼기" style="all:unset;cursor:pointer;position:absolute;top:-8px;right:-8px;width:22px;height:22px;display:grid;place-items:center;border-radius:50%;background:var(--bg2);border:1px solid var(--line2);font-size:14px;line-height:1;color:var(--fg)">×</button></div></sc-for></div></sc-if>
 <div style="display:grid;grid-template-areas:{{ areas }};grid-template-columns:auto minmax(0,1fr) auto auto;gap:4px;align-items:end">
 <button class="btn btn-secondary" onClick="{{ toggleModel }}" title="{{ modelTitle }}" style="grid-area:model;min-height:44px;min-width:44px;max-width:min(220px,38vw);padding:0 8px;display:flex;align-items:center;gap:5px;white-space:nowrap"><span style="font:12.5px var(--mono);color:var(--fg);overflow:hidden;text-overflow:ellipsis;min-width:0">{{ modelShort }}</span><sc-if value="{{ hasEffortLabel }}"><span style="flex:none;font:12px var(--mono);color:var(--fg3)">{{ effortLabel }}</span></sc-if><span style="flex:none;font-size:11px;color:var(--fg3)">▾</span></button>
@@ -240,7 +241,7 @@ class Component extends DCLogic {
       padBottom: c.padBottom || '7px',
       hasUsage: !!(u && u.window),
       usagePct: `${(pct * 100).toFixed(1)}%`, usageColor: pct > 0.85 ? 'var(--warn)' : 'var(--acc)',
-      usageLabel: u && u.window ? `${wide ? '' : '컨텍스트 '}${fmtK(u.used)} / ${fmtK(u.window)}${wide && !TOUCH_KEYBOARD ? ' · ↵ 보내기 · ⇧↵ 줄바꿈' : ''}` : '',
+      usageLabel: u && u.window ? `${wide ? '' : '컨텍스트 '}${fmtK(u.used)} / ${fmtK(u.window)}${wide && !TOUCH_KEYBOARD && c.enterSends ? ' · ↵ 보내기 · ⇧↵ 줄바꿈' : ''}` : '',
       modelShort: cur ? (cur.displayName || cur.id).replace(/^Claude /, '') : c.model ? c.model.replace(/^.*\//, '') : '모델',
       modelTitle: [cur?.displayName || c.model, c.effort].filter(Boolean).join(' · '),
       effortLabel: c.effort || '', hasEffortLabel: !!c.effort,
@@ -265,13 +266,13 @@ class Component extends DCLogic {
         this.setState({ text: v, idx: 0, wide: !!w }, () => requestAnimationFrame(() => this.fit()));
       },
       // A key code cannot identify a physical keyboard: iPhone software Return also reports code "Enter".
-      // Keep touch Return as a line break; Cmd/Ctrl+Enter sends without guessing the keyboard source.
+      // Touch defaults to a line break; iPad users can opt into sending without guessing the keyboard source.
       // A Hangul (IME) syllable still being composed commits after its keydown, so sending then would leave that last
       // character in the box; such an Enter sends once composition ends. Chrome follows up with a plain Enter keydown
       // (whichever send runs first empties the box, the other finds nothing), and Safari ends composition before its
       // keydown, which then still carries keyCode 229.
       onKey: (e) => {
-        const sendKey = e.key === 'Enter' && !e.shiftKey && !e.altKey && (e.metaKey || e.ctrlKey || !TOUCH_KEYBOARD);
+        const sendKey = e.key === 'Enter' && !e.shiftKey && !e.altKey && (e.metaKey || e.ctrlKey || c.enterSends);
         const justComposed = !e.nativeEvent?.isComposing && performance.now() - (this.compEndAt || 0) < 100;
         if ((e.nativeEvent?.isComposing || e.keyCode === 229) && !justComposed) {
           if (sendKey) this.sendOnCompose = e.metaKey || e.ctrlKey ? 'always' : 'hangul';
