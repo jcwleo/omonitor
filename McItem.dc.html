@@ -57,7 +57,11 @@ const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, 
 // default browser, a path in its default app. A path is one under ~/, ./, ../ or a home or system folder; a relative one
 // ending in a folder or a file name with an extension (app/store.js:462); or a bare file name with a known extension
 // (server.ts), so code like this.state or console.log stays text.
-const link = (href, text, here) => `<a href="${href}"${here ? ` data-open="${href}"` : ''} target="_blank" rel="noopener" style="color:var(--md-link)">${text}</a>`;
+// A picture opened as a page of its own leaves an iOS home-screen app no way back to the conversation, so a markdown
+// image shows inline and it, like a link to a picture, carries data-image and opens in the dashboard's viewer (onImage).
+const IMAGE_URL = /^(?:https?:\/\/[^/\s]+)?\/(?:tool-images\/|\S*\.(?:png|jpe?g|gif|webp|avif|svg)(?:[?#]\S*)?$)/i;
+const link = (href, text, here) => `<a href="${href}"${IMAGE_URL.test(href) ? ` data-image="${href}"` : here ? ` data-open="${href}"` : ''} target="_blank" rel="noopener" style="color:var(--md-link)">${text}</a>`;
+const picture = (src, alt) => `<a href="${src}" data-image="${src}" target="_blank" rel="noopener" title="크게 보기" style="display:inline-block;vertical-align:top;line-height:0;max-width:100%;margin:2px 0;border:1px solid var(--line);border-radius:var(--r-md);overflow:hidden;background:var(--tint)"><img src="${src}" alt="${alt}" loading="lazy" style="display:block;max-width:100%;max-height:240px;object-fit:contain"></a>`;
 const pathLink = (target, html) => `<a data-open="${target}" title="Mac에서 열기" style="color:var(--md-link);cursor:pointer">${html}</a>`;
 const ROOT = '(?:~|/(?:Users|home|tmp|private|var|opt|etc|usr|Applications|Library|System|Volumes))';
 const NAME = '[\\p{L}\\p{N}_.@+~%-]+';
@@ -70,6 +74,7 @@ function inline(t, here) {
   const put = (html) => `\u0000${keep.push(html) - 1}\u0000`;
   let s = esc(t)
     .replace(/`([^`]+)`/g, (_, c) => put(here && PATH.test(c) ? pathLink(c, CODE(c)) : CODE(c)))
+    .replace(/!\[([^\]]*)\]\(((?:https?:\/\/|\/(?:uploads|tool-images)\/)[^\s)]+)\)/g, (_, alt, src) => put(picture(src, alt)))
     .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, (_, text, href) => put(link(href, text, here)));
   if (here) s = s.replace(/\[([^\]]+)\]\(([^\s)]+)\)/g, (m, text, to) => (to.startsWith('file://') || PATH.test(to) ? put(pathLink(to, text)) : m));
   s = s.replace(/(^|[\s(])(https?:\/\/[^\s<)]+)/g, (_, pre, href) => pre + put(link(href, href, here)));
@@ -155,10 +160,17 @@ function mdToHtml(src, here) {
 const ROW = 18;
 class Component extends DCLogic {
   state = { open: null, top: 0 };
-  openHere = (e) => {
+  onLink = (e) => {
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    const pic = e.target.closest?.('a[data-image]');
+    if (pic && this.props.onImage) {
+      e.preventDefault();
+      this.props.onImage({ url: pic.dataset.image, alt: pic.querySelector('img')?.alt || pic.textContent || '' });
+      return;
+    }
     const a = e.target.closest?.('a[data-open]');
     const on = this.props.onOpen;
-    if (!a || !on || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    if (!a || !on) return;
     e.preventDefault();
     on(a.dataset.open);
   };
@@ -211,7 +223,7 @@ class Component extends DCLogic {
       },
     };
     if (it.isAgent) {
-      vals.md = React.createElement('div', { style: { fontSize: 14, lineHeight: 1.55, wordBreak: 'break-word', color: 'var(--md-text)' }, onClick: this.openHere, dangerouslySetInnerHTML: { __html: mdToHtml(it.text || '', !!this.props.onOpen) + (it.live ? '<span style="display:inline-block;width:7px;height:15px;margin-left:2px;vertical-align:-2px;background:var(--acc)"></span>' : '') } });
+      vals.md = React.createElement('div', { style: { fontSize: 14, lineHeight: 1.55, wordBreak: 'break-word', color: 'var(--md-text)' }, onClick: this.onLink, dangerouslySetInnerHTML: { __html: mdToHtml(it.text || '', !!this.props.onOpen) + (it.live ? '<span style="display:inline-block;width:7px;height:15px;margin-left:2px;vertical-align:-2px;background:var(--acc)"></span>' : '') } });
     }
     if (it.isFile) {
       vals.files = (it.files || []).map((f) => {
