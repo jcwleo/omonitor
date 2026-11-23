@@ -376,7 +376,7 @@ export function viewItems(T, now = Date.now(), open = {}) {
     const label = { inProgress: '진행 중', completed: '완료', failed: '실패', interrupted: '중단됨' }[u.status] || u.status || '';
     out.push({ key: `turn-${u.id}`, isTurn: true, text: `턴 ${ti + 1}`, meta: label, metaColor: u.status === 'failed' ? 'var(--err-fg)' : u.status === 'inProgress' ? 'var(--acc-fg)' : 'var(--fg3)' });
     // The run is keyed by its first step, so the row keeps its key (and its open state) while later steps join it.
-    let run = [];
+    let run = [], named = false;
     const flush = () => {
       if (!run.length) return;
       const key = `steps-${run[0].key}`, expanded = !!open[key];
@@ -389,7 +389,9 @@ export function viewItems(T, now = Date.now(), open = {}) {
       // A read of a SKILL.md is a skill load and gets a skill row instead of a tool row.
       const own = i.type === 'dynamicToolCall' && /^read$/i.test(i.tool || '') ? skillOf(i.arguments?.path || i.arguments?.file_path) : '';
       if (own) return add(skillView(i, [own], i.id));
-      add(viewItem(i));
+      const v = viewItem(i);
+      if (v.isAgent) { v.named = !named; named = true; }
+      add(v);
     });
     flush();
     if (live?.turnId === u.id) out.push({ key: `live-${u.id}`, isLive: true, text: live.label, code: live.code, hasCode: !!live.code, meta: live.elapsed });
