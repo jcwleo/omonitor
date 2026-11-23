@@ -234,8 +234,9 @@ export class OpencodeBridge extends EventEmitter {
 
   start() { this.ready().catch(() => {}); }
 
+  // Connected means the session list has been read too: a dashboard that connects while it is read waits for it.
   ready(): Promise<void> {
-    if (this.#svc) return Promise.resolve();
+    if (this.#svc && !this.#connecting) return Promise.resolve();
     if (this.#retry) { clearTimeout(this.#retry); this.#retry = null; }
     this.#connecting ??= this.#connect().then(
       () => { this.#retryMs = 1000; this.#lastWarn = ''; },
@@ -345,6 +346,14 @@ export class OpencodeBridge extends EventEmitter {
     const queued = this.#buffer || [];
     this.#buffer = null;
     for (const e of queued) this.#dispatch(e);
+    // A stream lost while the list was read: #close cleared the sessions, and what requests still in flight put back
+    // since is stale. Drop it and fail, so the retry reads everything again instead of this attempt passing as connected.
+    if (this.#ac !== ac) {
+      this.#byId.clear();
+      this.#reqs.clear();
+      this.#shellOwner.clear();
+      throw new OpencodeError('세션 목록을 읽는 동안 opencode 이벤트 스트림이 끊겼습니다');
+    }
     console.log(`[opencode] opencode ${svc.version} (${svc.url})`);
   }
 
