@@ -200,7 +200,7 @@ type Sess = {
   id: string; parentID: string | null; title: string | null; preview: string; previewRead: boolean; cwd: string; agent: string | null; model: Model | null;
   createdAt: number; updatedAt: number; idleAt: number | null; startedAt: number | null; archived: boolean; outcome: string | null; revert: Revert | null;
   running: boolean; turn: Turn | null; seq: number; inbox: Map<string, string>; tools: Map<string, { name: string; input: any }>; compacting: { id: string; own: boolean } | null;
-  shells: Map<string, Shell>;
+  shells: Map<string, Shell>; settledRun: symbol | null;
 };
 // A command still running in a shell the session (or a subagent below it) started. A command moved to the background
 // outlives the run that started it; the session counts as working until it exits.
@@ -209,7 +209,7 @@ type Shell = { id: string; command: string; cwd: string; startedAt: number; by?:
 // subagent: no dashboard follows a child session, so its request waits in the top-level session above it.
 type Req = { id: string; threadId: string; sessionId: string; kind: 'permission' | 'form'; form?: any; msg: any };
 
-// Events: 'settled' (threadId) when a session's run ends, 'question' ({ threadId, requestId, kind, text, subagent? }) when
+// Events: 'settled' (threadId, run) when a top-level run can notify, 'question' ({ threadId, requestId, kind, text, subagent? }) when
 // one waits for an answer, 'synced' when the connection is up with the session list read in full. Child sessions
 // (subagents) are tracked for their parent's agents tab and never reach the board.
 export class OpencodeBridge extends EventEmitter {
@@ -246,10 +246,14 @@ export class OpencodeBridge extends EventEmitter {
     return this.#connecting;
   }
 
-  isRunning(id: string) { const s = this.#byId.get(id); return !!s && (s.running || s.shells.size > 0); }
   nameOf(id: string) { const s = this.#byId.get(id); return s?.title || s?.preview.slice(0, 40) || null; }
-  // A top-level session on the board: known, not archived and not deleted.
-  isListed(id: string) { const s = this.#byId.get(id); return !!s && !s.parentID && !s.archived; }
+  // Claim after reading history: a restart, archive, or newer run invalidates a notification in flight.
+  takeSettledRun(id: string, run: symbol) {
+    const s = this.#byId.get(id);
+    if (!s || s.archived || s.running || s.shells.size || s.settledRun !== run) return false;
+    s.settledRun = null;
+    return true;
+  }
   // Asked of opencode itself, not of the list held here: deleted (it answers 404) or archived. Any other failure throws,
   // so a caller never takes an unreachable or confused server for a gone session.
   async isGone(id: string) {
@@ -463,13 +467,15 @@ export class OpencodeBridge extends EventEmitter {
     // Commands still running, background ones included; an older server without the job list just shows new ones.
     const jobs = await this.#api('GET', '/api/experimental/job?kind=shell&status=running').catch(() => null);
     for (const j of jobs?.data || []) if (j?.shellID && typeof j.sessionID === 'string') this.#shellStarted({ id: j.shellID, command: j.command, cwd: '' }, j.sessionID, j.time?.started || Date.now());
+    // A shell can outlive its parent's run and the dashboard connection.
+    for (const s of this.#byId.values()) if (!s.running && s.shells.size) this.#recordSettledRun(s);
   }
 
   #upsert(info: any): Sess {
     let s = this.#byId.get(info.id);
     if (!s) {
       s = { id: info.id, parentID: null, title: null, preview: '', previewRead: false, cwd: '', agent: null, model: null, createdAt: 0, updatedAt: 0, idleAt: null, startedAt: null,
-        archived: false, outcome: null, revert: null, running: false, turn: null, seq: 0, inbox: new Map(), tools: new Map(), compacting: null, shells: new Map() };
+        archived: false, outcome: null, revert: null, running: false, turn: null, seq: 0, inbox: new Map(), tools: new Map(), compacting: null, shells: new Map(), settledRun: null };
       this.#byId.set(info.id, s);
     }
     const t = info.time || {};
@@ -646,9 +652,22 @@ export class OpencodeBridge extends EventEmitter {
     s.running = true;
     s.outcome = null;
     s.startedAt = s.updatedAt = Date.now();
-    if (s.parentID) { this.#tasksChanged(s.parentID); return; }
+    if (s.parentID) {
+      const top = this.#rootOf(s);
+      if (top.outcome !== 'failed') top.settledRun = null;
+      this.#tasksChanged(s.parentID);
+      return;
+    }
+    s.settledRun = null;
     this.#startTurn(s);
     this.#pushStatus(s);
+  }
+  #recordSettledRun(s: Sess) {
+    // Snapshot at the parent's end, not after the debounce: even if the last child finishes meanwhile,
+    // only the parent's next run can report that it processed the result.
+    const finished = s.outcome === 'succeeded' && ![...this.#byId.values()].some((c) => c.running && c.parentID && this.#rootOf(c) === s);
+    s.settledRun = finished || s.outcome === 'failed' ? Symbol() : null;
+    if (s.settledRun && !s.shells.size) this.emit('settled', s.id, s.settledRun);
   }
   #settled(s: Sess, outcome: string, error?: string) {
     const was = s.running;
@@ -660,7 +679,7 @@ export class OpencodeBridge extends EventEmitter {
     this.#pushStatus(s);
     if (error) this.#notifySubs(s.id, 'error', { threadId: s.id, error: { message: error }, willRetry: false });
     this.#endTurn(s, TURN_STATUS[outcome] || 'completed');
-    if (was) this.emit('settled', s.id);
+    if (was) this.#recordSettledRun(s);
   }
   #drop(s: Sess) {
     this.#byId.delete(s.id);
@@ -690,7 +709,7 @@ export class OpencodeBridge extends EventEmitter {
     this.#notifyAll('thread/commands/updated', { threadId: s.id, commands: [...s.shells.values()] });
     if (s.running) return;
     this.#pushStatus(s);
-    if (!s.shells.size) this.emit('settled', s.id);
+    if (!s.shells.size && s.settledRun) this.emit('settled', s.id, s.settledRun);
   }
 
   #dispatch(e: any) {
@@ -860,9 +879,13 @@ export class OpencodeBridge extends EventEmitter {
     this.#ask({ id: f.id, threadId: top.id, sessionId: s.id, kind: 'form', form: f, msg: { id: f.id, method: 'item/tool/requestUserInput', params } },
       fresh && { kind: 'question', text: questions[0]?.question || f.title || '', ...(subagent && { subagent: subagent.name }) });
   }
-  #askedIn(s: Sess) {
+  #rootOf(s: Sess) {
     let top = s;
     for (let up; top.parentID && (up = this.#byId.get(top.parentID));) top = up;
+    return top;
+  }
+  #askedIn(s: Sess) {
+    const top = this.#rootOf(s);
     return { top, subagent: top === s ? null : { id: s.id, name: s.title || s.agent || '하위 에이전트', agent: s.agent || 'agent' } };
   }
   #ask(r: Req, alert: false | { kind: 'question' | 'approval'; text: string; subagent?: string }) {

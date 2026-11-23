@@ -175,10 +175,9 @@ const clip = (s: string, n = 140) => {
 // goes to notify even without devices, since it is marked unread for the dashboards.
 export function watchSessions(opts: {
   bridge: {
-    on(event: 'settled', fn: (threadId: string) => void): unknown;
+    on(event: 'settled', fn: (threadId: string, run: symbol) => void): unknown;
     on(event: 'question', fn: (q: { threadId: string; requestId: string; kind: 'question' | 'approval'; text: string; subagent?: string }) => void): unknown;
-    isRunning(threadId: string): boolean;
-    isListed(threadId: string): boolean;
+    takeSettledRun(threadId: string, run: symbol): boolean;
   };
   enabled: () => Promise<boolean>;
   notify: (message: PushMessage) => Promise<unknown>;
@@ -190,9 +189,8 @@ export function watchSessions(opts: {
   const settleMs = opts.settleMs ?? 2500;
   const timers = new Map<string, ReturnType<typeof setTimeout>>();
 
-  async function settle(id: string) {
+  async function settle(id: string, run: symbol) {
     timers.delete(id);
-    if (opts.bridge.isRunning(id)) return;
     const turn = await opts.lastTurn(id);
     if (!turn) return;
     const title = await opts.nameOf(id);
@@ -204,15 +202,13 @@ export function watchSessions(opts: {
       const last = [...(turn.items || [])].reverse().find((i: any) => i.type === 'agentMessage' && i.text?.trim());
       message = { kind: 'done', title, body: last ? clip(last.text) : '작업을 마쳤습니다', threadId: id };
     } else return; // An interrupted turn was stopped by the user, so it needs no alert.
-    // Archived or deleted while this waited: no alert, and no unread mark the archive already cleared. Nothing is awaited
-    // between this check and notify queueing the mark, so an archive cannot slip in between.
-    if (!opts.bridge.isListed(id)) return;
+    if (!opts.bridge.takeSettledRun(id, run)) return;
     await opts.notify(message);
   }
 
-  opts.bridge.on('settled', (id) => {
+  opts.bridge.on('settled', (id, run) => {
     clearTimeout(timers.get(id));
-    timers.set(id, setTimeout(() => settle(id).catch((e) => console.error('[push] 세션 상태를 확인하지 못했습니다:', e?.message || e)), settleMs));
+    timers.set(id, setTimeout(() => settle(id, run).catch((e) => console.error('[push] 세션 상태를 확인하지 못했습니다:', e?.message || e)), settleMs));
   });
   opts.bridge.on('question', (q) => {
     void (async () => {
