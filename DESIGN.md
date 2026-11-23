@@ -165,9 +165,9 @@ t3code(pingdotgg/t3code)를 참고한 평면 스타일이다. 박스 테두리 �
 
 ## 앱 아이콘
 
-링(omonitor의 o)과 상태 점을 Liquid Glass 층으로 그린다. 바탕은 짙은 남색 그라데이션이고,
-링은 하늘색 반투명 유리, 점은 민트 유리로 링 위에 겹친다. 빛은 위에서 오며 각 층은 위쪽
-가장자리에 흰 하이라이트와 아래로 옅은 그림자를 갖는다. 원본은 `app/icon*.svg`다.
+Echo: 비스듬히 기운 고리 세 개가 겹쳐 하나의 o(omonitor의 o)가 된다. 여러 세션을 한곳에서
+본다는 뜻이다. 바탕은 짙은 올리브 먹색 `#22271f`, 고리는 옅은 연두 `#e1f1bf` 선 하나로 그리며
+그라데이션·광택·그림자는 쓰지 않는다. 고리 묶음은 -34° 기울인다. 원본은 `app/icon*.svg`다.
 
 - `app/icon-180.png`(`icon.svg`): iPhone·iPad 홈 화면용 정사각형. 모서리는 iOS가 깎는다.
   `Mission Control.dc.html`의 인라인 apple-touch-icon과 같은 이미지다.
@@ -175,4 +175,5 @@ t3code(pingdotgg/t3code)를 참고한 평면 스타일이다. 박스 테두리 �
   macOS 틀(1024 중 824 squircle, 여백과 그림자)을 넣어 둔다.
 - `app/icon-maskable-512.png`(`icon-maskable.svg`): manifest `maskable`. 내용을 92%로 줄여
   안전 영역 안에 둔다.
-- 탭 아이콘은 같은 모양을 유리 효과 없이 그리며, 질문·승인 대기 중에는 점이 호박색이 된다.
+- 탭 아이콘은 같은 고리를 16px에서도 보이도록 굵게 그리며, 질문·승인 대기 중에는 오른쪽 위에
+  호박색 점이 붙는다.
