@@ -9,6 +9,8 @@ import { OpencodeBridge, opencodeBin, opencodeInstalled, runningVersion } from '
 import { PushError, PushService, watchSessions } from './push.ts';
 import { TerminalError, TerminalManager } from './terminal.ts';
 import type { SocketData } from './terminal.ts';
+import { UnreadStore } from './unread.ts';
+import type { ServerWebSocket } from 'bun';
 import { applySelf, checkSelf, isServiceProcess } from './update.ts';
 import { createPlanUsage } from './usage.ts';
 import { UsageAuth } from './usage-auth.ts';
@@ -343,7 +345,13 @@ async function serveStatic(pathname: string) {
 
 const terminals = new TerminalManager();
 const opencode = new OpencodeBridge();
-const push = new PushService(join(homedir(), '.omonitor/push.json'), 'https://github.com/jcwleo/omonitor');
+const unread = new UnreadStore(join(homedir(), '.omonitor/unread.json'));
+const push = new PushService(join(homedir(), '.omonitor/push.json'), 'https://github.com/jcwleo/omonitor', unread);
+const dashboards = new Set<ServerWebSocket<SocketData>>();
+unread.onChange((snapshot) => {
+  const msg = JSON.stringify({ method: 'push/unread', params: snapshot });
+  for (const ws of dashboards) ws.send(msg);
+});
 const server = Bun.serve<SocketData>({
   hostname: HOST,
   port: PORT,
@@ -402,8 +410,10 @@ const server = Bun.serve<SocketData>({
         const mt = url.pathname.match(/^\/api\/threads\/([^/]+)\/meta$/);
         if (mt && req.method === 'GET') return Response.json(await opencode.meta(decodeURIComponent(mt[1])));
         if (url.pathname === '/api/push' && req.method === 'GET') return Response.json(await push.info());
+        if (url.pathname === '/api/push/unread' && req.method === 'GET') return Response.json(await push.unread());
         if (url.pathname.startsWith('/api/push/') && req.method === 'POST') {
           const body = await req.json().catch(() => null);
+          if (url.pathname === '/api/push/read') return Response.json(await push.markRead(body));
           if (url.pathname === '/api/push/subscribe') return Response.json(await push.subscribe(body));
           if (url.pathname === '/api/push/unsubscribe') return Response.json(await push.unsubscribe(body));
           if (url.pathname === '/api/push/test') return Response.json(await push.test(body));
@@ -436,6 +446,7 @@ const server = Bun.serve<SocketData>({
   websocket: {
     async open(ws) {
       if (ws.data.kind === 'terminal') { terminals.open(ws); return; }
+      dashboards.add(ws);
       ws.data.client = ws.data.bridge.addClient({
         send: (data) => { ws.send(data); },
         close: (code, reason) => { try { ws.close(code, wsReason(reason)); } catch {} },
@@ -447,6 +458,7 @@ const server = Bun.serve<SocketData>({
     },
     close(ws) {
       if (ws.data.kind === 'terminal') { terminals.close(ws); return; }
+      dashboards.delete(ws);
       if (ws.data.client) ws.data.bridge.removeClient(ws.data.client);
     },
   },
@@ -467,11 +479,33 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const) {
 process.once('exit', () => { usageAuth.close(); void terminals.shutdown(); });
 
 if (!MOCK && await opencodeInstalled()) {
+  // After each (re)connect: an unread session deleted or archived while omonitor or its stream was away leaves the count.
+  // opencode is asked about each one, and only a definite answer removes it: the notification seen when asking, so one
+  // added while the answer was on its way (the session restored and run again) stays.
+  opencode.on('synced', () => {
+    void (async () => {
+      for (const [id, notificationId] of Object.entries((await unread.snapshot()).unread)) {
+        const gone = await opencode.isGone(id).catch((e) => { console.warn('[push] 세션 상태를 확인하지 못해 알림을 그대로 둡니다:', id, e?.message || e); return false; });
+        if (gone) await unread.read(id, notificationId);
+      }
+    })().catch((e) => console.error('[push] 사라진 세션의 알림을 정리하지 못했습니다:', e?.message || e));
+  });
   opencode.start();
   watchSessions({
-    bridge: opencode, enabled: () => push.hasDevices(), notify: (m) => push.send(m), relay: (body) => push.relay(body),
+    bridge: opencode, enabled: () => push.hasDevices(), notify: (m) => push.notify(m), relay: (body) => push.relay(body),
     lastTurn: (id) => opencode.lastTurn(id),
     nameOf: async (id) => opencode.nameOf(id) || '이름 없는 세션',
+  });
+  // A deleted or archived session leaves the badge count. The bridge tells its connections, not its listeners, so a
+  // connection of our own watches for it; it stays registered across opencode reconnects.
+  const GONE = ['{"method":"thread/deleted"', '{"method":"thread/archived"'];
+  opencode.addClient({
+    send: (data) => {
+      if (!GONE.some((p) => data.startsWith(p))) return;
+      const id = JSON.parse(data).params?.threadId;
+      if (typeof id === 'string') unread.forget(id).catch((e) => console.error('[push] 지운 세션의 알림을 정리하지 못했습니다:', e?.message || e));
+    },
+    close: () => {},
   });
 }
 

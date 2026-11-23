@@ -68,6 +68,17 @@ export class RealClient {
         if (!r.ok) throw new Error(await r.text());
         return r.json();
       },
+      // Unread notifications shared by every device → { revision, unread: { threadId: notificationId } }.
+      unread: async () => {
+        const r = await fetch(api('api/push/unread'), { headers: hdr(), cache: 'no-store' });
+        if (!r.ok) throw new Error(await r.text());
+        return r.json();
+      },
+      markRead: async (threadId, notificationId) => {
+        const r = await fetch(api('api/push/read'), { method: 'POST', headers: { ...hdr(), 'content-type': 'application/json' }, body: JSON.stringify({ threadId, notificationId }) });
+        if (!r.ok) throw new Error(await r.text());
+        return r.json();
+      },
       // Branch and worktree of each session folder and the worktrees of their repos → GitSummary (src/protocol.ts).
       gitSummary: async (threads) => {
         const r = await fetch(api('api/git/summary'), { method: 'POST', headers: { ...hdr(), 'content-type': 'application/json' }, body: JSON.stringify({ threads }) });

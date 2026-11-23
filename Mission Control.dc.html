@@ -1392,6 +1392,8 @@ class Component extends DCLogic {
   // Runs after each render and when the page is hidden or shown: a session that leaves the screen is seen as of now.
   trackShown() {
     const id = this.shownId();
+    if (id) this.store?.markRead(id);
+    this.syncBadge();
     if (id === this.shown) return;
     // Read back before writing, so a session another tab saw meanwhile keeps its mark.
     if (this.shown) { const v = loadViewed(); v.at[this.shown] = Date.now(); this.viewed = v; try { localStorage.setItem('mc.viewed', JSON.stringify(v)); } catch {} }
@@ -1400,8 +1402,30 @@ class Component extends DCLogic {
   // Done (waiting or failed) since it was last on screen. Running and waiting-for-input sessions are not done. this.shown is
   // the one that just left the screen, seen once this render commits.
   unseen(T, o) {
+    const shared = this.store?.s.unread;
+    if (shared) return !!shared.unread[T.id] && T.id !== this.shownId();
     if ((o.col !== 'idle' && o.col !== 'error') || T.id === this.shownId() || T.id === this.shown) return false;
     return (T.updatedAt || 0) > (this.viewed.at[T.id] ?? this.viewed.base);
+  }
+  // The app icon counts sessions with an unread notification. The service worker owns the number, so a push arriving
+  // later with an older count does not bring back one read here. A count is delivered only once the worker answers that
+  // it took it (a worker from an older version never does), so turning push on (again) or a worker update resends it.
+  syncBadge() {
+    const u = this.store?.s.unread;
+    if (!this.state.push.on) { this.badgeRev = undefined; return; }
+    if (!u || u.revision === this.badgeRev || this.badgeBusy) return;
+    this.badgeBusy = true;
+    navigator.serviceWorker.getRegistration(new URL('.', location.href).href)
+      .then((reg) => new Promise((done) => {
+        if (!reg?.active) return done(false);
+        const ch = new MessageChannel();
+        ch.port1.onmessage = () => done(true);
+        setTimeout(() => done(false), 2000);
+        reg.active.postMessage({ type: 'omonitor:badge', revision: u.revision, badgeCount: Object.keys(u.unread).length }, [ch.port2]);
+      }))
+      .then((taken) => { if (taken) this.badgeRev = u.revision; })
+      .catch((e) => console.warn('[omonitor] 앱 배지를 맞추지 못했습니다:', e?.message || e))
+      .finally(() => { this.badgeBusy = false; });
   }
   async sendMany(ids, text) {
     await Promise.allSettled(ids.map((id) => this.store.send(id, text)));

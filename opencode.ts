@@ -210,7 +210,8 @@ type Shell = { id: string; command: string; cwd: string; startedAt: number; by?:
 type Req = { id: string; threadId: string; sessionId: string; kind: 'permission' | 'form'; form?: any; msg: any };
 
 // Events: 'settled' (threadId) when a session's run ends, 'question' ({ threadId, requestId, kind, text, subagent? }) when
-// one waits for an answer. Child sessions (subagents) are tracked for their parent's agents tab and never reach the board.
+// one waits for an answer, 'synced' when the connection is up with the session list read in full. Child sessions
+// (subagents) are tracked for their parent's agents tab and never reach the board.
 export class OpencodeBridge extends EventEmitter {
   url = '';
   version = '';
@@ -247,6 +248,19 @@ export class OpencodeBridge extends EventEmitter {
 
   isRunning(id: string) { const s = this.#byId.get(id); return !!s && (s.running || s.shells.size > 0); }
   nameOf(id: string) { const s = this.#byId.get(id); return s?.title || s?.preview.slice(0, 40) || null; }
+  // A top-level session on the board: known, not archived and not deleted.
+  isListed(id: string) { const s = this.#byId.get(id); return !!s && !s.parentID && !s.archived; }
+  // Asked of opencode itself, not of the list held here: deleted (it answers 404) or archived. Any other failure throws,
+  // so a caller never takes an unreachable or confused server for a gone session.
+  async isGone(id: string) {
+    try {
+      const r = await this.#api('GET', `/api/session/${enc(id)}`);
+      return !!(r.data || r)?.time?.archived;
+    } catch (e) {
+      if (e instanceof OpencodeError && e.status === 404) return true;
+      throw e;
+    }
+  }
 
   addClient(c: { send: (data: string) => void; close: (code: number, reason: string) => void }): BridgeClient {
     const client: BridgeClient = { ...c, subs: new Set(), ready: Promise.resolve() };
@@ -354,6 +368,7 @@ export class OpencodeBridge extends EventEmitter {
       this.#shellOwner.clear();
       throw new OpencodeError('세션 목록을 읽는 동안 opencode 이벤트 스트림이 끊겼습니다');
     }
+    this.emit('synced');
     console.log(`[opencode] opencode ${svc.version} (${svc.url})`);
   }
 

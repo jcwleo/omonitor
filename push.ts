@@ -1,9 +1,11 @@
 // Web Push to the devices that turned it on: a session that finished its work, stopped with an error, or waits for an
-// answer. VAPID keys and device subscriptions live in ~/.omonitor/push.json.
+// answer. VAPID keys and device subscriptions live in ~/.omonitor/push.json. A finished or failed session is also
+// marked unread (unread.ts) whether or not any device gets the push, and every push carries the unread count.
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import webpush from 'web-push';
 import { z } from 'zod';
+import type { UnreadStore } from './unread.ts';
 
 const subscription = z.object({
   endpoint: z.url().refine((u) => u.startsWith('https://')),
@@ -18,10 +20,13 @@ const relayRequest = z.object({
   title: z.string().max(200),
   body: z.string().max(500),
 });
+const readRequest = z.object({ threadId: z.string().min(1).max(256), notificationId: z.number().int().positive() });
 
 type Subscription = z.infer<typeof subscription> & { addedAt: number };
 type PushFile = { vapid: { publicKey: string; privateKey: string }; subscriptions: Subscription[] };
 export type PushMessage = { kind: 'done' | 'error' | 'question' | 'approval' | 'test'; title: string; body: string; threadId?: string };
+export type PushPayload = PushMessage & { revision: number; badgeCount: number; notificationId?: number };
+const UNREAD_KINDS = new Set<PushMessage['kind']>(['done', 'error']);
 
 export class PushError extends Error {
   constructor(message: string, readonly status = 400) {
@@ -34,7 +39,7 @@ const RELAY_WINDOW_MS = 10 * 60_000;
 export class PushService {
   #data: PushFile | null = null;
   #relayed = new Map<string, number>();
-  constructor(private readonly file: string, private readonly subject: string) {}
+  constructor(private readonly file: string, private readonly subject: string, private readonly marks: UnreadStore) {}
 
   async #load(): Promise<PushFile> {
     if (this.#data) return this.#data;
@@ -102,10 +107,33 @@ export class PushService {
     const key = `${threadId}:${requestId}`;
     if (this.#relayed.has(key)) return { sent: 0, removed: 0, duplicate: true };
     this.#relayed.set(key, now);
-    return this.send({ kind, title, body: text, threadId });
+    // A request that failed before it reached the devices may be sent again by the next relay.
+    try { return await this.send({ kind, title, body: text, threadId }); }
+    catch (error) { this.#relayed.delete(key); throw error; }
   }
 
+  unread() { return this.marks.snapshot(); }
+
+  async markRead(body: unknown) {
+    const parsed = readRequest.safeParse(body);
+    if (!parsed.success) throw new PushError('읽음 요청이 올바르지 않습니다');
+    return this.marks.read(parsed.data.threadId, parsed.data.notificationId);
+  }
+
+  // A session's finished or failed work is marked unread, then pushed to the devices if there are any.
+  async notify(message: PushMessage) {
+    if (!message.threadId || !UNREAD_KINDS.has(message.kind)) return this.send(message);
+    const mark = await this.marks.add(message.threadId);
+    return { ...(await this.#deliver({ ...message, ...mark })), notificationId: mark.notificationId };
+  }
+
+  // Not marked unread (a test, a question or approval); the payload carries the current unread count.
   async send(message: PushMessage, only?: string) {
+    const s = await this.marks.snapshot();
+    return this.#deliver({ ...message, revision: s.revision, badgeCount: Object.keys(s.unread).length }, only);
+  }
+
+  async #deliver(message: PushPayload, only?: string) {
     const d = await this.#load();
     const targets = d.subscriptions.filter((s) => !only || s.endpoint === only);
     if (only && !targets.length) throw new PushError('이 기기는 푸시 알림에 등록되어 있지 않습니다', 404);
@@ -143,12 +171,14 @@ const clip = (s: string, n = 140) => {
   const t = skipLeadingQuote(s).replace(/```[\s\S]*?```/g, ' ').replace(/^\s*\|?[\s:|-]*-{3,}[\s:|-]*$/gm, ' ').replace(/\|/g, ' ').replace(/[*_`#>]+/g, '').replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').replace(/\s+/g, ' ').trim();
   return t.length > n ? `${t.slice(0, n - 1)}…` : t;
 };
-// A session may start another run as soon as it settles. Defer its alert until it stays idle.
+// A session may start another run as soon as it settles. Defer its alert until it stays idle. Finished and failed work
+// goes to notify even without devices, since it is marked unread for the dashboards.
 export function watchSessions(opts: {
   bridge: {
     on(event: 'settled', fn: (threadId: string) => void): unknown;
     on(event: 'question', fn: (q: { threadId: string; requestId: string; kind: 'question' | 'approval'; text: string; subagent?: string }) => void): unknown;
     isRunning(threadId: string): boolean;
+    isListed(threadId: string): boolean;
   };
   enabled: () => Promise<boolean>;
   notify: (message: PushMessage) => Promise<unknown>;
@@ -162,19 +192,22 @@ export function watchSessions(opts: {
 
   async function settle(id: string) {
     timers.delete(id);
-    if (opts.bridge.isRunning(id) || !(await opts.enabled())) return;
+    if (opts.bridge.isRunning(id)) return;
     const turn = await opts.lastTurn(id);
     if (!turn) return;
     const title = await opts.nameOf(id);
+    let message: PushMessage;
     if (turn.status === 'failed') {
       const why = turn?.error?.message ? `: ${clip(turn.error.message, 120)}` : '';
-      await opts.notify({ kind: 'error', title, body: `오류로 멈췄습니다${why}`, threadId: id });
-      return;
-    }
-    // An interrupted turn was stopped by the user, so it needs no alert.
-    if (turn?.status !== 'completed') return;
-    const last = [...(turn.items || [])].reverse().find((i: any) => i.type === 'agentMessage' && i.text?.trim());
-    await opts.notify({ kind: 'done', title, body: last ? clip(last.text) : '작업을 마쳤습니다', threadId: id });
+      message = { kind: 'error', title, body: `오류로 멈췄습니다${why}`, threadId: id };
+    } else if (turn?.status === 'completed') {
+      const last = [...(turn.items || [])].reverse().find((i: any) => i.type === 'agentMessage' && i.text?.trim());
+      message = { kind: 'done', title, body: last ? clip(last.text) : '작업을 마쳤습니다', threadId: id };
+    } else return; // An interrupted turn was stopped by the user, so it needs no alert.
+    // Archived or deleted while this waited: no alert, and no unread mark the archive already cleared. Nothing is awaited
+    // between this check and notify queueing the mark, so an archive cannot slip in between.
+    if (!opts.bridge.isListed(id)) return;
+    await opts.notify(message);
   }
 
   opts.bridge.on('settled', (id) => {

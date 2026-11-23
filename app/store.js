@@ -450,8 +450,10 @@ export class Store {
     this.c = client;
     this.v = 0;
     this.fns = new Set();
-    this.s = { conn: { state: 'closed' }, loading: true, threads: new Map(), requests: new Map(), models: [], skills: [], toasts: [], resolved: [], notify: { browser: true, sound: false, push: false } };
+    // unread: the backend's shared unread notifications (thread id → notification id), null where it keeps none (mock).
+    this.s = { conn: { state: 'closed' }, loading: true, threads: new Map(), requests: new Map(), models: [], skills: [], toasts: [], resolved: [], notify: { browser: true, sound: false, push: false }, unread: null };
     this.msgAt = new Map(); // thread id → last activity time (ms), via the backend
+    this.readSent = ''; // "threadId:notificationId" last sent to the backend as read
     client.on('notification', (n) => this.onNote(n));
     client.on('serverRequest', (r) => this.onReq(r));
     client.on('connection', (e) => this.onConn(e));
@@ -500,6 +502,23 @@ export class Store {
     // are subscribed when opened.
     for (const id of loaded.data || []) if (this.T(id) && !this.T(id).archived) this.resume(id, true).catch(() => {});
     this.loadSkills();
+    this.loadUnread();
+  }
+  // Snapshots carry a revision, so one read late over the socket never undoes a newer one.
+  setUnread(snap) {
+    if (!snap || typeof snap.revision !== 'number' || !snap.unread) return;
+    if (!this.s.unread || snap.revision > this.s.unread.revision) { this.s.unread = { revision: snap.revision, unread: snap.unread }; this.emit(); }
+  }
+  loadUnread() {
+    this.c.backend?.unread?.().then((u) => this.setUnread(u)).catch((e) => console.warn('[omonitor] 읽지 않은 알림을 읽지 못했습니다:', e?.message || e));
+  }
+  // A session on screen: its notification is read on every device. Each notification is sent once from here.
+  markRead(id) {
+    const n = this.s.unread?.unread[id];
+    const key = `${id}:${n}`;
+    if (!n || !this.c.backend?.markRead || this.readSent === key) return;
+    this.readSent = key;
+    this.c.backend.markRead(id, n).then((u) => this.setUnread(u)).catch((e) => { this.readSent = ''; console.warn('[omonitor] 알림을 읽음으로 표시하지 못했습니다:', e?.message || e); });
   }
   // Branch and worktree of each session and the worktrees of their repos (T.git), from the backend. Unchanged answers
   // are not drawn again.
@@ -568,6 +587,7 @@ export class Store {
     // An opencode2 update restarts its server, which is one way the socket goes down; read the palette and the model list
     // again, since the new version may offer other models.
     this.loadSkills();
+    this.loadUnread();
     this.c.request('model/list').then((r) => { this.s.models = r.data || []; this.emit(); }).catch((e) => console.warn('[omonitor] 다시 연결한 뒤 모델 목록을 읽지 못했습니다:', e?.message || e));
     await Promise.all([...subs].map((id) => this.resume(id, true, true).catch(() => {})));
   }
@@ -733,6 +753,7 @@ export class Store {
         break;
       }
       case 'thread/agents/updated': if (T) T.tasks = parseTasks(p.agents); break;
+      case 'push/unread': this.setUnread(p); return;
       case 'thread/commands/updated': if (T) T.commands = Array.isArray(p.commands) ? p.commands : []; break;
       case 'serverRequest/resolved': {
         const r = this.s.requests.get(p.requestId);

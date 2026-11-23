@@ -50,6 +50,8 @@ export async function disablePush() {
   if (!sub) return;
   await api('push/unsubscribe', { endpoint: sub.endpoint }).catch(() => {});
   await sub.unsubscribe();
+  // No more pushes reach this device, so its icon number would only go stale.
+  (await navigator.serviceWorker.getRegistration(base()))?.active?.postMessage({ type: 'omonitor:badge-off' });
 }
 
 export async function testPush() {
