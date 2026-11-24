@@ -386,6 +386,8 @@ export class MockClient {
     this._conn('connecting');
     await sleep(900);
     this._conn('open');
+    // Like opencode2 loading a location that sat idle: no models at first, then catalog/updated once they are in.
+    setTimeout(() => { this.catalogReady = true; this._notify('catalog/updated', {}, false); }, 600);
     await this.request('initialize', { clientInfo: { name: 'omonitor', version: '0.1.0' }, capabilities: { experimentalApi: true } });
   }
   close() { this._conn('closed'); for (const r of this.runners.values()) r.cancel = true; }
@@ -692,7 +694,7 @@ export class MockClient {
       return {};
     },
     'thread/settings/update'({ threadId, model, effort }) { const t = this._th(threadId); if (model) t.settings.model = model; if (effort) t.settings.effort = effort; return {}; },
-    'model/list'() { return { data: this.models, nextCursor: null }; },
+    'model/list'() { return { data: this.catalogReady ? this.models : [], nextCursor: null }; },
     'agent/message'({ threadId, parentThreadId, text }) {
       const parent = this._th(parentThreadId);
       if (!parent.tasks.some((task) => task.child_session_id === threadId)) throw new Error('이 세션의 서브에이전트가 아닙니다');

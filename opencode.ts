@@ -232,6 +232,7 @@ export class OpencodeBridge extends EventEmitter {
   #turnSeq = 0;
   #models: { at: number; data: Promise<any[]> } | null = null;
   #commands: { at: number; names: Promise<Set<string>> } | null = null;
+  #catalogTimer: ReturnType<typeof setTimeout> | null = null;
 
   start() { this.ready().catch(() => {}); }
 
@@ -521,7 +522,9 @@ export class OpencodeBridge extends EventEmitter {
     if (!this.#models || Date.now() - this.#models.at > 60_000) {
       const data = this.#api('GET', '/api/model').then((r) => r.data || []);
       this.#models = { at: Date.now(), data };
-      data.catch(() => { if (this.#models?.data === data) this.#models = null; });
+      // A location opencode is still loading answers with no models (see #catalogChanged); that is read again, not kept.
+      const drop = () => { if (this.#models?.data === data) this.#models = null; };
+      data.then((list) => { if (!list.length) drop(); }, drop);
     }
     return this.#models.data;
   }
@@ -529,6 +532,13 @@ export class OpencodeBridge extends EventEmitter {
     if (!m) return null;
     const hit = (await this.#modelList().catch(() => [])).find((x: any) => x.providerID === m.providerID && x.id === m.id);
     return Number(hit?.limit?.context) || null;
+  }
+  // A location opencode has not loaded yet (the first request after it sat idle for an hour, or after a restart) answers
+  // with no models, skills, commands or default model, and sends these events as its plugins and MCP servers come up,
+  // several in a row. Dashboards read the lists again once they settle.
+  #catalogChanged() {
+    if (this.#catalogTimer) clearTimeout(this.#catalogTimer);
+    this.#catalogTimer = setTimeout(() => { this.#catalogTimer = null; this.#notifyAll('catalog/updated', {}); }, 300);
   }
   #commandNames() {
     if (!this.#commands || Date.now() - this.#commands.at > 10 * 60_000) {
@@ -723,8 +733,8 @@ export class OpencodeBridge extends EventEmitter {
       case 'permission.replied': { const r = this.#reqs.get(d.requestID); if (r) this.#resolve(r); return; }
       case 'form.created': this.#form(d.form, true); return;
       case 'form.replied': case 'form.cancelled': { const r = this.#reqs.get(d.id); if (r) this.#resolve(r); return; }
-      case 'model.updated': case 'provider.updated': this.#models = null; return;
-      case 'command.updated': this.#commands = null; return;
+      case 'model.updated': case 'provider.updated': this.#models = null; this.#catalogChanged(); return;
+      case 'command.updated': this.#commands = null; this.#catalogChanged(); return;
       // Shells are not session events; the shell tool tags each with the session that ran it.
       case 'shell.created': {
         const info = d.info || {}, sid = info.metadata?.sessionID;

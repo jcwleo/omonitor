@@ -456,6 +456,7 @@ export class Store {
     this.s = { conn: { state: 'closed' }, loading: true, threads: new Map(), requests: new Map(), models: [], skills: [], toasts: [], resolved: [], notify: { browser: true, sound: false, push: false }, unread: null };
     this.msgAt = new Map(); // thread id → last activity time (ms), via the backend
     this.readSent = ''; // "threadId:notificationId" last sent to the backend as read
+    this.modelsSeq = 0; // model/list reads, see readModels
     client.on('notification', (n) => this.onNote(n));
     client.on('serverRequest', (r) => this.onReq(r));
     client.on('connection', (e) => this.onConn(e));
@@ -494,10 +495,10 @@ export class Store {
   }
   async bootstrap() {
     const talked = this.c.backend?.activity?.().catch((e) => { console.warn('[omonitor] 세션의 마지막 활동 시각을 읽지 못했습니다:', e?.message || e); return {}; });
-    const [active, archived, models, loaded, msgAt] = await Promise.all([this.listAll(false), this.listAll(true), this.c.request('model/list').catch(() => ({ data: [] })), this.c.request('thread/loaded/list').catch(() => ({ data: [] })), talked]);
+    const models = this.readModels().catch((e) => console.warn('[omonitor] 모델 목록을 읽지 못했습니다:', e?.message || e));
+    const [active, archived, loaded, msgAt] = await Promise.all([this.listAll(false), this.listAll(true), this.c.request('thread/loaded/list').catch(() => ({ data: [] })), talked, models]);
     this.msgAt = new Map(Object.entries(msgAt || {}));
     for (const t of [...active, ...archived.map((t) => ({ ...t, archived: true }))]) this.merge(t);
-    this.s.models = models.data || [];
     this.s.loading = false;
     this.emit();
     // The sessions the backend reports as loaded (running, or waiting for an answer) are followed right away; the rest
@@ -545,6 +546,12 @@ export class Store {
     } catch (e) { console.warn('[omonitor] 브랜치·워크트리 정보를 읽지 못했습니다:', e?.message || e); }
     finally { this.gitBusy = false; }
   }
+  // opencode2 answers with no models while it loads them (catalog/updated follows). The newest read wins, so an empty
+  // answer to an earlier read cannot land after the full one.
+  readModels() {
+    const n = ++this.modelsSeq;
+    return this.c.request('model/list').then((r) => { if (n === this.modelsSeq) { this.s.models = r.data || []; this.emit(); } });
+  }
   // The `/` palette: commands and skills of the opencode2 server, read by the backend.
   loadSkills() {
     this.c.backend?.listSkills?.().then((sk) => { this.s.skills = sk || []; this.emit(); }).catch(() => {});
@@ -590,7 +597,7 @@ export class Store {
     // again, since the new version may offer other models.
     this.loadSkills();
     this.loadUnread();
-    this.c.request('model/list').then((r) => { this.s.models = r.data || []; this.emit(); }).catch((e) => console.warn('[omonitor] 다시 연결한 뒤 모델 목록을 읽지 못했습니다:', e?.message || e));
+    this.readModels().catch((e) => console.warn('[omonitor] 다시 연결한 뒤 모델 목록을 읽지 못했습니다:', e?.message || e));
     await Promise.all([...subs].map((id) => this.resume(id, true, true).catch(() => {})));
   }
   // History comes from the backend's saved record of the session (the simulator has none and answers thread/read). A
@@ -756,6 +763,14 @@ export class Store {
       }
       case 'thread/agents/updated': if (T) T.tasks = parseTasks(p.agents); break;
       case 'push/unread': this.setUnread(p); return;
+      // opencode2 has loaded its models, providers or commands: lists read while it was loading came back empty.
+      case 'catalog/updated': {
+        this.readModels().catch((e) => console.warn('[omonitor] 모델 목록을 다시 읽지 못했습니다:', e?.message || e));
+        this.loadSkills();
+        // A session without a model of its own shows opencode2's default model, which was not known then either.
+        for (const t of this.s.threads.values()) if (t.subscribed && !t.settings?.model) this.resume(t.id, true).catch(() => {});
+        return;
+      }
       case 'thread/commands/updated': if (T) T.commands = Array.isArray(p.commands) ? p.commands : []; break;
       case 'serverRequest/resolved': {
         const r = this.s.requests.get(p.requestId);

@@ -96,6 +96,8 @@ export interface NotificationMap {
   'thread/revert/updated': { threadId: string; revert: Revert | null };
   /** opencode2 only: every command still running in the session's shells (also on Thread as `commands`). */
   'thread/commands/updated': { threadId: string; commands: RunningCommand[] };
+  /** opencode2 only: models, providers or commands changed (a location it was loading is in); read model/list and the palette again. */
+  'catalog/updated': Record<string, never>;
   'serverRequest/resolved': { threadId: string; requestId: RequestId };
   /** Not in the guaranteed list — the UI shows context size only if this arrives. */
   'thread/tokenUsage/updated': { threadId: string; tokenUsage: { total?: { totalTokens?: number }; modelContextWindow?: number } };
